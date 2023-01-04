@@ -80,7 +80,7 @@ typings/
 
 # Nuxt.js build / generate output
 .nuxt
-dist
+# dist
 
 # Gatsby files
 .cache/
@@ -102,3 +102,12 @@ dist
 
 # TernJS port file
 .tern-port
+
+# Ignore Mac .DS_Store files
+.DS_Store
+
+# Ignores compiled TypeScript files
+src/**/*.js
+src/**/*.map
+test/**/*.js
+test/**/*.map

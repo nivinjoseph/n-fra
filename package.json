@@ -1,0 +1,57 @@
+{
+    "name": "@nivinjoseph/n-fra",
+    "version": "1.0.0",
+    "description": "Infrastructure library",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "scripts": {
+        "ts-compile": "tsc -p .",
+        "ts-lint": "eslint . --ext .ts",
+        "ts-build": "npm run ts-compile && npm run ts-lint",
+        "ts-build-dist": "npm run ts-build && tsc -p ./dist",
+        "clean-src": "find ./src -name '*.js' -delete -o -name '*.map' -delete",
+        "clean-test": "find ./test -name '*.js' -delete -o -name '*.map' -delete",
+        "pretest": "npm run ts-build",
+        "test": "mocha --timeout 100000  --reporter spec --ui tdd --require ts-node/register './test/**/*.test.js' || true",
+        "pretest-ci": "npm run pretest",
+        "test-ci": "mocha --reporter spec --ui tdd --require ts-node/register './test/**/*.test.js'",
+        "publish-package": "npm run ts-build-dist && git add . && git commit -m 'preparing to publish new version' && npm version patch && git push && npm publish --access=public"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/nivinjoseph/n-fra.git"
+    },
+    "keywords": [
+        "infrastructure",
+        "iac",
+        "pulumi"
+    ],
+    "author": "NiviN",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/nivinjoseph/n-fra/issues"
+    },
+    "homepage": "https://github.com/nivinjoseph/n-fra#readme",
+    "devDependencies": {
+        "@types/mocha": "^9.1.1",
+        "@types/node": "^18.11.18",
+        "@typescript-eslint/eslint-plugin": "^5.25.0",
+        "@typescript-eslint/parser": "^5.25.0",
+        "eslint": "^8.15.0",
+        "mocha": "^10.0.0",
+        "ts-node": "^10.7.0",
+        "typescript": "^4.6.4"
+    },
+    "dependencies": {
+        "@nivinjoseph/n-config": "^1.0.36",
+        "@nivinjoseph/n-defensive": "^1.0.41",
+        "@nivinjoseph/n-ext": "^1.1.35",
+        "@nivinjoseph/n-util": "^1.0.81",
+        "@pulumi/aws": "^5.25.0",
+        "@pulumi/awsx": "^0.40.1",
+        "@pulumi/datadog": "^4.12.0",
+        "@pulumi/pulumi": "^3.50.2",
+        "@pulumi/random": "^4.8.2",
+        "tslib": "^2.4.1"
+    }
+}
