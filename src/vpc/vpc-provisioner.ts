@@ -15,6 +15,7 @@ export abstract class VpcProvisioner
     private readonly _name: string;
     private readonly _enableVpcFlowLogs: boolean;
     private readonly _tags: Tags;
+    private readonly _region: string;
     private readonly _cidrNet: string;
     private _vpc: Vpc | null = null;
     
@@ -40,6 +41,7 @@ export abstract class VpcProvisioner
         this._enableVpcFlowLogs = enableVpcFlowLogs;
         
         this._tags = InfraConfig.tags;
+        this._region = InfraConfig.awsRegion;
         
         this._cidrNet = this._calculateCidrNet();
     }
@@ -96,7 +98,7 @@ export abstract class VpcProvisioner
             type,
             location: {
                 cidrBlock: `${this._cidrNet}.${cidrNumber}.0/24`,
-                availabilityZone: az
+                availabilityZone: this._region + az
             },
             mapPublicIpOnLaunch: false,
             assignIpv6AddressOnCreation: false,

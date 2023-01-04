@@ -6,6 +6,11 @@ import { Tags } from "@pulumi/aws";
 
 export class InfraConfig
 {
+    private static readonly _pulumiAwsConfig = new pulumi.Config("aws");
+    
+    
+    public static get awsRegion(): string { return this._pulumiAwsConfig.require("region"); }
+    
     public static get env(): EnvType
     { 
         const env = pulumi.getStack() as EnvType;
