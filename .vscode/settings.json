@@ -1,5 +1,7 @@
 {
     "cSpell.words": [
+        "awslogs",
+        "Fargate",
         "pulumi"
     ]
 }

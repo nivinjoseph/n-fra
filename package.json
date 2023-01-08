@@ -46,7 +46,7 @@
         "@nivinjoseph/n-config": "^1.0.36",
         "@nivinjoseph/n-defensive": "^1.0.41",
         "@nivinjoseph/n-exception": "^1.0.26",
-        "@nivinjoseph/n-ext": "^1.1.35",
+        "@nivinjoseph/n-ext": "^1.1.36",
         "@nivinjoseph/n-util": "^1.0.81",
         "@pulumi/aws": "^5.25.0",
         "@pulumi/awsx": "^0.40.1",

@@ -1,29 +1,43 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { ApplicationException } from "@nivinjoseph/n-exception";
-import { Tags } from "@pulumi/aws";
+import { Mesh } from "@pulumi/aws/appmesh";
 import { LogGroup } from "@pulumi/aws/cloudwatch";
 import { DefaultSecurityGroup, FlowLog } from "@pulumi/aws/ec2";
 import { Role, RolePolicy } from "@pulumi/aws/iam";
+import { PrivateDnsNamespace } from "@pulumi/aws/servicediscovery";
 import { VpcSubnetArgs, VpcSubnetType, Vpc } from "@pulumi/awsx/ec2";
 import { EnvType } from "../env-type";
 import { InfraConfig } from "../infra-config";
 import { VpcAz } from "./vpc-az";
+import { VpcInfo } from "./vpc-info";
 
 
-export abstract class VpcProvisioner
+export abstract class VpcProvisioner implements VpcInfo
 {
     private readonly _name: string;
     private readonly _enableVpcFlowLogs: boolean;
-    private readonly _tags: Tags;
-    private readonly _region: string;
     private readonly _cidrNet: string;
     private _vpc: Vpc | null = null;
+    private _serviceMesh: Mesh | null = null;
+    private _pvtDnsNsp: PrivateDnsNamespace | null = null;
     
     
     public get vpc(): Vpc
     {
         given(this, "this").ensure(t => t._vpc != null, "not provisioned");
         return this._vpc!;
+    }
+    
+    public get serviceMesh(): Mesh 
+    {
+        given(this, "this").ensure(t => t._serviceMesh != null, "not provisioned");
+        return this._serviceMesh!;
+    }
+    
+    public get privateDnsNamespace(): PrivateDnsNamespace
+    {
+        given(this, "this").ensure(t => t._pvtDnsNsp != null, "not provisioned");
+        return this._pvtDnsNsp!;
     }
     
     
@@ -40,9 +54,6 @@ export abstract class VpcProvisioner
         given(enableVpcFlowLogs, "enableVpcFlowLogs").ensureHasValue().ensureIsBoolean();
         this._enableVpcFlowLogs = enableVpcFlowLogs;
         
-        this._tags = InfraConfig.tags;
-        this._region = InfraConfig.awsRegion;
-        
         this._cidrNet = this._calculateCidrNet();
     }
     
@@ -57,7 +68,7 @@ export abstract class VpcProvisioner
             enableDnsSupport: true,
             subnets: this.defineSubnets(),
             tags: {
-                ...this._tags,
+                ...InfraConfig.tags,
                 Name: this._name
             }
         });
@@ -68,13 +79,38 @@ export abstract class VpcProvisioner
         new DefaultSecurityGroup(defaultSgName, {
             vpcId: this.vpc.id,
             tags: {
-                Name: defaultSgName,
-                ...this._tags
+                ...InfraConfig.tags,
+                Name: defaultSgName
             }
         });
         
         if (this._enableVpcFlowLogs)
             this._provisionVpcFlowLogs();
+            
+        const meshName = `${this._name}-sm`;
+        this._serviceMesh = new Mesh(meshName, {
+            name: meshName,
+            spec: {
+                egressFilter: {
+                    // type: "DROP_ALL"
+                    type: "ALLOW_ALL"
+                }
+            },
+            tags: {
+                ...InfraConfig.tags,
+                Name: meshName
+            }
+        });
+
+        const pvtDnsNspName = `${this._name}-pdn`;
+        this._pvtDnsNsp = new PrivateDnsNamespace(pvtDnsNspName, {
+            name: `${this._name.substring(0, this._name.length - 4)}.${InfraConfig.env}`,
+            vpc: this._vpc.id,
+            tags: {
+                ...InfraConfig.tags,
+                Name: pvtDnsNspName
+            }
+        });
     }
     
     /**
@@ -98,13 +134,13 @@ export abstract class VpcProvisioner
             type,
             location: {
                 cidrBlock: `${this._cidrNet}.${cidrNumber}.0/24`,
-                availabilityZone: this._region + az
+                availabilityZone: InfraConfig.awsRegion + az
             },
             mapPublicIpOnLaunch: false,
             assignIpv6AddressOnCreation: false,
             tags: {
-                Name: name,
-                ...this._tags
+                ...InfraConfig.tags,
+                Name: name
             }
         };
     }
@@ -133,8 +169,8 @@ export abstract class VpcProvisioner
         given(logGroupName, "logGroupName").ensure(t => t.length <= 25, "name is too long");
         const logGroup = new LogGroup(logGroupName, {
             tags: {
-                Name: logGroupName,
-                ...this._tags
+                ...InfraConfig.tags,
+                Name: logGroupName
             }
         });
         
@@ -155,8 +191,8 @@ export abstract class VpcProvisioner
                 ]
             },
             tags: {
-                Name: logRoleName,
-                ...this._tags
+                ...InfraConfig.tags,
+                Name: logRoleName
             }
         });
         
@@ -190,8 +226,8 @@ export abstract class VpcProvisioner
             trafficType: "ALL",
             vpcId: this.vpc.id,
             tags: {
-                Name: flowLogName,
-                ...this._tags
+                ...InfraConfig.tags,
+                Name: flowLogName
             }
         });
     }

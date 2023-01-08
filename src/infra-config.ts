@@ -8,7 +8,7 @@ export class InfraConfig
 {
     private static readonly _pulumiAwsConfig = new pulumi.Config("aws");
     
-    
+    public static get awsAccount(): string { return this._pulumiAwsConfig.require("account"); }
     public static get awsRegion(): string { return this._pulumiAwsConfig.require("region"); }
     
     public static get env(): EnvType
@@ -26,6 +26,11 @@ export class InfraConfig
             provisioner: "pulumi-iac",
             env: this.env
         };
+    }
+    
+    public static get ecr(): string
+    {
+        return `${this.awsAccount}.dkr.ecr.${this.awsRegion}.amazonaws.com`;
     }
     
     private constructor() { }
