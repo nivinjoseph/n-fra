@@ -35,7 +35,7 @@ export class MemdbManager
     }
 
 
-    public provisionResources(): MemorydbDetails
+    public provision(): MemorydbDetails
     {
         const memorydbPort = 6379;
         

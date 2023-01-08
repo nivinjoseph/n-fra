@@ -18,6 +18,7 @@ export class WorkerAppProvisioner extends AppProvisioner<WorkerAppConfig>
         super(name, vpcInfo, config);
     }
 
+    
     public provision(): void
     {
         const secGroupName = `${this.name}-sg`;

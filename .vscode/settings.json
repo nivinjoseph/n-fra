@@ -1,6 +1,8 @@
 {
     "cSpell.words": [
+        "Aspv",
         "awslogs",
+        "Creds",
         "Fargate",
         "Memorydb",
         "pulumi"

@@ -34,7 +34,7 @@ export class RedisProvisioner
     }
 
 
-    public provisionResources(): RedisDetails
+    public provision(): RedisDetails
     {
         const redisPort = 6379;        
         

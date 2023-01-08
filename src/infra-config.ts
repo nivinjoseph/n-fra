@@ -23,7 +23,7 @@ export class InfraConfig
     public static get tags(): Tags
     {
         return {
-            provisioner: "pulumi-iac",
+            provisioner: "n-fra",
             env: this.env
         };
     }
