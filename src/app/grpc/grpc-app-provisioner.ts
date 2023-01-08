@@ -1,9 +1,9 @@
 import { SecurityGroup } from "@pulumi/awsx/ec2";
-import { AppProvisioner } from "./app-provisioner";
+import { AppProvisioner } from "../app-provisioner";
 import * as Pulumi from "@pulumi/pulumi";
 import { given } from "@nivinjoseph/n-defensive";
-import { VpcInfo } from "../vpc/vpc-info";
-import { InfraConfig } from "../infra-config";
+import { VpcInfo } from "../../vpc/vpc-info";
+import { InfraConfig } from "../../infra-config";
 // import { Instance as SdInstance, Service as SdService } from "@pulumi/aws/servicediscovery";
 import { Service as SdService } from "@pulumi/aws/servicediscovery";
 import { VirtualNode, VirtualService } from "@pulumi/aws/appmesh";

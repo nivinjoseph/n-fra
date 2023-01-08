@@ -1,52 +1,28 @@
 import { SecurityGroup } from "@pulumi/awsx/ec2";
-import { AppProvisioner } from "./app-provisioner";
-import { HttpAppConfig } from "./http-app-config";
+import { AppProvisioner } from "../app-provisioner";
 import * as Pulumi from "@pulumi/pulumi";
-import { given } from "@nivinjoseph/n-defensive";
-import { VpcInfo } from "../vpc/vpc-info";
-import { InfraConfig } from "../infra-config";
+import { VpcInfo } from "../../vpc/vpc-info";
+import { InfraConfig } from "../../infra-config";
 // import { Instance as SdInstance, Service as SdService } from "@pulumi/aws/servicediscovery";
 import { Service as SdService } from "@pulumi/aws/servicediscovery";
 import { VirtualNode, VirtualService } from "@pulumi/aws/appmesh";
 import { TaskDefinition } from "@pulumi/aws/ecs/taskDefinition";
 import { Cluster, Service } from "@pulumi/aws/ecs";
-import { Policy as AsPolicy, Target as AsTarget } from "@pulumi/aws/appautoscaling";
+import { WorkerAppConfig } from "./worker-app-config";
 
 
-export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
+export class WorkerAppProvisioner extends AppProvisioner<WorkerAppConfig>
 {
-    public constructor(name: string, vpcInfo: VpcInfo, config: HttpAppConfig)
+    public constructor(name: string, vpcInfo: VpcInfo, config: WorkerAppConfig)
     {
         super(name, vpcInfo, config);
-        
-        given(config, "config").ensureHasStructure({
-            ingressSubnetNamePrefixes: ["string"],
-            healthCheckPath: "string",
-            minCapacity: "number",
-            maxCapacity: "number"
-        });
     }
-    
+
     public provision(): void
     {
-        const httpPort = 80;
-        
         const secGroupName = `${this.name}-sg`;
         const secGroup = new SecurityGroup(secGroupName, {
             vpc: this.vpcInfo.vpc,
-            ingress: [
-                {
-                    protocol: "tcp",
-                    fromPort: httpPort,
-                    toPort: httpPort,
-                    cidrBlocks: Pulumi.output(this.vpcInfo.vpc.getSubnets("private"))
-                        .apply((subnets) =>
-                            subnets.where(subnet =>
-                                this.config.ingressSubnetNamePrefixes.some(prefix =>
-                                    subnet.subnetName.startsWith(prefix)))
-                            .map(t => t.subnet.cidrBlock as Pulumi.Output<string>))
-                }
-            ],
             egress: [{
                 fromPort: 0,
                 toPort: 0,
@@ -69,7 +45,6 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
                     type: "A",
                     ttl: 300
                 }],
-                // routingPolicy: "WEIGHTED" // must be weighted for the below instance to point to load balancer
                 routingPolicy: "MULTIVALUE"
             },
             healthCheckCustomConfig: {
@@ -82,18 +57,8 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
             }
         });
 
-        // const sdInstanceName = `${this.name}-sd-ins`;
-        // new SdInstance(sdInstanceName, {
-        //     instanceId: sdInstanceName,
-        //     serviceId: sdService.id,
-        //     attributes: {
-        //         AWS_ALIAS_DNS_NAME: alb.loadBalancer.dnsName,
-        //         AWS_INIT_HEALTH_STATUS: "HEALTHY"
-        //     }
-        // });
-
         const ecsTaskDefFam = `${InfraConfig.env}-${this.name}-tdf`;
-        
+
         const virtualNodeName = `${this.name}-vnode`;
         const virtualNode = new VirtualNode(virtualNodeName, {
             name: virtualNodeName,
@@ -101,25 +66,8 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
             spec: {
                 listener: {
                     portMapping: {
-                        port: httpPort,
-                        protocol: "http"
-                    },
-                    timeout: {
-                        http: {
-                            perRequest: {
-                                value: 90,
-                                unit: "s"
-                            }
-                        }
-                    },
-                    healthCheck: {
-                        healthyThreshold: 3,
-                        intervalMillis: 10000,
-                        path: this.config.healthCheckPath,
-                        port: httpPort,
-                        protocol: "http",
-                        timeoutMillis: 5000,
-                        unhealthyThreshold: 3
+                        port: 8080, // arbitrary
+                        protocol: "tcp"
                     }
                 },
                 // logging: { // TODO: turn off access log
@@ -161,7 +109,7 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
                 Name: virtualServiceName
             }
         });
-        
+
         const taskDefinitionName = `${this.name}-task-def`;
         const taskDefinition = new TaskDefinition(taskDefinitionName, {
             cpu: this.config.cpu!.toString(), // https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-cpu-memory-error.html
@@ -182,26 +130,20 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
                     "IgnoredUID": "1337",
                     "ProxyIngressPort": "15000",
                     "ProxyEgressPort": "15001",
-                    "AppPorts": `${httpPort}`,
+                    "AppPorts": `8080`,
                     "EgressIgnoredIPs": "169.254.170.2,169.254.169.254"
                 }
             },
             volumes: this.hasDatadog
                 ? [{ "name": "etc-datadog_agent" }]
                 : [],
-            containerDefinitions: this.createContainerDefinitions(virtualNode, {
-                portMappings: [{
-                    hostPort: httpPort,
-                    containerPort: httpPort,
-                    protocol: "tcp"
-                }]
-            }),
+            containerDefinitions: this.createContainerDefinitions(virtualNode),
             tags: {
                 ...InfraConfig.tags,
                 Name: taskDefinitionName
             }
-        });
-        
+        }, { deleteBeforeReplace: true });
+
         const clusterName = `${this.name}-cluster`;
         const cluster = new Cluster(clusterName, {
             capacityProviders: ["FARGATE"],
@@ -218,7 +160,7 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
         });
 
         const serviceName = `${this.name}-service`;
-        const service = new Service(serviceName, {
+        new Service(serviceName, {
             deploymentMinimumHealthyPercent: 0,
             deploymentMaximumPercent: 100,
             // os: "linux",
@@ -235,40 +177,10 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
             serviceRegistries: {
                 registryArn: sdService.arn
             },
-            loadBalancers: this.config.albTargetGroupArn != null
-                ? [{
-                    targetGroupArn: this.config.albTargetGroupArn,
-                    containerName: this.name,
-                    containerPort: httpPort
-                }]
-                : undefined,
-            desiredCount: this.config.minCapacity,
+            desiredCount: 1,
             tags: {
                 ...InfraConfig.tags,
                 Name: serviceName
-            }
-        });
-        
-        const asTarget = new AsTarget(`${this.name}-ast`, {
-            minCapacity: this.config.minCapacity,
-            maxCapacity: this.config.maxCapacity,
-            resourceId: Pulumi.interpolate`service/${cluster.name}/${service.name}`,
-            scalableDimension: "ecs:service:DesiredCount",
-            serviceNamespace: "ecs"
-        });
-
-        new AsPolicy(`${this.name}-asp`, {
-            policyType: "TargetTrackingScaling",
-            resourceId: asTarget.resourceId,
-            scalableDimension: asTarget.scalableDimension,
-            serviceNamespace: asTarget.serviceNamespace,
-            targetTrackingScalingPolicyConfiguration: {
-                targetValue: 75,
-                scaleInCooldown: 300,
-                scaleOutCooldown: 60,
-                predefinedMetricSpecification: {
-                    predefinedMetricType: "ECSServiceAverageCPUUtilization"
-                }
             }
         });
     }
