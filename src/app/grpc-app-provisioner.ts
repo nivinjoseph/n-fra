@@ -117,7 +117,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
                         intervalMillis: 10000,
                         path: this.config.healthCheckPath,
                         port: grpcPort,
-                        protocol: "http",
+                        protocol: "grpc",
                         timeoutMillis: 5000,
                         unhealthyThreshold: 3
                     }
