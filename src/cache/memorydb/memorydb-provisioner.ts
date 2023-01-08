@@ -9,7 +9,7 @@ import { SecurityGroup } from "@pulumi/awsx/ec2";
 import { EnvType } from "../../env-type";
 
 
-export class MemdbManager
+export class MemorydbProvisioner
 {
     private readonly _name: string;
     private readonly _vpcInfo: VpcInfo;
