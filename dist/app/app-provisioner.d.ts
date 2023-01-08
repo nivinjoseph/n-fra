@@ -1,0 +1,34 @@
+import { VpcInfo } from "../vpc/vpc-info";
+import { AppConfig } from "./app-config";
+import * as Pulumi from "@pulumi/pulumi";
+import { Role } from "@pulumi/aws/iam";
+import { Container } from "@pulumi/awsx/ecs";
+import { VirtualNode } from "@pulumi/aws/appmesh";
+export declare abstract class AppProvisioner<T extends AppConfig> {
+    private readonly _name;
+    private readonly _vpcInfo;
+    private readonly _config;
+    private readonly _version;
+    protected get name(): string;
+    protected get vpcInfo(): VpcInfo;
+    protected get config(): T;
+    protected get version(): string;
+    protected get hasDatadog(): boolean;
+    protected constructor(name: string, vpcInfo: VpcInfo, config: T);
+    abstract provision(): void;
+    protected createExecutionRole(): Pulumi.Output<Role>;
+    protected createTaskRole(): Pulumi.Output<Role>;
+    protected createAppContainer(): Container;
+    protected createContainerDefinitions(virtualNode: VirtualNode, appContainerOverrides?: Partial<Container>): Pulumi.Output<string>;
+    private _stringifyContainerDefinitions;
+    private _createLogConfiguration;
+    private _createAwsLogsConfiguration;
+    private _createInstrumentationEnvironmentVariables;
+    private _createInstrumentationLabels;
+    private _createInstrumentationContainers;
+    private _createLogRouterContainer;
+    private _createEnvoyContainer;
+    private _createDatadogAgentContainer;
+    private _createAwsXrayDaemonContainer;
+    private _createAwsOtelCollectorContainer;
+}
