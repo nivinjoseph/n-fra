@@ -7,6 +7,7 @@ import { Tags } from "@pulumi/aws";
 export class InfraConfig
 {
     private static readonly _pulumiAwsConfig = new pulumi.Config("aws");
+    private static _userTags: Tags | null = null;
     
     public static get awsAccount(): string { return this._pulumiAwsConfig.require("account"); }
     public static get awsRegion(): string { return this._pulumiAwsConfig.require("region"); }
@@ -24,7 +25,8 @@ export class InfraConfig
     {
         return {
             provisioner: "n-fra",
-            env: this.env
+            env: this.env,
+            ...this._userTags
         };
     }
     
@@ -33,5 +35,14 @@ export class InfraConfig
         return `${this.awsAccount}.dkr.ecr.${this.awsRegion}.amazonaws.com`;
     }
     
+    
     private constructor() { }
+    
+    
+    public static configureTags(tags: Record<string, string>): void
+    {
+        given(tags, "tags").ensureHasValue().ensureIsObject();
+        
+        this._userTags = tags;
+    }
 }
