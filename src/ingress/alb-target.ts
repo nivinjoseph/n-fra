@@ -1,4 +1,4 @@
-export interface AppLoadBalancerTarget
+export interface AlbTarget
 {
     host: string;
     slowStart?: number;

@@ -1,7 +1,7 @@
 import * as Pulumi from "@pulumi/pulumi";
 
 
-export interface AppLoadBalancerDetails
+export interface AlbDetails
 {
     [host: string]: {
         albTargetGroupArn: Pulumi.Output<string>;

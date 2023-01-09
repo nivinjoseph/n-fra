@@ -1,8 +1,8 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { SecurityGroup } from "@pulumi/awsx/ec2";
 import { VpcDetails } from "../vpc/vpc-details";
-import { AppLoadBalancerConfig } from "./app-load-balancer-config";
-import { AppLoadBalancerDetails } from "./app-load-balancer-details";
+import { AlbConfig } from "./alb-config";
+import { AlbDetails } from "./alb-details";
 import * as Pulumi from "@pulumi/pulumi";
 import { InfraConfig } from "../infra-config";
 import { ApplicationLoadBalancer } from "@pulumi/awsx/lb";
@@ -11,14 +11,14 @@ import { WebAcl, WebAclAssociation } from "@pulumi/aws/wafv2";
 import { Distribution } from "@pulumi/aws/cloudfront";
 
 
-export class AppLoadBalancerProvisioner
+export class AlbProvisioner
 {
     private readonly _name: string;
     private readonly _vpcDetails: VpcDetails;
-    private readonly _config: AppLoadBalancerConfig;
+    private readonly _config: AlbConfig;
     
     
-    public constructor(name: string, vpcDetails: VpcDetails, config: AppLoadBalancerConfig)
+    public constructor(name: string, vpcDetails: VpcDetails, config: AlbConfig)
     {
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
@@ -57,7 +57,7 @@ export class AppLoadBalancerProvisioner
     }
     
     
-    public provision(): AppLoadBalancerDetails
+    public provision(): AlbDetails
     {
         const albSecGroupName = `${this._name}-sg`;
         const appAlbSecGroup = new SecurityGroup(albSecGroupName, {
@@ -148,7 +148,7 @@ export class AppLoadBalancerProvisioner
         }, { parent: alb });
         
         
-        const result: AppLoadBalancerDetails = {};
+        const result: AlbDetails = {};
         
         this._config.targets.forEach((target, index) =>
         {
