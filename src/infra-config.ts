@@ -1,12 +1,13 @@
 import { EnvType } from "./env-type";
-import * as pulumi from "@pulumi/pulumi";
+import * as Pulumi from "@pulumi/pulumi";
 import { given } from "@nivinjoseph/n-defensive";
 import { Tags } from "@pulumi/aws";
 
 
 export class InfraConfig
 {
-    private static readonly _pulumiAwsConfig = new pulumi.Config("aws");
+    private static readonly _pulumiAwsConfig = new Pulumi.Config("aws");
+    private static readonly _pulumiAppConfig = new Pulumi.Config("app");
     private static _userTags: Tags | null = null;
     
     public static get awsAccount(): string { return this._pulumiAwsConfig.require("account"); }
@@ -14,7 +15,7 @@ export class InfraConfig
     
     public static get env(): EnvType
     { 
-        const env = pulumi.getStack() as EnvType;
+        const env = Pulumi.getStack() as EnvType;
         
         given(env, "env").ensureHasValue().ensureIsEnum(EnvType);
         
@@ -44,5 +45,15 @@ export class InfraConfig
         given(tags, "tags").ensureHasValue().ensureIsObject();
         
         this._userTags = tags;
+    }
+    
+    public static getConfig(key: string): string | null
+    {
+        return this._pulumiAppConfig.get(key) ?? null;
+    }
+    
+    public static requireConfig(key: string): string
+    {
+        return this._pulumiAppConfig.require(key);
     }
 }
