@@ -3,9 +3,12 @@ import "@nivinjoseph/n-ext";
 export { InfraConfig } from "./infra-config";
 export { EnvType } from "./env-type";
 
+export { VpcSubnetType } from "./vpc/vpc-subnet-type";
+export { VpcAz } from "./vpc/vpc-az";
+export { VpcSubnetConfig } from "./vpc/vpc-subnet-config";
+export { VpcConfig } from "./vpc/vpc-config";
 export { VpcProvisioner } from "./vpc/vpc-provisioner";
 export { VpcDetails } from "./vpc/vpc-details";
-export { VpcAz } from "./vpc/vpc-az";
 
 export { S3bucketConfig } from "./storage/s3bucket-config";
 export { S3bucketProvisioner } from "./storage/s3bucket-provisioner";
