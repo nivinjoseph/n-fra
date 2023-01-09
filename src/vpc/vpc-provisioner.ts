@@ -13,7 +13,7 @@ import { VpcConfig } from "./vpc-config";
 import { VpcDetails } from "./vpc-details";
 
 
-export abstract class VpcProvisioner
+export class VpcProvisioner
 {
     private readonly _name: string;
     private readonly _config: VpcConfig;
@@ -22,7 +22,7 @@ export abstract class VpcProvisioner
     private _pvtDnsNsp: PrivateDnsNamespace | null = null;
     
     
-    protected constructor(name: string, config: VpcConfig)
+    public constructor(name: string, config: VpcConfig)
     {
         given(name, "name").ensureHasValue().ensureIsString();
         name = name.trim();
@@ -32,10 +32,19 @@ export abstract class VpcProvisioner
         given(name, "name").ensure(t => t.length <= 25, "name is too long");
         this._name = name;
         
-        given(config, "config").ensureHasValue().ensureHasStructure({
-            cidr16Bits: "string",
-            "enableVpcFlowLogs?": "boolean"
-        });
+        given(config, "config").ensureHasValue()
+            .ensureHasStructure({
+                cidr16Bits: "string",
+                "enableVpcFlowLogs?": "boolean",
+                subnets: [{
+                    name: "string",
+                    type: "string",
+                    cidrOctet3: "number",
+                    az: "string"
+                }]
+            })
+            .ensure(t => t.subnets.distinct(u => u.name).length === t.subnets.length, "subnet name must be unique")
+            .ensure(t => t.subnets.distinct(u => u.cidrOctet3).length === t.subnets.length, "subnet cidrOctet3 must be unique");
         const { cidr16Bits } = config;
         given(cidr16Bits, "config.cidr16Bits")
             .ensure(t => t.split(".").length === 2, "provide only the first 2 octets")
@@ -60,7 +69,7 @@ export abstract class VpcProvisioner
             numberOfNatGateways: InfraConfig.env === EnvType.prod ? 3 : 1,
             enableDnsHostnames: true,
             enableDnsSupport: true,
-            subnets: this.defineSubnets(),
+            subnets: this._config.subnets.map(t => this._createSubnet(t.name, t.type, t.cidrOctet3, t.az)),
             tags: {
                 ...InfraConfig.tags,
                 Name: this._name
@@ -69,7 +78,6 @@ export abstract class VpcProvisioner
         
         // denying all traffic on the default security group for aws security hub compliance
         const defaultSgName = `${this._name}-default-sg`;
-        given(defaultSgName, "defaultSgName").ensure(t => t.length <= 25);
         new DefaultSecurityGroup(defaultSgName, {
             vpcId: this._vpc.id,
             tags: {
@@ -113,14 +121,9 @@ export abstract class VpcProvisioner
         };
     }
     
-    /**
-     * @summary keep this implementation idempotent
-     */
-    protected abstract defineSubnets(): Array<VpcSubnetArgs>;
-    
-    protected createSubnet(name: string, type: VpcSubnetType, cidrOctet3: number, az: VpcAz): VpcSubnetArgs
+    private _createSubnet(name: string, type: VpcSubnetType, cidrOctet3: number, az: VpcAz): VpcSubnetArgs
     {
-        given(name, "name").ensureHasValue().ensureIsString().ensure(t => t.length <= 25, "name is too long");
+        given(name, "name").ensureHasValue().ensureIsString();
         name = name.trim();
         
         given(type, "type").ensureHasValue().ensureIsString().ensure(t => ["public", "private", "isolated"].contains(t));
@@ -148,7 +151,6 @@ export abstract class VpcProvisioner
     private _provisionVpcFlowLogs(): void
     {
         const logGroupName = `${this._name}-lg`;
-        given(logGroupName, "logGroupName").ensure(t => t.length <= 25, "name is too long");
         const logGroup = new LogGroup(logGroupName, {
             tags: {
                 ...InfraConfig.tags,
@@ -157,7 +159,6 @@ export abstract class VpcProvisioner
         });
         
         const logRoleName = `${this._name}-lr`;
-        given(logRoleName, "logRoleName").ensure(t => t.length <= 25, "name is too long");
         const logRole = new Role(logRoleName, {
             assumeRolePolicy: {
                 "Version": "2012-10-17",
@@ -179,7 +180,6 @@ export abstract class VpcProvisioner
         });
         
         const logRolePolicyName = `${this._name}-lrp`;
-        given(logRolePolicyName, "logRolePolicyName").ensure(t => t.length <= 25, "name is too long");
         new RolePolicy(logRolePolicyName, {
             role: logRole.id,
             policy: {
@@ -201,7 +201,6 @@ export abstract class VpcProvisioner
         });
         
         const flowLogName = `${this._name}-fl`;
-        given(flowLogName, "flowLogName").ensure(t => t.length <= 25, "name is too long");
         new FlowLog(flowLogName, {
             iamRoleArn: logRole.arn,
             logDestination: logGroup.arn,

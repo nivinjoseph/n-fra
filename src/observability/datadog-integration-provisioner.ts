@@ -3,17 +3,20 @@ import { Tags } from "@pulumi/aws";
 import { Policy, PolicyDocument, Role, RolePolicyAttachment } from "@pulumi/aws/iam";
 import { MonitorJson, Provider } from "@pulumi/datadog";
 import { Integration } from "@pulumi/datadog/aws/integration";
-import { EnvType } from "../env-type";
 import { InfraConfig } from "../infra-config";
+import { DatadogIntegrationConfig } from "./datadog-integration-config";
 
 
-export class DatadogProvisioner
+export class DatadogIntegrationProvisioner
 {
     private readonly _provider: Provider;
     private readonly _notificationSlackChannel: string;
     private readonly _tags: Tags;
 
-    public constructor(config: { apiKey: string; appKey: string; notificationsSlackChannel: string; })
+    /**
+     * @description Only provision this once within a given AWS account 
+     */
+    public constructor(config: DatadogIntegrationConfig)
     {
         given(config, "config").ensureHasValue()
             .ensureHasStructure({
@@ -21,8 +24,6 @@ export class DatadogProvisioner
                 appKey: "string",
                 notificationsSlackChannel: "string"
             });
-    
-        given(this, "this").ensure(_ => InfraConfig.env === EnvType.stage, "should only be used in stage env");
         
         const dataDogProvider = new Provider("datadogProvider", {
             apiKey: config.apiKey,

@@ -26,18 +26,19 @@ export class AppLoadBalancerProvisioner
         given(vpcDetails, "vpcDetails").ensureHasValue().ensureIsObject();
         this._vpcDetails = vpcDetails;
         
-        given(config, "config").ensureHasValue().ensureIsObject().ensureHasStructure({
-            subnetNamePrefix: "string",
-            egressSubnetNamePrefixes: ["string"],
-            certificateArn: "string",
-            "enableWaf?": "boolean",
-            "enableCloudfront?": "boolean",
-            targets: [{
-                host: "string",
-                "slowStart?": "number",
-                "healthCheckPath": "string"
-            }]
-        })
+        given(config, "config").ensureHasValue().ensureIsObject()
+            .ensureHasStructure({
+                subnetNamePrefix: "string",
+                egressSubnetNamePrefixes: ["string"],
+                certificateArn: "string",
+                "enableWaf?": "boolean",
+                "enableCloudfront?": "boolean",
+                targets: [{
+                    host: "string",
+                    "slowStart?": "number",
+                    "healthCheckPath": "string"
+                }]
+            })
             .ensure(t => t.targets.isNotEmpty, "at least 1 target must be provided")
             .ensure(t => t.targets.distinct(u => u.host).length === t.targets.length, "hosts must be distinct");
             

@@ -17,8 +17,8 @@ export { AccessKeyDetails } from "./security/access-key-details";
 export { SecretsProvisioner } from "./secrets/secrets-provisioner";
 export { AppSecret } from "./secrets/app-secret";
 
-export { DatadogConfig } from "./observability/datadog-config";
-export { DatadogProvisioner } from "./observability/datadog-provisioner";
+export { DatadogIntegrationConfig } from "./observability/datadog-integration-config";
+export { DatadogIntegrationProvisioner } from "./observability/datadog-integration-provisioner";
 
 export { Aspv1Config } from "./database/aurora-serverless-postgres-v1/aspv1-config";
 export { Aspv1Provisioner } from "./database/aurora-serverless-postgres-v1/aspv1-provisioner";
@@ -36,6 +36,8 @@ export { RedisConfig } from "./cache/redis/redis-config";
 export { RedisProvisioner } from "./cache/redis/redis-provisioner";
 export { RedisDetails } from "./cache/redis/redis-details";
 
+export { AppConfig } from "./app/app-config";
+export { AppDatadogConfig } from "./app/app-datadog-config";
 export { EcsEnvVar } from "./app/ecs-env-var";
 
 export { WorkerAppConfig } from "./app/worker/worker-app-config";
