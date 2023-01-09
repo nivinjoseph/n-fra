@@ -1,5 +1,5 @@
 import { PolicyDocument } from "@pulumi/aws/iam";
-import { DatadogConfig } from "../observability/datadog-config";
+import { AppDatadogConfig } from "./app-datadog-config";
 import { EcsEnvVar } from "./ecs-env-var";
 import { AppSecret } from "../secrets/app-secret";
 export interface AppConfig {
@@ -13,5 +13,5 @@ export interface AppConfig {
     secrets?: ReadonlyArray<AppSecret>;
     policies?: ReadonlyArray<PolicyDocument>;
     isOn?: boolean;
-    datadogConfig?: DatadogConfig;
+    datadogConfig?: AppDatadogConfig;
 }

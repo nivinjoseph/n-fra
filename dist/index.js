@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AppLoadBalancerProvisioner = exports.GrpcAppProvisioner = exports.HttpAppProvisioner = exports.WorkerAppProvisioner = exports.RedisProvisioner = exports.MemorydbProvisioner = exports.Aspv2Provisioner = exports.Aspv1Provisioner = exports.DatadogProvisioner = exports.SecretsProvisioner = exports.AccessKeyProvisioner = exports.S3bucketProvisioner = exports.VpcAz = exports.VpcProvisioner = exports.EnvType = exports.InfraConfig = void 0;
+exports.AppLoadBalancerProvisioner = exports.GrpcAppProvisioner = exports.HttpAppProvisioner = exports.WorkerAppProvisioner = exports.RedisProvisioner = exports.MemorydbProvisioner = exports.Aspv2Provisioner = exports.Aspv1Provisioner = exports.DatadogIntegrationProvisioner = exports.SecretsProvisioner = exports.AccessKeyProvisioner = exports.S3bucketProvisioner = exports.VpcAz = exports.VpcProvisioner = exports.EnvType = exports.InfraConfig = void 0;
 require("@nivinjoseph/n-ext");
 var infra_config_1 = require("./infra-config");
 Object.defineProperty(exports, "InfraConfig", { enumerable: true, get: function () { return infra_config_1.InfraConfig; } });
@@ -16,8 +16,8 @@ var access_key_provisioner_1 = require("./security/access-key-provisioner");
 Object.defineProperty(exports, "AccessKeyProvisioner", { enumerable: true, get: function () { return access_key_provisioner_1.AccessKeyProvisioner; } });
 var secrets_provisioner_1 = require("./secrets/secrets-provisioner");
 Object.defineProperty(exports, "SecretsProvisioner", { enumerable: true, get: function () { return secrets_provisioner_1.SecretsProvisioner; } });
-var datadog_provisioner_1 = require("./observability/datadog-provisioner");
-Object.defineProperty(exports, "DatadogProvisioner", { enumerable: true, get: function () { return datadog_provisioner_1.DatadogProvisioner; } });
+var datadog_integration_provisioner_1 = require("./observability/datadog-integration-provisioner");
+Object.defineProperty(exports, "DatadogIntegrationProvisioner", { enumerable: true, get: function () { return datadog_integration_provisioner_1.DatadogIntegrationProvisioner; } });
 var aspv1_provisioner_1 = require("./database/aurora-serverless-postgres-v1/aspv1-provisioner");
 Object.defineProperty(exports, "Aspv1Provisioner", { enumerable: true, get: function () { return aspv1_provisioner_1.Aspv1Provisioner; } });
 var aspv2_provisioner_1 = require("./database/aurora-serverless-postgres-v2/aspv2-provisioner");

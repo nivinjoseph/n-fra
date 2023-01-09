@@ -16,7 +16,8 @@ class AppLoadBalancerProvisioner {
         this._name = name;
         (0, n_defensive_1.given)(vpcDetails, "vpcDetails").ensureHasValue().ensureIsObject();
         this._vpcDetails = vpcDetails;
-        (0, n_defensive_1.given)(config, "config").ensureHasValue().ensureIsObject().ensureHasStructure({
+        (0, n_defensive_1.given)(config, "config").ensureHasValue().ensureIsObject()
+            .ensureHasStructure({
             subnetNamePrefix: "string",
             egressSubnetNamePrefixes: ["string"],
             certificateArn: "string",

@@ -24,10 +24,19 @@ class VpcProvisioner {
             name += "-vpc";
         (0, n_defensive_1.given)(name, "name").ensure(t => t.length <= 25, "name is too long");
         this._name = name;
-        (0, n_defensive_1.given)(config, "config").ensureHasValue().ensureHasStructure({
+        (0, n_defensive_1.given)(config, "config").ensureHasValue()
+            .ensureHasStructure({
             cidr16Bits: "string",
-            "enableVpcFlowLogs?": "boolean"
-        });
+            "enableVpcFlowLogs?": "boolean",
+            subnets: [{
+                    name: "string",
+                    type: "string",
+                    cidrOctet3: "number",
+                    az: "string"
+                }]
+        })
+            .ensure(t => t.subnets.distinct(u => u.name).length === t.subnets.length, "subnet name must be unique")
+            .ensure(t => t.subnets.distinct(u => u.cidrOctet3).length === t.subnets.length, "subnet cidrOctet3 must be unique");
         const { cidr16Bits } = config;
         (0, n_defensive_1.given)(cidr16Bits, "config.cidr16Bits")
             .ensure(t => t.split(".").length === 2, "provide only the first 2 octets")
@@ -47,12 +56,11 @@ class VpcProvisioner {
             numberOfNatGateways: infra_config_1.InfraConfig.env === env_type_1.EnvType.prod ? 3 : 1,
             enableDnsHostnames: true,
             enableDnsSupport: true,
-            subnets: this.defineSubnets(),
+            subnets: this._config.subnets.map(t => this._createSubnet(t.name, t.type, t.cidrOctet3, t.az)),
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: this._name })
         });
         // denying all traffic on the default security group for aws security hub compliance
         const defaultSgName = `${this._name}-default-sg`;
-        (0, n_defensive_1.given)(defaultSgName, "defaultSgName").ensure(t => t.length <= 25);
         new ec2_1.DefaultSecurityGroup(defaultSgName, {
             vpcId: this._vpc.id,
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: defaultSgName })
@@ -82,8 +90,8 @@ class VpcProvisioner {
             privateDnsNamespace: this._pvtDnsNsp
         };
     }
-    createSubnet(name, type, cidrOctet3, az) {
-        (0, n_defensive_1.given)(name, "name").ensureHasValue().ensureIsString().ensure(t => t.length <= 25, "name is too long");
+    _createSubnet(name, type, cidrOctet3, az) {
+        (0, n_defensive_1.given)(name, "name").ensureHasValue().ensureIsString();
         name = name.trim();
         (0, n_defensive_1.given)(type, "type").ensureHasValue().ensureIsString().ensure(t => ["public", "private", "isolated"].contains(t));
         (0, n_defensive_1.given)(cidrOctet3, "cidrOctet3").ensureHasValue().ensureIsNumber().ensure(t => t > 0 && t <= 250);
@@ -102,12 +110,10 @@ class VpcProvisioner {
     }
     _provisionVpcFlowLogs() {
         const logGroupName = `${this._name}-lg`;
-        (0, n_defensive_1.given)(logGroupName, "logGroupName").ensure(t => t.length <= 25, "name is too long");
         const logGroup = new cloudwatch_1.LogGroup(logGroupName, {
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: logGroupName })
         });
         const logRoleName = `${this._name}-lr`;
-        (0, n_defensive_1.given)(logRoleName, "logRoleName").ensure(t => t.length <= 25, "name is too long");
         const logRole = new iam_1.Role(logRoleName, {
             assumeRolePolicy: {
                 "Version": "2012-10-17",
@@ -125,7 +131,6 @@ class VpcProvisioner {
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: logRoleName })
         });
         const logRolePolicyName = `${this._name}-lrp`;
-        (0, n_defensive_1.given)(logRolePolicyName, "logRolePolicyName").ensure(t => t.length <= 25, "name is too long");
         new iam_1.RolePolicy(logRolePolicyName, {
             role: logRole.id,
             policy: {
@@ -146,7 +151,6 @@ class VpcProvisioner {
             }
         });
         const flowLogName = `${this._name}-fl`;
-        (0, n_defensive_1.given)(flowLogName, "flowLogName").ensure(t => t.length <= 25, "name is too long");
         new ec2_1.FlowLog(flowLogName, {
             iamRoleArn: logRole.arn,
             logDestination: logGroup.arn,
