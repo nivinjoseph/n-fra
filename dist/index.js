@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AppLoadBalancerProvisioner = exports.GrpcAppProvisioner = exports.HttpAppProvisioner = exports.WorkerAppProvisioner = exports.RedisProvisioner = exports.MemorydbProvisioner = exports.Aspv2Provisioner = exports.Aspv1Provisioner = exports.DatadogIntegrationProvisioner = exports.SecretsProvisioner = exports.AccessKeyProvisioner = exports.S3bucketProvisioner = exports.VpcProvisioner = exports.VpcAz = exports.VpcSubnetType = exports.EnvType = exports.InfraConfig = void 0;
+exports.AlbProvisioner = exports.GrpcAppProvisioner = exports.HttpAppProvisioner = exports.WorkerAppProvisioner = exports.RedisProvisioner = exports.MemorydbProvisioner = exports.Aspv2Provisioner = exports.Aspv1Provisioner = exports.DatadogIntegrationProvisioner = exports.SecretsProvisioner = exports.AccessKeyProvisioner = exports.S3bucketProvisioner = exports.VpcProvisioner = exports.VpcAz = exports.VpcSubnetType = exports.EnvType = exports.InfraConfig = void 0;
 require("@nivinjoseph/n-ext");
 var infra_config_1 = require("./infra-config");
 Object.defineProperty(exports, "InfraConfig", { enumerable: true, get: function () { return infra_config_1.InfraConfig; } });
@@ -34,6 +34,6 @@ var http_app_provisioner_1 = require("./app/http/http-app-provisioner");
 Object.defineProperty(exports, "HttpAppProvisioner", { enumerable: true, get: function () { return http_app_provisioner_1.HttpAppProvisioner; } });
 var grpc_app_provisioner_1 = require("./app/grpc/grpc-app-provisioner");
 Object.defineProperty(exports, "GrpcAppProvisioner", { enumerable: true, get: function () { return grpc_app_provisioner_1.GrpcAppProvisioner; } });
-var app_load_balancer_provisioner_1 = require("./ingress/app-load-balancer-provisioner");
-Object.defineProperty(exports, "AppLoadBalancerProvisioner", { enumerable: true, get: function () { return app_load_balancer_provisioner_1.AppLoadBalancerProvisioner; } });
+var alb_provisioner_1 = require("./ingress/alb-provisioner");
+Object.defineProperty(exports, "AlbProvisioner", { enumerable: true, get: function () { return alb_provisioner_1.AlbProvisioner; } });
 //# sourceMappingURL=index.js.map
