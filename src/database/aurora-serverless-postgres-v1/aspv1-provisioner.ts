@@ -1,6 +1,6 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { Cluster, EngineMode, EngineType, SubnetGroup } from "@pulumi/aws/rds";
-import { VpcInfo } from "../../vpc/vpc-info";
+import { VpcDetails } from "../../vpc/vpc-details";
 import { Aspv1Config } from "./aspv1-config";
 import { Aspv1Details } from "./aspv1-details";
 import * as Pulumi from "@pulumi/pulumi";
@@ -14,17 +14,17 @@ import { EnvType } from "../../env-type";
 export class Aspv1Provisioner
 {
     private readonly _name: string;
-    private readonly _vpcInfo: VpcInfo;
+    private readonly _vpcDetails: VpcDetails;
     private readonly _config: Aspv1Config;
 
 
-    public constructor(name: string, vpcInfo: VpcInfo, config: Aspv1Config)
+    public constructor(name: string, vpcDetails: VpcDetails, config: Aspv1Config)
     {
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
 
-        given(vpcInfo, "vpcInfo").ensureHasValue().ensureIsObject();
-        this._vpcInfo = vpcInfo;
+        given(vpcDetails, "vpcDetails").ensureHasValue().ensureIsObject();
+        this._vpcDetails = vpcDetails;
 
         given(config, "config").ensureHasValue().ensureIsObject().ensureHasStructure({
             subnetNamePrefix: "string",
@@ -46,7 +46,7 @@ export class Aspv1Provisioner
         
         const subnetGroupName = `${this._name}-subnet-grp`;
         const subnetGroup = new SubnetGroup(subnetGroupName, {
-            subnetIds: Pulumi.output(this._vpcInfo.vpc.getSubnets("isolated"))
+            subnetIds: Pulumi.output(this._vpcDetails.vpc.getSubnets("isolated"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
             tags: {
                 ...InfraConfig.tags,
@@ -56,12 +56,12 @@ export class Aspv1Provisioner
         
         const secGroupName = `${this._name}-sg`;
         const secGroup = new SecurityGroup(secGroupName, {
-            vpc: this._vpcInfo.vpc,
+            vpc: this._vpcDetails.vpc,
             ingress: [{
                 protocol: "tcp",
                 fromPort: postgresDbPort,
                 toPort: postgresDbPort,
-                cidrBlocks: Pulumi.output(this._vpcInfo.vpc.getSubnets("private"))
+                cidrBlocks: Pulumi.output(this._vpcDetails.vpc.getSubnets("private"))
                     .apply((subnets) =>
                         subnets.where(subnet =>
                             this._config.ingressSubnetNamePrefixes.some(prefix =>

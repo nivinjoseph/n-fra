@@ -2,7 +2,7 @@ export { InfraConfig } from "./infra-config";
 export { EnvType } from "./env-type";
 
 export { VpcProvisioner } from "./vpc/vpc-provisioner";
-export { VpcInfo } from "./vpc/vpc-info";
+export { VpcDetails } from "./vpc/vpc-details";
 export { VpcAz } from "./vpc/vpc-az";
 
 export { S3bucketConfig } from "./storage/s3bucket-config";

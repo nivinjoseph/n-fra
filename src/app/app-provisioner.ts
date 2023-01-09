@@ -1,6 +1,6 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { ArgumentException } from "@nivinjoseph/n-exception";
-import { VpcInfo } from "../vpc/vpc-info";
+import { VpcDetails } from "../vpc/vpc-details";
 import { AppConfig } from "./app-config";
 import * as Pulumi from "@pulumi/pulumi";
 import { ManagedPolicy, Policy, Role } from "@pulumi/aws/iam";
@@ -14,25 +14,25 @@ import { VirtualNode } from "@pulumi/aws/appmesh";
 export abstract class AppProvisioner<T extends AppConfig>
 {
     private readonly _name: string;
-    private readonly _vpcInfo: VpcInfo;
+    private readonly _vpcDetails: VpcDetails;
     private readonly _config: T;
     private readonly _version: string;
 
 
     protected get name(): string { return this._name; }
-    protected get vpcInfo(): VpcInfo { return this._vpcInfo; }
+    protected get vpcDetails(): VpcDetails { return this._vpcDetails; }
     protected get config(): T { return this._config; }
     protected get version(): string { return this._version; }
     protected get hasDatadog(): boolean { return this._config.datadogConfig != null; }
 
 
-    protected constructor(name: string, vpcInfo: VpcInfo, config: T)
+    protected constructor(name: string, vpcDetails: VpcDetails, config: T)
     {
         given(name, "serviceName").ensureHasValue().ensureIsString();
         this._name = name;
 
-        given(vpcInfo, "vpcInfo").ensureHasValue().ensureIsObject();
-        this._vpcInfo = vpcInfo;
+        given(vpcDetails, "vpcDetails").ensureHasValue().ensureIsObject();
+        this._vpcDetails = vpcDetails;
 
         const defaultConfig: Partial<AppConfig> = {
             cpu: 512,

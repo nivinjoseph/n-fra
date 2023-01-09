@@ -1,6 +1,6 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { ParameterGroup, ReplicationGroup, SubnetGroup } from "@pulumi/aws/elasticache";
-import { VpcInfo } from "../../vpc/vpc-info";
+import { VpcDetails } from "../../vpc/vpc-details";
 import { RedisConfig } from "./redis-config";
 import * as Pulumi from "@pulumi/pulumi";
 import { InfraConfig } from "../../infra-config";
@@ -13,17 +13,17 @@ import { RedisDetails } from "./redis-details";
 export class RedisProvisioner
 {
     private readonly _name: string;
-    private readonly _vpcInfo: VpcInfo;
+    private readonly _vpcDetails: VpcDetails;
     private readonly _config: RedisConfig;
     
     
-    public constructor(name: string, vpcInfo: VpcInfo, config: RedisConfig)
+    public constructor(name: string, vpcDetails: VpcDetails, config: RedisConfig)
     {
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
         
-        given(vpcInfo, "vpcInfo").ensureHasValue().ensureIsObject();
-        this._vpcInfo = vpcInfo;
+        given(vpcDetails, "vpcDetails").ensureHasValue().ensureIsObject();
+        this._vpcDetails = vpcDetails;
         
         given(config, "config").ensureHasValue().ensureIsObject().ensureHasStructure({
             subnetNamePrefix: "string",
@@ -40,7 +40,7 @@ export class RedisProvisioner
         
         const subnetGroupName = `${this._name}-subnet-grp`;
         const subnetGroup = new SubnetGroup(subnetGroupName, {
-            subnetIds: Pulumi.output(this._vpcInfo.vpc.getSubnets("isolated"))
+            subnetIds: Pulumi.output(this._vpcDetails.vpc.getSubnets("isolated"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
             tags: {
                 ...InfraConfig.tags,
@@ -50,12 +50,12 @@ export class RedisProvisioner
 
         const secGroupName = `${this._name}-sg`;
         const secGroup = new SecurityGroup(secGroupName, {
-            vpc: this._vpcInfo.vpc,
+            vpc: this._vpcDetails.vpc,
             ingress: [{
                 protocol: "tcp",
                 fromPort: redisPort,
                 toPort: redisPort,
-                cidrBlocks: Pulumi.output(this._vpcInfo.vpc.getSubnets("private"))
+                cidrBlocks: Pulumi.output(this._vpcDetails.vpc.getSubnets("private"))
                     .apply((subnets) =>
                         subnets.where(subnet =>
                             this._config.ingressSubnetNamePrefixes.some(prefix =>

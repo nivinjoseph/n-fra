@@ -2,7 +2,7 @@ import { SecurityGroup } from "@pulumi/awsx/ec2";
 import { AppProvisioner } from "../app-provisioner";
 import * as Pulumi from "@pulumi/pulumi";
 import { given } from "@nivinjoseph/n-defensive";
-import { VpcInfo } from "../../vpc/vpc-info";
+import { VpcDetails } from "../../vpc/vpc-details";
 import { InfraConfig } from "../../infra-config";
 // import { Instance as SdInstance, Service as SdService } from "@pulumi/aws/servicediscovery";
 import { Service as SdService } from "@pulumi/aws/servicediscovery";
@@ -15,9 +15,9 @@ import { GrpcAppConfig } from "./grpc-app-config";
 
 export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
 {
-    public constructor(name: string, vpcInfo: VpcInfo, config: GrpcAppConfig)
+    public constructor(name: string, vpcDetails: VpcDetails, config: GrpcAppConfig)
     {
-        super(name, vpcInfo, config);
+        super(name, vpcDetails, config);
 
         given(config, "config").ensureHasStructure({
             ingressSubnetNamePrefixes: ["string"],
@@ -33,13 +33,13 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
 
         const secGroupName = `${this.name}-sg`;
         const secGroup = new SecurityGroup(secGroupName, {
-            vpc: this.vpcInfo.vpc,
+            vpc: this.vpcDetails.vpc,
             ingress: [
                 {
                     protocol: "tcp",
                     fromPort: grpcPort,
                     toPort: grpcPort,
-                    cidrBlocks: Pulumi.output(this.vpcInfo.vpc.getSubnets("private"))
+                    cidrBlocks: Pulumi.output(this.vpcDetails.vpc.getSubnets("private"))
                         .apply((subnets) =>
                             subnets.where(subnet =>
                                 this.config.ingressSubnetNamePrefixes.some(prefix =>
@@ -64,7 +64,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
         const sdService = new SdService(sdServiceName, {
             name: this.name,
             dnsConfig: {
-                namespaceId: this.vpcInfo.privateDnsNamespace.id,
+                namespaceId: this.vpcDetails.privateDnsNamespace.id,
                 dnsRecords: [{
                     type: "A",
                     ttl: 300
@@ -97,7 +97,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
         const virtualNodeName = `${this.name}-vnode`;
         const virtualNode = new VirtualNode(virtualNodeName, {
             name: virtualNodeName,
-            meshName: this.vpcInfo.serviceMesh.name,
+            meshName: this.vpcDetails.serviceMesh.name,
             spec: {
                 listener: {
                     portMapping: {
@@ -131,7 +131,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
                 // },
                 serviceDiscovery: {
                     awsCloudMap: {
-                        namespaceName: this.vpcInfo.privateDnsNamespace.name,
+                        namespaceName: this.vpcDetails.privateDnsNamespace.name,
                         serviceName: sdService.name,
                         attributes: {
                             "ECS_TASK_DEFINITION_FAMILY": ecsTaskDefFam
@@ -147,8 +147,8 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
 
         const virtualServiceName = `${this.name}-vsvc`;
         new VirtualService(virtualServiceName, {
-            name: Pulumi.interpolate`${this.name}.${this.vpcInfo.privateDnsNamespace.name}`,
-            meshName: this.vpcInfo.serviceMesh.name,
+            name: Pulumi.interpolate`${this.name}.${this.vpcDetails.privateDnsNamespace.name}`,
+            meshName: this.vpcDetails.serviceMesh.name,
             spec: {
                 provider: {
                     virtualNode: {
@@ -226,7 +226,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
             cluster: cluster.arn,
             taskDefinition: taskDefinition.arn,
             networkConfiguration: {
-                subnets: Pulumi.output(this.vpcInfo.vpc.getSubnets("private"))
+                subnets: Pulumi.output(this.vpcDetails.vpc.getSubnets("private"))
                     .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this.config.subnetNamePrefix))
                         .map(t => t.id)),
                 assignPublicIp: false,

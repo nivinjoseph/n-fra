@@ -3,9 +3,9 @@ import { PrivateDnsNamespace } from "@pulumi/aws/servicediscovery";
 import { Vpc } from "@pulumi/awsx/ec2";
 
 
-export interface VpcInfo
+export interface VpcDetails
 {
-    get vpc(): Vpc;
-    get serviceMesh(): Mesh;
-    get privateDnsNamespace(): PrivateDnsNamespace;
+    vpc: Vpc;
+    serviceMesh: Mesh;
+    privateDnsNamespace: PrivateDnsNamespace;
 }

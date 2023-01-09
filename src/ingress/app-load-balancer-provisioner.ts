@@ -1,6 +1,6 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { SecurityGroup } from "@pulumi/awsx/ec2";
-import { VpcInfo } from "../vpc/vpc-info";
+import { VpcDetails } from "../vpc/vpc-details";
 import { AppLoadBalancerConfig } from "./app-load-balancer-config";
 import { AppLoadBalancerDetails } from "./app-load-balancer-details";
 import * as Pulumi from "@pulumi/pulumi";
@@ -14,17 +14,17 @@ import { Distribution } from "@pulumi/aws/cloudfront";
 export class AppLoadBalancerProvisioner
 {
     private readonly _name: string;
-    private readonly _vpcInfo: VpcInfo;
+    private readonly _vpcDetails: VpcDetails;
     private readonly _config: AppLoadBalancerConfig;
     
     
-    public constructor(name: string, vpcInfo: VpcInfo, config: AppLoadBalancerConfig)
+    public constructor(name: string, vpcDetails: VpcDetails, config: AppLoadBalancerConfig)
     {
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
         
-        given(vpcInfo, "vpcInfo").ensureHasValue().ensureIsObject();
-        this._vpcInfo = vpcInfo;
+        given(vpcDetails, "vpcDetails").ensureHasValue().ensureIsObject();
+        this._vpcDetails = vpcDetails;
         
         given(config, "config").ensureHasValue().ensureIsObject().ensureHasStructure({
             subnetNamePrefix: "string",
@@ -60,7 +60,7 @@ export class AppLoadBalancerProvisioner
     {
         const albSecGroupName = `${this._name}-sg`;
         const appAlbSecGroup = new SecurityGroup(albSecGroupName, {
-            vpc: this._vpcInfo.vpc,
+            vpc: this._vpcDetails.vpc,
             ingress: [
                 {
                     protocol: "tcp",
@@ -79,7 +79,7 @@ export class AppLoadBalancerProvisioner
                 protocol: "tcp",
                 fromPort: 80,
                 toPort: 80,
-                cidrBlocks: Pulumi.output(this._vpcInfo.vpc.getSubnets("private"))
+                cidrBlocks: Pulumi.output(this._vpcDetails.vpc.getSubnets("private"))
                     .apply((subnets) =>
                         subnets.where(subnet =>
                             this._config.egressSubnetNamePrefixes.some(prefix =>
@@ -96,8 +96,8 @@ export class AppLoadBalancerProvisioner
         const alb = new ApplicationLoadBalancer(albName, {
             external: true,
             ipAddressType: "ipv4",
-            vpc: this._vpcInfo.vpc,
-            subnets: Pulumi.output(this._vpcInfo.vpc.getSubnets("public"))
+            vpc: this._vpcDetails.vpc,
+            subnets: Pulumi.output(this._vpcDetails.vpc.getSubnets("public"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
             securityGroups: [appAlbSecGroup],
             tags: { 
