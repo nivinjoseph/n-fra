@@ -12,11 +12,11 @@ const env_type_1 = require("../../env-type");
 const secretsmanager_1 = require("@pulumi/aws/secretsmanager");
 const iam_1 = require("@pulumi/aws/iam");
 class Aspv2Provisioner {
-    constructor(name, vpcInfo, config) {
+    constructor(name, vpcDetails, config) {
         (0, n_defensive_1.given)(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
-        (0, n_defensive_1.given)(vpcInfo, "vpcInfo").ensureHasValue().ensureIsObject();
-        this._vpcInfo = vpcInfo;
+        (0, n_defensive_1.given)(vpcDetails, "vpcDetails").ensureHasValue().ensureIsObject();
+        this._vpcDetails = vpcDetails;
         (0, n_defensive_1.given)(config, "config").ensureHasValue().ensureIsObject().ensureHasStructure({
             subnetNamePrefix: "string",
             ingressSubnetNamePrefixes: ["string"],
@@ -30,7 +30,7 @@ class Aspv2Provisioner {
     }
     provision() {
         const postgresDbPort = 5432;
-        const dbSubnets = Pulumi.output(this._vpcInfo.vpc.getSubnets("isolated"))
+        const dbSubnets = Pulumi.output(this._vpcDetails.vpc.getSubnets("isolated"))
             .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)));
         const subnetGroupName = `${this._name}-subnet-grp`;
         const subnetGroup = new rds_1.SubnetGroup(subnetGroupName, {
@@ -39,12 +39,12 @@ class Aspv2Provisioner {
         });
         const proxySecGroupName = `${this._name}-proxy-sg`;
         const dbProxySecGroup = new ec2_1.SecurityGroup(proxySecGroupName, {
-            vpc: this._vpcInfo.vpc,
+            vpc: this._vpcDetails.vpc,
             ingress: [{
                     protocol: "tcp",
                     fromPort: postgresDbPort,
                     toPort: postgresDbPort,
-                    cidrBlocks: Pulumi.output(this._vpcInfo.vpc.getSubnets("private"))
+                    cidrBlocks: Pulumi.output(this._vpcDetails.vpc.getSubnets("private"))
                         .apply((subnets) => subnets.where(subnet => this._config.ingressSubnetNamePrefixes.some(prefix => subnet.subnetName.startsWith(prefix)))
                         .map(t => t.subnet.cidrBlock))
                 }],
@@ -58,7 +58,7 @@ class Aspv2Provisioner {
         });
         const dbSecGroupName = `${this._name}-db-sg`;
         const dbSecGroup = new ec2_1.SecurityGroup(dbSecGroupName, {
-            vpc: this._vpcInfo.vpc,
+            vpc: this._vpcDetails.vpc,
             ingress: [{
                     protocol: "tcp",
                     fromPort: postgresDbPort,

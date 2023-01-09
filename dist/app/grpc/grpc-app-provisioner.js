@@ -13,8 +13,8 @@ const taskDefinition_1 = require("@pulumi/aws/ecs/taskDefinition");
 const ecs_1 = require("@pulumi/aws/ecs");
 const appautoscaling_1 = require("@pulumi/aws/appautoscaling");
 class GrpcAppProvisioner extends app_provisioner_1.AppProvisioner {
-    constructor(name, vpcInfo, config) {
-        super(name, vpcInfo, config);
+    constructor(name, vpcDetails, config) {
+        super(name, vpcDetails, config);
         (0, n_defensive_1.given)(config, "config").ensureHasStructure({
             ingressSubnetNamePrefixes: ["string"],
             healthCheckPath: "string",
@@ -26,13 +26,13 @@ class GrpcAppProvisioner extends app_provisioner_1.AppProvisioner {
         const grpcPort = 50051;
         const secGroupName = `${this.name}-sg`;
         const secGroup = new ec2_1.SecurityGroup(secGroupName, {
-            vpc: this.vpcInfo.vpc,
+            vpc: this.vpcDetails.vpc,
             ingress: [
                 {
                     protocol: "tcp",
                     fromPort: grpcPort,
                     toPort: grpcPort,
-                    cidrBlocks: Pulumi.output(this.vpcInfo.vpc.getSubnets("private"))
+                    cidrBlocks: Pulumi.output(this.vpcDetails.vpc.getSubnets("private"))
                         .apply((subnets) => subnets.where(subnet => this.config.ingressSubnetNamePrefixes.some(prefix => subnet.subnetName.startsWith(prefix)))
                         .map(t => t.subnet.cidrBlock))
                 }
@@ -50,7 +50,7 @@ class GrpcAppProvisioner extends app_provisioner_1.AppProvisioner {
         const sdService = new servicediscovery_1.Service(sdServiceName, {
             name: this.name,
             dnsConfig: {
-                namespaceId: this.vpcInfo.privateDnsNamespace.id,
+                namespaceId: this.vpcDetails.privateDnsNamespace.id,
                 dnsRecords: [{
                         type: "A",
                         ttl: 300
@@ -77,7 +77,7 @@ class GrpcAppProvisioner extends app_provisioner_1.AppProvisioner {
         const virtualNodeName = `${this.name}-vnode`;
         const virtualNode = new appmesh_1.VirtualNode(virtualNodeName, {
             name: virtualNodeName,
-            meshName: this.vpcInfo.serviceMesh.name,
+            meshName: this.vpcDetails.serviceMesh.name,
             spec: {
                 listener: {
                     portMapping: {
@@ -111,7 +111,7 @@ class GrpcAppProvisioner extends app_provisioner_1.AppProvisioner {
                 // },
                 serviceDiscovery: {
                     awsCloudMap: {
-                        namespaceName: this.vpcInfo.privateDnsNamespace.name,
+                        namespaceName: this.vpcDetails.privateDnsNamespace.name,
                         serviceName: sdService.name,
                         attributes: {
                             "ECS_TASK_DEFINITION_FAMILY": ecsTaskDefFam
@@ -123,8 +123,8 @@ class GrpcAppProvisioner extends app_provisioner_1.AppProvisioner {
         });
         const virtualServiceName = `${this.name}-vsvc`;
         new appmesh_1.VirtualService(virtualServiceName, {
-            name: Pulumi.interpolate `${this.name}.${this.vpcInfo.privateDnsNamespace.name}`,
-            meshName: this.vpcInfo.serviceMesh.name,
+            name: Pulumi.interpolate `${this.name}.${this.vpcDetails.privateDnsNamespace.name}`,
+            meshName: this.vpcDetails.serviceMesh.name,
             spec: {
                 provider: {
                     virtualNode: {
@@ -190,7 +190,7 @@ class GrpcAppProvisioner extends app_provisioner_1.AppProvisioner {
             cluster: cluster.arn,
             taskDefinition: taskDefinition.arn,
             networkConfiguration: {
-                subnets: Pulumi.output(this.vpcInfo.vpc.getSubnets("private"))
+                subnets: Pulumi.output(this.vpcDetails.vpc.getSubnets("private"))
                     .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this.config.subnetNamePrefix))
                     .map(t => t.id)),
                 assignPublicIp: false,

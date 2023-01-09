@@ -11,13 +11,13 @@ const appmesh_1 = require("@pulumi/aws/appmesh");
 const taskDefinition_1 = require("@pulumi/aws/ecs/taskDefinition");
 const ecs_1 = require("@pulumi/aws/ecs");
 class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
-    constructor(name, vpcInfo, config) {
-        super(name, vpcInfo, config);
+    constructor(name, vpcDetails, config) {
+        super(name, vpcDetails, config);
     }
     provision() {
         const secGroupName = `${this.name}-sg`;
         const secGroup = new ec2_1.SecurityGroup(secGroupName, {
-            vpc: this.vpcInfo.vpc,
+            vpc: this.vpcDetails.vpc,
             egress: [{
                     fromPort: 0,
                     toPort: 0,
@@ -31,7 +31,7 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
         const sdService = new servicediscovery_1.Service(sdServiceName, {
             name: this.name,
             dnsConfig: {
-                namespaceId: this.vpcInfo.privateDnsNamespace.id,
+                namespaceId: this.vpcDetails.privateDnsNamespace.id,
                 dnsRecords: [{
                         type: "A",
                         ttl: 300
@@ -48,7 +48,7 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
         const virtualNodeName = `${this.name}-vnode`;
         const virtualNode = new appmesh_1.VirtualNode(virtualNodeName, {
             name: virtualNodeName,
-            meshName: this.vpcInfo.serviceMesh.name,
+            meshName: this.vpcDetails.serviceMesh.name,
             spec: {
                 listener: {
                     portMapping: {
@@ -65,7 +65,7 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
                 // },
                 serviceDiscovery: {
                     awsCloudMap: {
-                        namespaceName: this.vpcInfo.privateDnsNamespace.name,
+                        namespaceName: this.vpcDetails.privateDnsNamespace.name,
                         serviceName: sdService.name,
                         attributes: {
                             "ECS_TASK_DEFINITION_FAMILY": ecsTaskDefFam
@@ -77,8 +77,8 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
         });
         const virtualServiceName = `${this.name}-vsvc`;
         new appmesh_1.VirtualService(virtualServiceName, {
-            name: Pulumi.interpolate `${this.name}.${this.vpcInfo.privateDnsNamespace.name}`,
-            meshName: this.vpcInfo.serviceMesh.name,
+            name: Pulumi.interpolate `${this.name}.${this.vpcDetails.privateDnsNamespace.name}`,
+            meshName: this.vpcDetails.serviceMesh.name,
             spec: {
                 provider: {
                     virtualNode: {
@@ -138,7 +138,7 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
             cluster: cluster.arn,
             taskDefinition: taskDefinition.arn,
             networkConfiguration: {
-                subnets: Pulumi.output(this.vpcInfo.vpc.getSubnets("private"))
+                subnets: Pulumi.output(this.vpcDetails.vpc.getSubnets("private"))
                     .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this.config.subnetNamePrefix))
                     .map(t => t.id)),
                 assignPublicIp: false,

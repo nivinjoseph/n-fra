@@ -9,11 +9,11 @@ const ec2_1 = require("@pulumi/awsx/ec2");
 const env_type_1 = require("../../env-type");
 const vpc_az_1 = require("../../vpc/vpc-az");
 class RedisProvisioner {
-    constructor(name, vpcInfo, config) {
+    constructor(name, vpcDetails, config) {
         (0, n_defensive_1.given)(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
-        (0, n_defensive_1.given)(vpcInfo, "vpcInfo").ensureHasValue().ensureIsObject();
-        this._vpcInfo = vpcInfo;
+        (0, n_defensive_1.given)(vpcDetails, "vpcDetails").ensureHasValue().ensureIsObject();
+        this._vpcDetails = vpcDetails;
         (0, n_defensive_1.given)(config, "config").ensureHasValue().ensureIsObject().ensureHasStructure({
             subnetNamePrefix: "string",
             ingressSubnetNamePrefixes: ["string"],
@@ -25,18 +25,18 @@ class RedisProvisioner {
         const redisPort = 6379;
         const subnetGroupName = `${this._name}-subnet-grp`;
         const subnetGroup = new elasticache_1.SubnetGroup(subnetGroupName, {
-            subnetIds: Pulumi.output(this._vpcInfo.vpc.getSubnets("isolated"))
+            subnetIds: Pulumi.output(this._vpcDetails.vpc.getSubnets("isolated"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: subnetGroupName })
         });
         const secGroupName = `${this._name}-sg`;
         const secGroup = new ec2_1.SecurityGroup(secGroupName, {
-            vpc: this._vpcInfo.vpc,
+            vpc: this._vpcDetails.vpc,
             ingress: [{
                     protocol: "tcp",
                     fromPort: redisPort,
                     toPort: redisPort,
-                    cidrBlocks: Pulumi.output(this._vpcInfo.vpc.getSubnets("private"))
+                    cidrBlocks: Pulumi.output(this._vpcDetails.vpc.getSubnets("private"))
                         .apply((subnets) => subnets.where(subnet => this._config.ingressSubnetNamePrefixes.some(prefix => subnet.subnetName.startsWith(prefix)))
                         .map(t => t.subnet.cidrBlock))
                 }],

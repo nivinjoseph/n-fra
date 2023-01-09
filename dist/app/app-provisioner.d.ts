@@ -1,4 +1,4 @@
-import { VpcInfo } from "../vpc/vpc-info";
+import { VpcDetails } from "../vpc/vpc-details";
 import { AppConfig } from "./app-config";
 import * as Pulumi from "@pulumi/pulumi";
 import { Role } from "@pulumi/aws/iam";
@@ -6,15 +6,15 @@ import { Container } from "@pulumi/awsx/ecs";
 import { VirtualNode } from "@pulumi/aws/appmesh";
 export declare abstract class AppProvisioner<T extends AppConfig> {
     private readonly _name;
-    private readonly _vpcInfo;
+    private readonly _vpcDetails;
     private readonly _config;
     private readonly _version;
     protected get name(): string;
-    protected get vpcInfo(): VpcInfo;
+    protected get vpcDetails(): VpcDetails;
     protected get config(): T;
     protected get version(): string;
     protected get hasDatadog(): boolean;
-    protected constructor(name: string, vpcInfo: VpcInfo, config: T);
+    protected constructor(name: string, vpcDetails: VpcDetails, config: T);
     abstract provision(): void;
     protected createExecutionRole(): Pulumi.Output<Role>;
     protected createTaskRole(): Pulumi.Output<Role>;

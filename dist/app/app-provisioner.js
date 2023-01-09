@@ -9,15 +9,15 @@ const ecs_1 = require("@pulumi/awsx/ecs");
 const infra_config_1 = require("../infra-config");
 class AppProvisioner {
     get name() { return this._name; }
-    get vpcInfo() { return this._vpcInfo; }
+    get vpcDetails() { return this._vpcDetails; }
     get config() { return this._config; }
     get version() { return this._version; }
     get hasDatadog() { return this._config.datadogConfig != null; }
-    constructor(name, vpcInfo, config) {
+    constructor(name, vpcDetails, config) {
         (0, n_defensive_1.given)(name, "serviceName").ensureHasValue().ensureIsString();
         this._name = name;
-        (0, n_defensive_1.given)(vpcInfo, "vpcInfo").ensureHasValue().ensureIsObject();
-        this._vpcInfo = vpcInfo;
+        (0, n_defensive_1.given)(vpcDetails, "vpcDetails").ensureHasValue().ensureIsObject();
+        this._vpcDetails = vpcDetails;
         const defaultConfig = {
             cpu: 512,
             memory: 1024,

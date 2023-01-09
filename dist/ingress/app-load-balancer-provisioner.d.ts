@@ -1,11 +1,11 @@
-import { VpcInfo } from "../vpc/vpc-info";
+import { VpcDetails } from "../vpc/vpc-details";
 import { AppLoadBalancerConfig } from "./app-load-balancer-config";
 import { AppLoadBalancerDetails } from "./app-load-balancer-details";
 export declare class AppLoadBalancerProvisioner {
     private readonly _name;
-    private readonly _vpcInfo;
+    private readonly _vpcDetails;
     private readonly _config;
-    constructor(name: string, vpcInfo: VpcInfo, config: AppLoadBalancerConfig);
+    constructor(name: string, vpcDetails: VpcDetails, config: AppLoadBalancerConfig);
     provision(): AppLoadBalancerDetails;
     private _provisionWaf;
     private _provisionCloudFrontDistro;

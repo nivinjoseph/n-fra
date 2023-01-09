@@ -1,25 +1,19 @@
-import { Mesh } from "@pulumi/aws/appmesh";
-import { PrivateDnsNamespace } from "@pulumi/aws/servicediscovery";
-import { VpcSubnetArgs, VpcSubnetType, Vpc } from "@pulumi/awsx/ec2";
+import { VpcSubnetArgs, VpcSubnetType } from "@pulumi/awsx/ec2";
 import { VpcAz } from "./vpc-az";
-import { VpcInfo } from "./vpc-info";
-export declare abstract class VpcProvisioner implements VpcInfo {
+import { VpcConfig } from "./vpc-config";
+import { VpcDetails } from "./vpc-details";
+export declare abstract class VpcProvisioner {
     private readonly _name;
-    private readonly _enableVpcFlowLogs;
-    private readonly _cidrNet;
+    private readonly _config;
     private _vpc;
     private _serviceMesh;
     private _pvtDnsNsp;
-    get vpc(): Vpc;
-    get serviceMesh(): Mesh;
-    get privateDnsNamespace(): PrivateDnsNamespace;
-    protected constructor(name: string, enableVpcFlowLogs?: boolean);
-    provision(): void;
+    protected constructor(name: string, config: VpcConfig);
+    provision(): VpcDetails;
     /**
      * @summary keep this implementation idempotent
      */
     protected abstract defineSubnets(): Array<VpcSubnetArgs>;
-    protected createSubnet(name: string, type: VpcSubnetType, cidrNumber: number, az: VpcAz): VpcSubnetArgs;
-    private _calculateCidrNet;
+    protected createSubnet(name: string, type: VpcSubnetType, cidrOctet3: number, az: VpcAz): VpcSubnetArgs;
     private _provisionVpcFlowLogs;
 }

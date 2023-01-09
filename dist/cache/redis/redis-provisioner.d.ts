@@ -1,10 +1,10 @@
-import { VpcInfo } from "../../vpc/vpc-info";
+import { VpcDetails } from "../../vpc/vpc-details";
 import { RedisConfig } from "./redis-config";
 import { RedisDetails } from "./redis-details";
 export declare class RedisProvisioner {
     private readonly _name;
-    private readonly _vpcInfo;
+    private readonly _vpcDetails;
     private readonly _config;
-    constructor(name: string, vpcInfo: VpcInfo, config: RedisConfig);
+    constructor(name: string, vpcDetails: VpcDetails, config: RedisConfig);
     provision(): RedisDetails;
 }

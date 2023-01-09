@@ -10,12 +10,12 @@ const lb_2 = require("@pulumi/aws/lb");
 const wafv2_1 = require("@pulumi/aws/wafv2");
 const cloudfront_1 = require("@pulumi/aws/cloudfront");
 class AppLoadBalancerProvisioner {
-    constructor(name, vpcInfo, config) {
+    constructor(name, vpcDetails, config) {
         var _a, _b;
         (0, n_defensive_1.given)(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
-        (0, n_defensive_1.given)(vpcInfo, "vpcInfo").ensureHasValue().ensureIsObject();
-        this._vpcInfo = vpcInfo;
+        (0, n_defensive_1.given)(vpcDetails, "vpcDetails").ensureHasValue().ensureIsObject();
+        this._vpcDetails = vpcDetails;
         (0, n_defensive_1.given)(config, "config").ensureHasValue().ensureIsObject().ensureHasStructure({
             subnetNamePrefix: "string",
             egressSubnetNamePrefixes: ["string"],
@@ -43,7 +43,7 @@ class AppLoadBalancerProvisioner {
     provision() {
         const albSecGroupName = `${this._name}-sg`;
         const appAlbSecGroup = new ec2_1.SecurityGroup(albSecGroupName, {
-            vpc: this._vpcInfo.vpc,
+            vpc: this._vpcDetails.vpc,
             ingress: [
                 {
                     protocol: "tcp",
@@ -62,7 +62,7 @@ class AppLoadBalancerProvisioner {
                     protocol: "tcp",
                     fromPort: 80,
                     toPort: 80,
-                    cidrBlocks: Pulumi.output(this._vpcInfo.vpc.getSubnets("private"))
+                    cidrBlocks: Pulumi.output(this._vpcDetails.vpc.getSubnets("private"))
                         .apply((subnets) => subnets.where(subnet => this._config.egressSubnetNamePrefixes.some(prefix => subnet.subnetName.startsWith(prefix)))
                         .map(t => t.subnet.cidrBlock))
                 }],
@@ -72,8 +72,8 @@ class AppLoadBalancerProvisioner {
         const alb = new lb_1.ApplicationLoadBalancer(albName, {
             external: true,
             ipAddressType: "ipv4",
-            vpc: this._vpcInfo.vpc,
-            subnets: Pulumi.output(this._vpcInfo.vpc.getSubnets("public"))
+            vpc: this._vpcDetails.vpc,
+            subnets: Pulumi.output(this._vpcDetails.vpc.getSubnets("public"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
             securityGroups: [appAlbSecGroup],
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: albName })
