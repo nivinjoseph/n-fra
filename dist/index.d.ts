@@ -1,3 +1,4 @@
+import "@nivinjoseph/n-ext";
 export { InfraConfig } from "./infra-config";
 export { EnvType } from "./env-type";
 export { VpcProvisioner } from "./vpc/vpc-provisioner";
