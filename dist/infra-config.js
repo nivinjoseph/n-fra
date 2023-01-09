@@ -13,16 +13,18 @@ class InfraConfig {
         return env;
     }
     static get tags() {
-        return {
-            provisioner: "n-fra",
-            env: this.env
-        };
+        return Object.assign({ provisioner: "n-fra", env: this.env }, this._userTags);
     }
     static get ecr() {
         return `${this.awsAccount}.dkr.ecr.${this.awsRegion}.amazonaws.com`;
     }
     constructor() { }
+    static configureTags(tags) {
+        (0, n_defensive_1.given)(tags, "tags").ensureHasValue().ensureIsObject();
+        this._userTags = tags;
+    }
 }
 exports.InfraConfig = InfraConfig;
 InfraConfig._pulumiAwsConfig = new pulumi.Config("aws");
+InfraConfig._userTags = null;
 //# sourceMappingURL=infra-config.js.map
