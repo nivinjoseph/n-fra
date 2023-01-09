@@ -31,3 +31,7 @@ export { HttpAppConfig } from "./app/http/http-app-config";
 export { HttpAppProvisioner } from "./app/http/http-app-provisioner";
 export { GrpcAppConfig } from "./app/grpc/grpc-app-config";
 export { GrpcAppProvisioner } from "./app/grpc/grpc-app-provisioner";
+export { AppLoadBalancerConfig } from "./ingress/app-load-balancer-config";
+export { AppLoadBalancerTarget } from "./ingress/app-load-balancer-target";
+export { AppLoadBalancerProvisioner } from "./ingress/app-load-balancer-provisioner";
+export { AppLoadBalancerDetails } from "./ingress/app-load-balancer-details";
