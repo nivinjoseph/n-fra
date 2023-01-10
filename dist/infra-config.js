@@ -33,6 +33,6 @@ class InfraConfig {
 }
 exports.InfraConfig = InfraConfig;
 InfraConfig._pulumiAwsConfig = new Pulumi.Config("aws");
-InfraConfig._pulumiAppConfig = new Pulumi.Config("app");
+InfraConfig._pulumiAppConfig = new Pulumi.Config("nfra");
 InfraConfig._userTags = null;
 //# sourceMappingURL=infra-config.js.map
