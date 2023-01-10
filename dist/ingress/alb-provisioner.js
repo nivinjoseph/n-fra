@@ -95,7 +95,10 @@ class AlbProvisioner {
                     }
                 }],
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: httpListenerName })
-        }, { parent: alb });
+        }, {
+            parent: alb,
+            deleteBeforeReplace: true
+        });
         const httpsListenerName = `${this._name}-https-lnr`;
         const httpsListener = new aws.lb.Listener(httpsListenerName, {
             loadBalancerArn: alb.loadBalancer.arn,
@@ -112,7 +115,10 @@ class AlbProvisioner {
                     }
                 }],
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: httpsListenerName })
-        }, { parent: alb });
+        }, {
+            parent: alb,
+            deleteBeforeReplace: true
+        });
         const result = {};
         this._config.targets.forEach((target, index) => {
             const targetGroupName = `${this._name}-tgt-grp-${index}`;
