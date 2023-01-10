@@ -8,7 +8,7 @@ import * as aws from "@pulumi/aws";
 export class InfraConfig
 {
     private static readonly _pulumiAwsConfig = new Pulumi.Config("aws");
-    private static readonly _pulumiAppConfig = new Pulumi.Config("app");
+    private static readonly _pulumiAppConfig = new Pulumi.Config("nfra");
     private static _userTags: aws.Tags | null = null;
     
     public static get awsAccount(): string { return this._pulumiAwsConfig.require("account"); }
