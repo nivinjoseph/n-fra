@@ -11,7 +11,7 @@ export class InfraConfig
     private static readonly _pulumiAppConfig = new Pulumi.Config("nfra");
     private static _userTags: aws.Tags | null = null;
     
-    public static get awsAccount(): string { return this._pulumiAwsConfig.require("account"); }
+    public static get awsAccount(): string { return this._pulumiAwsConfig.require("allowedAccountIds"); }
     public static get awsRegion(): string { return this._pulumiAwsConfig.require("region"); }
     
     public static get env(): EnvType
