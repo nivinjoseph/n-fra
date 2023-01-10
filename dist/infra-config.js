@@ -5,7 +5,10 @@ const env_type_1 = require("./env-type");
 const Pulumi = require("@pulumi/pulumi");
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 class InfraConfig {
-    static get awsAccount() { return this._pulumiAwsConfig.require("allowedAccountIds"); }
+    static get awsAccount() {
+        const ids = this._pulumiAwsConfig.require("allowedAccountIds").toString();
+        return ids.trim().substring(1, ids.length - 1);
+    }
     static get awsRegion() { return this._pulumiAwsConfig.require("region"); }
     static get env() {
         const env = Pulumi.getStack();
