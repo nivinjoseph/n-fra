@@ -68,6 +68,7 @@ export class Aspv2Provisioner
                 protocol: "tcp",
                 fromPort: postgresDbPort,
                 toPort: postgresDbPort,
+                self: true,
                 cidrBlocks: Pulumi.output(this._vpcDetails.vpc.getSubnets("private"))
                     .apply((subnets) =>
                         subnets.where(subnet =>
@@ -96,6 +97,7 @@ export class Aspv2Provisioner
                 protocol: "tcp",
                 fromPort: postgresDbPort,
                 toPort: postgresDbPort,
+                self: true,
                 sourceSecurityGroupId: dbProxySecGroup.id
             }],
             tags: {

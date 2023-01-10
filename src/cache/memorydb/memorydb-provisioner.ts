@@ -58,6 +58,7 @@ export class MemorydbProvisioner
                 protocol: "tcp",
                 fromPort: memorydbPort,
                 toPort: memorydbPort,
+                self: true,
                 cidrBlocks: Pulumi.output(this._vpcDetails.vpc.getSubnets("private"))
                     .apply((subnets) =>
                         subnets.where(subnet =>

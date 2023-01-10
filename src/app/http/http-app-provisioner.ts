@@ -41,6 +41,7 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
                     protocol: "tcp",
                     fromPort: httpPort,
                     toPort: httpPort,
+                    self: false,
                     cidrBlocks: Pulumi.output(this.vpcDetails.vpc.getSubnets("private"))
                         .apply((subnets) =>
                             subnets.where(subnet =>
