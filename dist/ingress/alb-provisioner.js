@@ -53,12 +53,14 @@ class AlbProvisioner {
                     protocol: "tcp",
                     fromPort: 80,
                     toPort: 80,
+                    self: false,
                     cidrBlocks: ["0.0.0.0/0"]
                 },
                 {
                     protocol: "tcp",
                     fromPort: 443,
                     toPort: 443,
+                    self: false,
                     cidrBlocks: ["0.0.0.0/0"]
                 }
             ],
