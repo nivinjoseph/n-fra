@@ -126,7 +126,10 @@ export class AlbProvisioner
                 ...InfraConfig.tags,
                 Name: httpListenerName
             }
-        }, { parent: alb });
+        }, {
+            parent: alb,
+            deleteBeforeReplace: true
+        });
 
         const httpsListenerName = `${this._name}-https-lnr`;
         const httpsListener = new aws.lb.Listener(httpsListenerName, {
@@ -147,7 +150,10 @@ export class AlbProvisioner
                 ...InfraConfig.tags,
                 Name: httpsListenerName
             }
-        }, { parent: alb });
+        }, {
+            parent: alb,
+            deleteBeforeReplace: true
+        });
         
         
         const result: AlbDetails = {};
