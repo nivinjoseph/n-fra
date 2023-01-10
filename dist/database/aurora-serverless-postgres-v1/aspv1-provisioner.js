@@ -2,11 +2,14 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Aspv1Provisioner = void 0;
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
-const rds_1 = require("@pulumi/aws/rds");
+// import { Cluster, EngineMode, EngineType, SubnetGroup } from "@pulumi/aws/rds";
+const aws = require("@pulumi/aws");
 const Pulumi = require("@pulumi/pulumi");
 const infra_config_1 = require("../../infra-config");
-const ec2_1 = require("@pulumi/awsx/ec2");
-const random_1 = require("@pulumi/random");
+// import { SecurityGroup } from "@pulumi/awsx/ec2";
+const awsx = require("@pulumi/awsx");
+// import { RandomPassword } from "@pulumi/random";
+const random = require("@pulumi/random");
 const vpc_az_1 = require("../../vpc/vpc-az");
 const env_type_1 = require("../../env-type");
 class Aspv1Provisioner {
@@ -30,13 +33,13 @@ class Aspv1Provisioner {
     provision() {
         const postgresDbPort = 5432;
         const subnetGroupName = `${this._name}-subnet-grp`;
-        const subnetGroup = new rds_1.SubnetGroup(subnetGroupName, {
+        const subnetGroup = new aws.rds.SubnetGroup(subnetGroupName, {
             subnetIds: Pulumi.output(this._vpcDetails.vpc.getSubnets("isolated"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: subnetGroupName })
         });
         const secGroupName = `${this._name}-sg`;
-        const secGroup = new ec2_1.SecurityGroup(secGroupName, {
+        const secGroup = new awsx.ec2.SecurityGroup(secGroupName, {
             vpc: this._vpcDetails.vpc,
             ingress: [{
                     protocol: "tcp",
@@ -48,23 +51,23 @@ class Aspv1Provisioner {
                 }],
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: secGroupName })
         });
-        const dbPassword = new random_1.RandomPassword(`${this._name}-rpass`, {
+        const dbPassword = new random.RandomPassword(`${this._name}-rpass`, {
             length: 16,
             special: true,
             overrideSpecial: `_`
         });
         const isProd = infra_config_1.InfraConfig.env === env_type_1.EnvType.prod;
         const clusterName = `${this._name}-cluster`;
-        const postgresDbCluster = new rds_1.Cluster(clusterName, {
+        const postgresDbCluster = new aws.rds.Cluster(clusterName, {
             availabilityZones: [
                 infra_config_1.InfraConfig.awsRegion + vpc_az_1.VpcAz.a,
                 infra_config_1.InfraConfig.awsRegion + vpc_az_1.VpcAz.b,
                 infra_config_1.InfraConfig.awsRegion + vpc_az_1.VpcAz.c
             ],
-            engine: rds_1.EngineType.AuroraPostgresql,
+            engine: aws.rds.EngineType.AuroraPostgresql,
             allowMajorVersionUpgrade: false,
             // engineVersion: "", // TODO: this needs to be configurable, not sure if this can be set for serverless v1
-            engineMode: rds_1.EngineMode.Serverless,
+            engineMode: aws.rds.EngineMode.Serverless,
             dbSubnetGroupName: subnetGroup.name,
             vpcSecurityGroupIds: [secGroup.id],
             databaseName: this._config.databaseName,

@@ -1,5 +1,5 @@
 import { EnvType } from "./env-type";
-import { Tags } from "@pulumi/aws";
+import * as aws from "@pulumi/aws";
 export declare class InfraConfig {
     private static readonly _pulumiAwsConfig;
     private static readonly _pulumiAppConfig;
@@ -7,7 +7,7 @@ export declare class InfraConfig {
     static get awsAccount(): string;
     static get awsRegion(): string;
     static get env(): EnvType;
-    static get tags(): Tags;
+    static get tags(): aws.Tags;
     static get ecr(): string;
     private constructor();
     static configureTags(tags: Record<string, string>): void;

@@ -3,12 +3,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.VpcProvisioner = void 0;
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const n_util_1 = require("@nivinjoseph/n-util");
-const appmesh_1 = require("@pulumi/aws/appmesh");
-const cloudwatch_1 = require("@pulumi/aws/cloudwatch");
-const ec2_1 = require("@pulumi/aws/ec2");
-const iam_1 = require("@pulumi/aws/iam");
-const servicediscovery_1 = require("@pulumi/aws/servicediscovery");
-const ec2_2 = require("@pulumi/awsx/ec2");
+// import { Mesh } from "@pulumi/aws/appmesh";
+const aws = require("@pulumi/aws");
+// import { LogGroup } from "@pulumi/aws/cloudwatch";
+// import { DefaultSecurityGroup, FlowLog } from "@pulumi/aws/ec2";
+// import { Role, RolePolicy } from "@pulumi/aws/iam";
+// import { PrivateDnsNamespace } from "@pulumi/aws/servicediscovery";
+// import { VpcSubnetArgs, VpcSubnetType, Vpc } from "@pulumi/awsx/ec2";
+const awsx = require("@pulumi/awsx");
 const env_type_1 = require("../env-type");
 const infra_config_1 = require("../infra-config");
 const vpc_az_1 = require("./vpc-az");
@@ -50,7 +52,7 @@ class VpcProvisioner {
         this._config = config;
     }
     provision() {
-        this._vpc = new ec2_2.Vpc(this._name, {
+        this._vpc = new awsx.ec2.Vpc(this._name, {
             cidrBlock: `${this._config.cidr16Bits}.0.0/16`,
             numberOfAvailabilityZones: 3,
             numberOfNatGateways: infra_config_1.InfraConfig.env === env_type_1.EnvType.prod ? 3 : 1,
@@ -61,14 +63,14 @@ class VpcProvisioner {
         });
         // denying all traffic on the default security group for aws security hub compliance
         const defaultSgName = `${this._name}-default-sg`;
-        new ec2_1.DefaultSecurityGroup(defaultSgName, {
+        new aws.ec2.DefaultSecurityGroup(defaultSgName, {
             vpcId: this._vpc.id,
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: defaultSgName })
         });
         if (this._config.enableVpcFlowLogs)
             this._provisionVpcFlowLogs();
         const meshName = `${this._name}-sm`;
-        this._serviceMesh = new appmesh_1.Mesh(meshName, {
+        this._serviceMesh = new aws.appmesh.Mesh(meshName, {
             name: meshName,
             spec: {
                 egressFilter: {
@@ -79,7 +81,7 @@ class VpcProvisioner {
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: meshName })
         });
         const pvtDnsNspName = `${this._name}-pdn`;
-        this._pvtDnsNsp = new servicediscovery_1.PrivateDnsNamespace(pvtDnsNspName, {
+        this._pvtDnsNsp = new aws.servicediscovery.PrivateDnsNamespace(pvtDnsNspName, {
             name: `${this._name.substring(0, this._name.length - 4)}.${infra_config_1.InfraConfig.env}`,
             vpc: this._vpc.id,
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: pvtDnsNspName })
@@ -110,11 +112,11 @@ class VpcProvisioner {
     }
     _provisionVpcFlowLogs() {
         const logGroupName = `${this._name}-lg`;
-        const logGroup = new cloudwatch_1.LogGroup(logGroupName, {
+        const logGroup = new aws.cloudwatch.LogGroup(logGroupName, {
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: logGroupName })
         });
         const logRoleName = `${this._name}-lr`;
-        const logRole = new iam_1.Role(logRoleName, {
+        const logRole = new aws.iam.Role(logRoleName, {
             assumeRolePolicy: {
                 "Version": "2012-10-17",
                 "Statement": [
@@ -131,7 +133,7 @@ class VpcProvisioner {
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: logRoleName })
         });
         const logRolePolicyName = `${this._name}-lrp`;
-        new iam_1.RolePolicy(logRolePolicyName, {
+        new aws.iam.RolePolicy(logRolePolicyName, {
             role: logRole.id,
             policy: {
                 "Version": "2012-10-17",
@@ -151,7 +153,7 @@ class VpcProvisioner {
             }
         });
         const flowLogName = `${this._name}-fl`;
-        new ec2_1.FlowLog(flowLogName, {
+        new aws.ec2.FlowLog(flowLogName, {
             iamRoleArn: logRole.arn,
             logDestination: logGroup.arn,
             trafficType: "ALL",

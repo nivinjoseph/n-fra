@@ -1,9 +1,8 @@
 import { VpcDetails } from "../vpc/vpc-details";
 import { AppConfig } from "./app-config";
 import * as Pulumi from "@pulumi/pulumi";
-import { Role } from "@pulumi/aws/iam";
-import { Container } from "@pulumi/awsx/ecs";
-import { VirtualNode } from "@pulumi/aws/appmesh";
+import * as aws from "@pulumi/aws";
+import * as awsx from "@pulumi/awsx";
 export declare abstract class AppProvisioner<T extends AppConfig> {
     private readonly _name;
     private readonly _vpcDetails;
@@ -16,10 +15,10 @@ export declare abstract class AppProvisioner<T extends AppConfig> {
     protected get hasDatadog(): boolean;
     protected constructor(name: string, vpcDetails: VpcDetails, config: T);
     abstract provision(): void;
-    protected createExecutionRole(): Pulumi.Output<Role>;
-    protected createTaskRole(): Pulumi.Output<Role>;
-    protected createAppContainer(): Container;
-    protected createContainerDefinitions(virtualNode: VirtualNode, appContainerOverrides?: Partial<Container>): Pulumi.Output<string>;
+    protected createExecutionRole(): Pulumi.Output<aws.iam.Role>;
+    protected createTaskRole(): Pulumi.Output<aws.iam.Role>;
+    protected createAppContainer(): awsx.ecs.Container;
+    protected createContainerDefinitions(virtualNode: aws.appmesh.VirtualNode, appContainerOverrides?: Partial<awsx.ecs.Container>): Pulumi.Output<string>;
     private _stringifyContainerDefinitions;
     private _createLogConfiguration;
     private _createAwsLogsConfiguration;

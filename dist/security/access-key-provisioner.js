@@ -2,7 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AccessKeyProvisioner = void 0;
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
-const iam_1 = require("@pulumi/aws/iam");
+// import { AccessKey, User } from "@pulumi/aws/iam";
+const aws = require("@pulumi/aws");
 const infra_config_1 = require("../infra-config");
 class AccessKeyProvisioner {
     constructor(name) {
@@ -11,11 +12,11 @@ class AccessKeyProvisioner {
     }
     provision() {
         const userName = `${this._name}-aku`;
-        const user = new iam_1.User(userName, {
+        const user = new aws.iam.User(userName, {
             path: "/system/aku/",
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: userName })
         });
-        const accessKey = new iam_1.AccessKey(`${this._name}-ak`, {
+        const accessKey = new aws.iam.AccessKey(`${this._name}-ak`, {
             user: user.name
         });
         return {

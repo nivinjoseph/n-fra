@@ -2,7 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.S3bucketProvisioner = void 0;
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
-const s3_1 = require("@pulumi/aws/s3");
+// import { PolicyDocument, PolicyStatement } from "@pulumi/aws/iam";
+const aws = require("@pulumi/aws");
+// import { Bucket, BucketPolicy, BucketPublicAccessBlock } from "@pulumi/aws/s3";
 const Pulumi = require("@pulumi/pulumi");
 const infra_config_1 = require("../infra-config");
 class S3bucketProvisioner {
@@ -21,7 +23,7 @@ class S3bucketProvisioner {
     }
     provision() {
         const bucketName = this._config.bucketName;
-        const bucket = new s3_1.Bucket(bucketName, {
+        const bucket = new aws.s3.Bucket(bucketName, {
             accelerationStatus: this._config.enableTransferAcceleration ? "Enabled" : undefined,
             serverSideEncryptionConfiguration: {
                 rule: {
@@ -48,7 +50,7 @@ class S3bucketProvisioner {
             forceDestroy: true,
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: bucketName })
         });
-        const bucketPublicAccessBlock = new s3_1.BucketPublicAccessBlock(`${this._name}-bucket-pab`, {
+        const bucketPublicAccessBlock = new aws.s3.BucketPublicAccessBlock(`${this._name}-bucket-pab`, {
             bucket: bucket.id,
             blockPublicAcls: !this._config.isPublic,
             ignorePublicAcls: !this._config.isPublic,
@@ -91,7 +93,7 @@ class S3bucketProvisioner {
                 }
             ]
         };
-        new s3_1.BucketPolicy(`${this._name}-bucket-pol`, {
+        new aws.s3.BucketPolicy(`${this._name}-bucket-pol`, {
             bucket: bucket.id,
             policy
         }, { dependsOn: bucketPublicAccessBlock });

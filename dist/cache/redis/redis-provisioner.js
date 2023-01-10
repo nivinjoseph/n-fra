@@ -2,10 +2,12 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RedisProvisioner = void 0;
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
-const elasticache_1 = require("@pulumi/aws/elasticache");
+// import { ParameterGroup, ReplicationGroup, SubnetGroup } from "@pulumi/aws/elasticache";
+const aws = require("@pulumi/aws");
 const Pulumi = require("@pulumi/pulumi");
 const infra_config_1 = require("../../infra-config");
-const ec2_1 = require("@pulumi/awsx/ec2");
+// import { SecurityGroup } from "@pulumi/awsx/ec2";
+const awsx = require("@pulumi/awsx");
 const env_type_1 = require("../../env-type");
 const vpc_az_1 = require("../../vpc/vpc-az");
 class RedisProvisioner {
@@ -24,13 +26,13 @@ class RedisProvisioner {
     provision() {
         const redisPort = 6379;
         const subnetGroupName = `${this._name}-subnet-grp`;
-        const subnetGroup = new elasticache_1.SubnetGroup(subnetGroupName, {
+        const subnetGroup = new aws.elasticache.SubnetGroup(subnetGroupName, {
             subnetIds: Pulumi.output(this._vpcDetails.vpc.getSubnets("isolated"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: subnetGroupName })
         });
         const secGroupName = `${this._name}-sg`;
-        const secGroup = new ec2_1.SecurityGroup(secGroupName, {
+        const secGroup = new awsx.ec2.SecurityGroup(secGroupName, {
             vpc: this._vpcDetails.vpc,
             ingress: [{
                     protocol: "tcp",
@@ -43,7 +45,7 @@ class RedisProvisioner {
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: secGroupName })
         });
         const paramGroupName = `${this._name}-param-grp`;
-        const paramGroup = new elasticache_1.ParameterGroup(paramGroupName, {
+        const paramGroup = new aws.elasticache.ParameterGroup(paramGroupName, {
             family: "redis6.x",
             parameters: [{
                     name: "maxmemory-policy",
@@ -53,7 +55,7 @@ class RedisProvisioner {
         });
         const isProd = infra_config_1.InfraConfig.env === env_type_1.EnvType.prod;
         const replicationGroupName = `${this._name}-repli-grp`;
-        const replicationGroup = new elasticache_1.ReplicationGroup(replicationGroupName, {
+        const replicationGroup = new aws.elasticache.ReplicationGroup(replicationGroupName, {
             replicationGroupDescription: `${this._name}-replication-group`,
             engine: "redis",
             engineVersion: "6.2",

@@ -1,22 +1,21 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorkerAppProvisioner = void 0;
-const ec2_1 = require("@pulumi/awsx/ec2");
+// import { SecurityGroup } from "@pulumi/awsx/ec2";
+const awsx = require("@pulumi/awsx");
 const app_provisioner_1 = require("../app-provisioner");
 const Pulumi = require("@pulumi/pulumi");
 const infra_config_1 = require("../../infra-config");
 // import { Instance as SdInstance, Service as SdService } from "@pulumi/aws/servicediscovery";
-const servicediscovery_1 = require("@pulumi/aws/servicediscovery");
-const appmesh_1 = require("@pulumi/aws/appmesh");
-const taskDefinition_1 = require("@pulumi/aws/ecs/taskDefinition");
-const ecs_1 = require("@pulumi/aws/ecs");
+// import { Service as SdService } from "@pulumi/aws/servicediscovery";
+const aws = require("@pulumi/aws");
 class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
     constructor(name, vpcDetails, config) {
         super(name, vpcDetails, config);
     }
     provision() {
         const secGroupName = `${this.name}-sg`;
-        const secGroup = new ec2_1.SecurityGroup(secGroupName, {
+        const secGroup = new awsx.ec2.SecurityGroup(secGroupName, {
             vpc: this.vpcDetails.vpc,
             egress: [{
                     fromPort: 0,
@@ -28,7 +27,7 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: secGroupName })
         });
         const sdServiceName = `${this.name}-sd-svc`;
-        const sdService = new servicediscovery_1.Service(sdServiceName, {
+        const sdService = new aws.servicediscovery.Service(sdServiceName, {
             name: this.name,
             dnsConfig: {
                 namespaceId: this.vpcDetails.privateDnsNamespace.id,
@@ -46,7 +45,7 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
         });
         const ecsTaskDefFam = `${infra_config_1.InfraConfig.env}-${this.name}-tdf`;
         const virtualNodeName = `${this.name}-vnode`;
-        const virtualNode = new appmesh_1.VirtualNode(virtualNodeName, {
+        const virtualNode = new aws.appmesh.VirtualNode(virtualNodeName, {
             name: virtualNodeName,
             meshName: this.vpcDetails.serviceMesh.name,
             spec: {
@@ -76,7 +75,7 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: virtualNodeName })
         });
         const virtualServiceName = `${this.name}-vsvc`;
-        new appmesh_1.VirtualService(virtualServiceName, {
+        new aws.appmesh.VirtualService(virtualServiceName, {
             name: Pulumi.interpolate `${this.name}.${this.vpcDetails.privateDnsNamespace.name}`,
             meshName: this.vpcDetails.serviceMesh.name,
             spec: {
@@ -89,7 +88,7 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: virtualServiceName })
         });
         const taskDefinitionName = `${this.name}-task-def`;
-        const taskDefinition = new taskDefinition_1.TaskDefinition(taskDefinitionName, {
+        const taskDefinition = new aws.ecs.TaskDefinition(taskDefinitionName, {
             cpu: this.config.cpu.toString(),
             memory: this.config.memory.toString(),
             executionRoleArn: this.createExecutionRole().arn,
@@ -119,7 +118,7 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: taskDefinitionName })
         }, { deleteBeforeReplace: true });
         const clusterName = `${this.name}-cluster`;
-        const cluster = new ecs_1.Cluster(clusterName, {
+        const cluster = new aws.ecs.Cluster(clusterName, {
             capacityProviders: ["FARGATE"],
             settings: [
                 {
@@ -130,7 +129,7 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: clusterName })
         });
         const serviceName = `${this.name}-service`;
-        new ecs_1.Service(serviceName, {
+        new aws.ecs.Service(serviceName, {
             deploymentMinimumHealthyPercent: 0,
             deploymentMaximumPercent: 100,
             // os: "linux",

@@ -4,9 +4,13 @@ exports.AppProvisioner = void 0;
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const Pulumi = require("@pulumi/pulumi");
-const iam_1 = require("@pulumi/aws/iam");
-const ecs_1 = require("@pulumi/awsx/ecs");
+// import { ManagedPolicy, Policy, Role } from "@pulumi/aws/iam";
+const aws = require("@pulumi/aws");
+// import { Container, FargateTaskDefinition } from "@pulumi/awsx/ecs";
+const awsx = require("@pulumi/awsx");
 const infra_config_1 = require("../infra-config");
+// import { LogConfiguration } from "@pulumi/aws/ecs";
+// import { VirtualNode } from "@pulumi/aws/appmesh";
 class AppProvisioner {
     get name() { return this._name; }
     get vpcDetails() { return this._vpcDetails; }
@@ -46,11 +50,11 @@ class AppProvisioner {
     }
     createExecutionRole() {
         if (this.config.secrets == null || this.config.secrets.isEmpty)
-            return Pulumi.output(ecs_1.FargateTaskDefinition.createExecutionRole(`${this.name}-er`, undefined, [
+            return Pulumi.output(awsx.ecs.FargateTaskDefinition.createExecutionRole(`${this.name}-er`, undefined, [
                 "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
             ]));
         const secretPolicyName = `${this.name}-secrets-tp`;
-        const secretPolicy = new iam_1.Policy(secretPolicyName, {
+        const secretPolicy = new aws.iam.Policy(secretPolicyName, {
             policy: {
                 "Version": "2012-10-17",
                 "Statement": [
@@ -63,29 +67,29 @@ class AppProvisioner {
             },
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: secretPolicyName })
         });
-        return secretPolicy.arn.apply(secretPolicyArn => ecs_1.FargateTaskDefinition.createExecutionRole(`${this.name}-ter`, undefined, [
+        return secretPolicy.arn.apply(secretPolicyArn => awsx.ecs.FargateTaskDefinition.createExecutionRole(`${this.name}-ter`, undefined, [
             "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
             secretPolicyArn
         ], { dependsOn: secretPolicy }));
     }
     createTaskRole() {
         if (this.config.policies == null || this.config.policies.isEmpty)
-            return Pulumi.output(ecs_1.FargateTaskDefinition.createTaskRole(`${this.name}-tr`, undefined, [
-                iam_1.ManagedPolicy.CloudWatchFullAccess,
+            return Pulumi.output(awsx.ecs.FargateTaskDefinition.createTaskRole(`${this.name}-tr`, undefined, [
+                aws.iam.ManagedPolicy.CloudWatchFullAccess,
                 "arn:aws:iam::aws:policy/AWSAppMeshEnvoyAccess",
                 ...!this.hasDatadog ? ["aws.iam.ManagedPolicy.AWSXRayDaemonWriteAccess"] : []
             ]));
         const policies = this.config.policies.map((policyDoc, index) => {
             const policyName = `${this.name}-tp-${index}`;
-            const policy = new iam_1.Policy(policyName, {
+            const policy = new aws.iam.Policy(policyName, {
                 path: "/",
                 policy: policyDoc,
                 tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: policyName })
             });
             return policy;
         });
-        return Pulumi.all(policies.map(t => t.arn)).apply(resolvedArns => ecs_1.FargateTaskDefinition.createTaskRole(`${this.name}-tr`, undefined, [
-            iam_1.ManagedPolicy.CloudWatchFullAccess,
+        return Pulumi.all(policies.map(t => t.arn)).apply(resolvedArns => awsx.ecs.FargateTaskDefinition.createTaskRole(`${this.name}-tr`, undefined, [
+            aws.iam.ManagedPolicy.CloudWatchFullAccess,
             "arn:aws:iam::aws:policy/AWSAppMeshEnvoyAccess",
             ...!this.hasDatadog ? ["aws.iam.ManagedPolicy.AWSXRayDaemonWriteAccess"] : [],
             ...resolvedArns

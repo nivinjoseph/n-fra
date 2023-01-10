@@ -2,13 +2,15 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AlbProvisioner = void 0;
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
-const ec2_1 = require("@pulumi/awsx/ec2");
+// import { SecurityGroup } from "@pulumi/awsx/ec2";
+const awsx = require("@pulumi/awsx");
 const Pulumi = require("@pulumi/pulumi");
 const infra_config_1 = require("../infra-config");
-const lb_1 = require("@pulumi/awsx/lb");
-const lb_2 = require("@pulumi/aws/lb");
-const wafv2_1 = require("@pulumi/aws/wafv2");
-const cloudfront_1 = require("@pulumi/aws/cloudfront");
+// import { ApplicationLoadBalancer } from "@pulumi/awsx/lb";
+// import { Listener, ListenerRule } from "@pulumi/aws/lb";
+const aws = require("@pulumi/aws");
+// import { WebAcl, WebAclAssociation } from "@pulumi/aws/wafv2";
+// import { Distribution } from "@pulumi/aws/cloudfront";
 class AlbProvisioner {
     constructor(name, vpcDetails, config) {
         var _a, _b;
@@ -43,7 +45,7 @@ class AlbProvisioner {
     }
     provision() {
         const albSecGroupName = `${this._name}-sg`;
-        const appAlbSecGroup = new ec2_1.SecurityGroup(albSecGroupName, {
+        const appAlbSecGroup = new awsx.ec2.SecurityGroup(albSecGroupName, {
             vpc: this._vpcDetails.vpc,
             ingress: [
                 {
@@ -70,7 +72,7 @@ class AlbProvisioner {
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: albSecGroupName })
         });
         const albName = `${this._name}-alb`;
-        const alb = new lb_1.ApplicationLoadBalancer(albName, {
+        const alb = new awsx.lb.ApplicationLoadBalancer(albName, {
             external: true,
             ipAddressType: "ipv4",
             vpc: this._vpcDetails.vpc,
@@ -80,7 +82,7 @@ class AlbProvisioner {
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: albName })
         });
         const httpListenerName = `${this._name}-http-lnr`;
-        new lb_2.Listener(httpListenerName, {
+        new aws.lb.Listener(httpListenerName, {
             loadBalancerArn: alb.loadBalancer.arn,
             protocol: "HTTP",
             port: 80,
@@ -95,7 +97,7 @@ class AlbProvisioner {
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: httpListenerName })
         }, { parent: alb });
         const httpsListenerName = `${this._name}-https-lnr`;
-        const httpsListener = new lb_2.Listener(httpsListenerName, {
+        const httpsListener = new aws.lb.Listener(httpsListenerName, {
             loadBalancerArn: alb.loadBalancer.arn,
             protocol: "HTTPS",
             port: 443,
@@ -126,7 +128,7 @@ class AlbProvisioner {
                 tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: targetGroupName })
             });
             const listenerRuleName = `${this._name}-lnr-rle-${index}`;
-            new lb_2.ListenerRule(listenerRuleName, {
+            new aws.lb.ListenerRule(listenerRuleName, {
                 listenerArn: httpsListener.arn,
                 priority: this._config.targets.length - index,
                 actions: [{
@@ -153,7 +155,7 @@ class AlbProvisioner {
     _provisionWaf(alb) {
         (0, n_defensive_1.given)(alb, "alb").ensureHasValue().ensureIsObject();
         const webAclName = `${this._name}-web-acl`;
-        const webAcl = new wafv2_1.WebAcl(webAclName, {
+        const webAcl = new aws.wafv2.WebAcl(webAclName, {
             defaultAction: {
                 allow: {}
             },
@@ -188,7 +190,7 @@ class AlbProvisioner {
             // Be cognizant of this when updating the rules
             ignoreChanges: ["rules"]
         });
-        new wafv2_1.WebAclAssociation(`${this._name}-web-acl-asc`, {
+        new aws.wafv2.WebAclAssociation(`${this._name}-web-acl-asc`, {
             resourceArn: alb.loadBalancer.arn,
             webAclArn: webAcl.arn
         });
@@ -196,7 +198,7 @@ class AlbProvisioner {
     _provisionCloudFrontDistro(alb) {
         (0, n_defensive_1.given)(alb, "alb").ensureHasValue().ensureIsObject();
         const distroName = `${this._name}-cf-distro`;
-        new cloudfront_1.Distribution(distroName, {
+        new aws.cloudfront.Distribution(distroName, {
             origins: [{
                     originId: alb.loadBalancer.dnsName,
                     domainName: alb.loadBalancer.dnsName,

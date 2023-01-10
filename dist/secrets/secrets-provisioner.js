@@ -4,7 +4,8 @@ exports.SecretsProvisioner = void 0;
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const secrets_cache_1 = require("./secrets-cache");
 const Pulumi = require("@pulumi/pulumi");
-const secretsmanager_1 = require("@pulumi/aws/secretsmanager");
+// import { Secret, SecretVersion } from "@pulumi/aws/secretsmanager";
+const aws = require("@pulumi/aws");
 const infra_config_1 = require("../infra-config");
 class SecretsProvisioner {
     provision(name, value) {
@@ -13,11 +14,11 @@ class SecretsProvisioner {
         if (!secrets_cache_1.SecretsCache.contains(name)) {
             const secretValue = Pulumi.secret(value.toString());
             const secretName = `${name}-secret`;
-            const secret = new secretsmanager_1.Secret(secretName, {
+            const secret = new aws.secretsmanager.Secret(secretName, {
                 forceOverwriteReplicaSecret: true,
                 tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: secretName })
             });
-            new secretsmanager_1.SecretVersion(`${secretName}-version`, {
+            new aws.secretsmanager.SecretVersion(`${secretName}-version`, {
                 secretId: secret.id,
                 secretString: secretValue,
                 versionStages: ["AWSCURRENT"]
