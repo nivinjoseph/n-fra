@@ -13,7 +13,7 @@ const aws = require("@pulumi/aws");
 // import { Distribution } from "@pulumi/aws/cloudfront";
 class AlbProvisioner {
     constructor(name, vpcDetails, config) {
-        var _a, _b;
+        var _a, _b, _c;
         (0, n_defensive_1.given)(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
         (0, n_defensive_1.given)(vpcDetails, "vpcDetails").ensureHasValue().ensureIsObject();
@@ -41,6 +41,7 @@ class AlbProvisioner {
         });
         (_a = config.enableWaf) !== null && _a !== void 0 ? _a : (config.enableWaf = false);
         (_b = config.enableCloudfront) !== null && _b !== void 0 ? _b : (config.enableCloudfront = false);
+        (_c = config.justAlb) !== null && _c !== void 0 ? _c : (config.justAlb = false);
         this._config = config;
     }
     provision() {
@@ -81,6 +82,8 @@ class AlbProvisioner {
             securityGroups: [appAlbSecGroup],
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: albName })
         });
+        if (this._config.justAlb)
+            return {};
         const httpListenerName = `${this._name}-http-lnr`;
         new aws.lb.Listener(httpListenerName, {
             loadBalancerArn: alb.loadBalancer.arn,
