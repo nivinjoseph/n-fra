@@ -41,8 +41,9 @@ class Aspv2Provisioner {
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: subnetGroupName })
         });
         const proxySecGroupName = `${this._name}-proxy-sg`;
-        const dbProxySecGroup = new awsx.ec2.SecurityGroup(proxySecGroupName, {
-            vpc: this._vpcDetails.vpc,
+        const dbProxySecGroup = new aws.ec2.SecurityGroup(proxySecGroupName, {
+            vpcId: this._vpcDetails.vpc.id,
+            revokeRulesOnDelete: true,
             ingress: [{
                     protocol: "tcp",
                     fromPort: postgresDbPort,
@@ -58,6 +59,8 @@ class Aspv2Provisioner {
                     cidrBlocks: dbSubnets.apply((subnets) => subnets.map(t => t.subnet.cidrBlock))
                 }],
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: proxySecGroupName })
+        }, {
+            replaceOnChanges: ["*"]
         });
         const dbSecGroupName = `${this._name}-db-sg`;
         const dbSecGroup = new awsx.ec2.SecurityGroup(dbSecGroupName, {

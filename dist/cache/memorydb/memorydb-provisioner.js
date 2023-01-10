@@ -7,7 +7,6 @@ const aws = require("@pulumi/aws");
 const Pulumi = require("@pulumi/pulumi");
 const infra_config_1 = require("../../infra-config");
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
-const awsx = require("@pulumi/awsx");
 const env_type_1 = require("../../env-type");
 class MemorydbProvisioner {
     constructor(name, vpcDetails, config) {
@@ -34,8 +33,9 @@ class MemorydbProvisioner {
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: subnetGroupName })
         });
         const secGroupName = `${this._name}-sg`;
-        const secGroup = new awsx.ec2.SecurityGroup(secGroupName, {
-            vpc: this._vpcDetails.vpc,
+        const secGroup = new aws.ec2.SecurityGroup(secGroupName, {
+            vpcId: this._vpcDetails.vpc.id,
+            revokeRulesOnDelete: true,
             ingress: [{
                     protocol: "tcp",
                     fromPort: memorydbPort,
@@ -45,6 +45,8 @@ class MemorydbProvisioner {
                         .map(t => t.subnet.cidrBlock))
                 }],
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: secGroupName })
+        }, {
+            replaceOnChanges: ["*"]
         });
         const paramGroupName = `${this._name}-param-grp`;
         const paramGroup = new aws.memorydb.ParameterGroup(paramGroupName, {

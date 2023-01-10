@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HttpAppProvisioner = void 0;
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
-const awsx = require("@pulumi/awsx");
 const app_provisioner_1 = require("../app-provisioner");
 const Pulumi = require("@pulumi/pulumi");
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
@@ -27,8 +26,9 @@ class HttpAppProvisioner extends app_provisioner_1.AppProvisioner {
     provision() {
         const httpPort = 80;
         const secGroupName = `${this.name}-sg`;
-        const secGroup = new awsx.ec2.SecurityGroup(secGroupName, {
-            vpc: this.vpcDetails.vpc,
+        const secGroup = new aws.ec2.SecurityGroup(secGroupName, {
+            vpcId: this.vpcDetails.vpc.id,
+            revokeRulesOnDelete: true,
             ingress: [
                 {
                     protocol: "tcp",
@@ -47,6 +47,8 @@ class HttpAppProvisioner extends app_provisioner_1.AppProvisioner {
                     ipv6CidrBlocks: ["::/0"]
                 }],
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: secGroupName })
+        }, {
+            replaceOnChanges: ["*"]
         });
         const sdServiceName = `${this.name}-sd-svc`;
         const sdService = new aws.servicediscovery.Service(sdServiceName, {

@@ -99,8 +99,7 @@ class AlbProvisioner {
                 }],
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: httpListenerName })
         }, {
-            parent: alb,
-            deleteBeforeReplace: true
+            parent: alb
         });
         const httpsListenerName = `${this._name}-https-lnr`;
         const httpsListener = new aws.lb.Listener(httpsListenerName, {
@@ -119,8 +118,7 @@ class AlbProvisioner {
                 }],
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: httpsListenerName })
         }, {
-            parent: alb,
-            deleteBeforeReplace: true
+            parent: alb
         });
         const result = {};
         this._config.targets.forEach((target, index) => {
