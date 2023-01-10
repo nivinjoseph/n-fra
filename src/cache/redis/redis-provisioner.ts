@@ -57,7 +57,6 @@ export class RedisProvisioner
                 protocol: "tcp",
                 fromPort: redisPort,
                 toPort: redisPort,
-                self: true,
                 cidrBlocks: Pulumi.output(this._vpcDetails.vpc.getSubnets("private"))
                     .apply((subnets) =>
                         subnets.where(subnet =>

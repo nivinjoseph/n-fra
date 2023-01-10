@@ -41,7 +41,6 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
                     protocol: "tcp",
                     fromPort: grpcPort,
                     toPort: grpcPort,
-                    self: false,
                     cidrBlocks: Pulumi.output(this.vpcDetails.vpc.getSubnets("private"))
                         .apply((subnets) =>
                             subnets.where(subnet =>

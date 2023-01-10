@@ -64,7 +64,6 @@ export class Aspv1Provisioner
                 protocol: "tcp",
                 fromPort: postgresDbPort,
                 toPort: postgresDbPort,
-                self: true,
                 cidrBlocks: Pulumi.output(this._vpcDetails.vpc.getSubnets("private"))
                     .apply((subnets) =>
                         subnets.where(subnet =>
