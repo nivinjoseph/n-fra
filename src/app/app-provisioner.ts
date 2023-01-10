@@ -9,6 +9,7 @@ import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 import { InfraConfig } from "../infra-config";
 import { EcsEnvVar } from "./ecs-env-var";
+import { AppSecret } from "../secrets/app-secret";
 // import { LogConfiguration } from "@pulumi/aws/ecs";
 // import { VirtualNode } from "@pulumi/aws/appmesh";
 
@@ -70,7 +71,13 @@ export abstract class AppProvisioner<T extends AppConfig>
 
     protected createExecutionRole(): Pulumi.Output<aws.iam.Role>
     {
-        if (this.config.secrets == null || this.config.secrets.isEmpty)
+        const secrets = new Array<AppSecret>();
+        if (this._config.secrets != null && this._config.secrets.isNotEmpty)
+            secrets.push(...this._config.secrets);
+        if (this._config.datadogConfig != null)
+            secrets.push(this._config.datadogConfig.apiKey);
+        
+        if (secrets.isEmpty)
             return Pulumi.output(awsx.ecs.FargateTaskDefinition.createExecutionRole(`${this.name}-er`, undefined, [
                 "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
             ]));
@@ -83,7 +90,7 @@ export abstract class AppProvisioner<T extends AppConfig>
                     {
                         "Effect": "Allow",
                         "Action": "secretsmanager:GetSecretValue",
-                        "Resource": this.config.secrets.map(t => t.arn)
+                        "Resource": secrets.map(t => t.arn)
                     }
                 ]
             },
