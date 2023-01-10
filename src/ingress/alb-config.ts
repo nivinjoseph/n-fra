@@ -9,4 +9,5 @@ export interface AlbConfig
     enableWaf?: boolean;
     enableCloudfront?: boolean;
     targets: ReadonlyArray<AlbTarget>;
+    justAlb?: boolean;
 }

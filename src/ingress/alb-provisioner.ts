@@ -55,6 +55,7 @@ export class AlbProvisioner
         
         config.enableWaf ??= false;
         config.enableCloudfront ??= false;
+        config.justAlb ??= false;
         this._config = config;
     }
     
@@ -108,6 +109,9 @@ export class AlbProvisioner
                 Name: albName
             }
         });
+        
+        if (this._config.justAlb)
+            return {};
 
         const httpListenerName = `${this._name}-http-lnr`;
         new aws.lb.Listener(httpListenerName, {
