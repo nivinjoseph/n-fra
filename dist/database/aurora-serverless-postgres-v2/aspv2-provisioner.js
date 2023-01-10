@@ -48,7 +48,6 @@ class Aspv2Provisioner {
                     protocol: "tcp",
                     fromPort: postgresDbPort,
                     toPort: postgresDbPort,
-                    self: true,
                     cidrBlocks: Pulumi.output(this._vpcDetails.vpc.getSubnets("private"))
                         .apply((subnets) => subnets.where(subnet => this._config.ingressSubnetNamePrefixes.some(prefix => subnet.subnetName.startsWith(prefix)))
                         .map(t => t.subnet.cidrBlock))
@@ -70,7 +69,6 @@ class Aspv2Provisioner {
                     protocol: "tcp",
                     fromPort: postgresDbPort,
                     toPort: postgresDbPort,
-                    self: true,
                     sourceSecurityGroupId: dbProxySecGroup.id
                 }],
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: dbSecGroupName })

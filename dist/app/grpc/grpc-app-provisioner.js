@@ -30,7 +30,6 @@ class GrpcAppProvisioner extends app_provisioner_1.AppProvisioner {
                     protocol: "tcp",
                     fromPort: grpcPort,
                     toPort: grpcPort,
-                    self: false,
                     cidrBlocks: Pulumi.output(this.vpcDetails.vpc.getSubnets("private"))
                         .apply((subnets) => subnets.where(subnet => this.config.ingressSubnetNamePrefixes.some(prefix => subnet.subnetName.startsWith(prefix)))
                         .map(t => t.subnet.cidrBlock))

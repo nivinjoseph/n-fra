@@ -38,7 +38,6 @@ class RedisProvisioner {
                     protocol: "tcp",
                     fromPort: redisPort,
                     toPort: redisPort,
-                    self: true,
                     cidrBlocks: Pulumi.output(this._vpcDetails.vpc.getSubnets("private"))
                         .apply((subnets) => subnets.where(subnet => this._config.ingressSubnetNamePrefixes.some(prefix => subnet.subnetName.startsWith(prefix)))
                         .map(t => t.subnet.cidrBlock))
