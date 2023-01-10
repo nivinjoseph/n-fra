@@ -1,5 +1,4 @@
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
-import * as awsx from "@pulumi/awsx";
 import { AppProvisioner } from "../app-provisioner";
 import * as Pulumi from "@pulumi/pulumi";
 import { VpcDetails } from "../../vpc/vpc-details";
@@ -24,8 +23,9 @@ export class WorkerAppProvisioner extends AppProvisioner<WorkerAppConfig>
     public provision(): void
     {
         const secGroupName = `${this.name}-sg`;
-        const secGroup = new awsx.ec2.SecurityGroup(secGroupName, {
-            vpc: this.vpcDetails.vpc,
+        const secGroup = new aws.ec2.SecurityGroup(secGroupName, {
+            vpcId: this.vpcDetails.vpc.id,
+            revokeRulesOnDelete: true,
             egress: [{
                 fromPort: 0,
                 toPort: 0,
@@ -37,6 +37,8 @@ export class WorkerAppProvisioner extends AppProvisioner<WorkerAppConfig>
                 ...InfraConfig.tags,
                 Name: secGroupName
             }
+        }, {
+            replaceOnChanges: ["*"]
         });
 
         const sdServiceName = `${this.name}-sd-svc`;

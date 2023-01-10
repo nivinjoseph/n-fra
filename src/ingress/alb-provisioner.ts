@@ -131,8 +131,7 @@ export class AlbProvisioner
                 Name: httpListenerName
             }
         }, {
-            parent: alb,
-            deleteBeforeReplace: true
+            parent: alb
         });
 
         const httpsListenerName = `${this._name}-https-lnr`;
@@ -155,8 +154,7 @@ export class AlbProvisioner
                 Name: httpsListenerName
             }
         }, {
-            parent: alb,
-            deleteBeforeReplace: true
+            parent: alb
         });
         
         

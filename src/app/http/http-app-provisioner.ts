@@ -1,5 +1,4 @@
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
-import * as awsx from "@pulumi/awsx";
 import { AppProvisioner } from "../app-provisioner";
 import { HttpAppConfig } from "./http-app-config";
 import * as Pulumi from "@pulumi/pulumi";
@@ -34,8 +33,9 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
         const httpPort = 80;
         
         const secGroupName = `${this.name}-sg`;
-        const secGroup = new awsx.ec2.SecurityGroup(secGroupName, {
-            vpc: this.vpcDetails.vpc,
+        const secGroup = new aws.ec2.SecurityGroup(secGroupName, {
+            vpcId: this.vpcDetails.vpc.id,
+            revokeRulesOnDelete: true,
             ingress: [
                 {
                     protocol: "tcp",
@@ -60,6 +60,8 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
                 ...InfraConfig.tags,
                 Name: secGroupName
             }
+        }, {
+            replaceOnChanges: ["*"]
         });
 
         const sdServiceName = `${this.name}-sd-svc`;

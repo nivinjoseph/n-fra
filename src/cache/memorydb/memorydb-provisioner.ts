@@ -7,7 +7,6 @@ import { MemorydbDetails } from "./memorydb-details";
 import * as Pulumi from "@pulumi/pulumi";
 import { InfraConfig } from "../../infra-config";
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
-import * as awsx from "@pulumi/awsx";
 import { EnvType } from "../../env-type";
 
 
@@ -52,8 +51,9 @@ export class MemorydbProvisioner
         });
         
         const secGroupName = `${this._name}-sg`;
-        const secGroup = new awsx.ec2.SecurityGroup(secGroupName, {
-            vpc: this._vpcDetails.vpc,
+        const secGroup = new aws.ec2.SecurityGroup(secGroupName, {
+            vpcId: this._vpcDetails.vpc.id,
+            revokeRulesOnDelete: true,
             ingress: [{
                 protocol: "tcp",
                 fromPort: memorydbPort,
@@ -69,6 +69,8 @@ export class MemorydbProvisioner
                 ...InfraConfig.tags,
                 Name: secGroupName
             }
+        }, {
+            replaceOnChanges: ["*"]
         });
 
         const paramGroupName = `${this._name}-param-grp`;

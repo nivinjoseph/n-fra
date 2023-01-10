@@ -7,7 +7,6 @@ import { Aspv1Details } from "./aspv1-details";
 import * as Pulumi from "@pulumi/pulumi";
 import { InfraConfig } from "../../infra-config";
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
-import * as awsx from "@pulumi/awsx";
 // import { RandomPassword } from "@pulumi/random";
 import * as random from "@pulumi/random";
 import { VpcAz } from "../../vpc/vpc-az";
@@ -58,8 +57,9 @@ export class Aspv1Provisioner
         });
         
         const secGroupName = `${this._name}-sg`;
-        const secGroup = new awsx.ec2.SecurityGroup(secGroupName, {
-            vpc: this._vpcDetails.vpc,
+        const secGroup = new aws.ec2.SecurityGroup(secGroupName, {
+            vpcId: this._vpcDetails.vpc.id,
+            revokeRulesOnDelete: true,
             ingress: [{
                 protocol: "tcp",
                 fromPort: postgresDbPort,
@@ -75,6 +75,8 @@ export class Aspv1Provisioner
                 ...InfraConfig.tags,
                 Name: secGroupName
             }
+        }, {
+            replaceOnChanges: ["*"]
         });
 
         const dbPassword = new random.RandomPassword(`${this._name}-rpass`, {
