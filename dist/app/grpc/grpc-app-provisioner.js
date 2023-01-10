@@ -61,7 +61,7 @@ class GrpcAppProvisioner extends app_provisioner_1.AppProvisioner {
             },
             forceDestroy: true,
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: sdServiceName })
-        });
+        }, { dependsOn: this.vpcDetails.privateDnsNamespace });
         // const sdInstanceName = `${this.name}-sd-ins`;
         // new SdInstance(sdInstanceName, {
         //     instanceId: sdInstanceName,
@@ -118,7 +118,7 @@ class GrpcAppProvisioner extends app_provisioner_1.AppProvisioner {
                 }
             },
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: virtualNodeName })
-        });
+        }, { dependsOn: [this.vpcDetails.serviceMesh, sdService] });
         const virtualServiceName = `${this.name}-vsvc`;
         new aws.appmesh.VirtualService(virtualServiceName, {
             name: Pulumi.interpolate `${this.name}.${this.vpcDetails.privateDnsNamespace.name}`,
@@ -131,7 +131,7 @@ class GrpcAppProvisioner extends app_provisioner_1.AppProvisioner {
                 }
             },
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: virtualServiceName })
-        });
+        }, { dependsOn: virtualNode });
         const taskDefinitionName = `${this.name}-task-def`;
         const taskDefinition = new aws.ecs.TaskDefinition(taskDefinitionName, {
             cpu: this.config.cpu.toString(),
