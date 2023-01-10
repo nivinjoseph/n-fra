@@ -78,8 +78,9 @@ export abstract class AppProvisioner<T extends AppConfig>
             secrets.push(this._config.datadogConfig.apiKey);
         
         if (secrets.isEmpty)
-            return Pulumi.output(awsx.ecs.FargateTaskDefinition.createExecutionRole(`${this.name}-er`, undefined, [
-                "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+            return Pulumi.output(awsx.ecs.FargateTaskDefinition.createExecutionRole(`${this.name}-ter`, undefined, [
+                "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+                aws.iam.ManagedPolicy.CloudWatchFullAccess
             ]));
 
         const secretPolicyName = `${this.name}-secrets-tp`;
@@ -104,6 +105,7 @@ export abstract class AppProvisioner<T extends AppConfig>
             awsx.ecs.FargateTaskDefinition.createExecutionRole(
                 `${this.name}-ter`, undefined, [
                 "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+                aws.iam.ManagedPolicy.CloudWatchFullAccess,
                 secretPolicyArn
             ], { dependsOn: secretPolicy }));
     }
@@ -114,7 +116,7 @@ export abstract class AppProvisioner<T extends AppConfig>
             return Pulumi.output(awsx.ecs.FargateTaskDefinition.createTaskRole(`${this.name}-tr`, undefined, [
                 aws.iam.ManagedPolicy.CloudWatchFullAccess,
                 "arn:aws:iam::aws:policy/AWSAppMeshEnvoyAccess",
-                ...!this.hasDatadog ? ["aws.iam.ManagedPolicy.AWSXRayDaemonWriteAccess"] : []
+                ...!this.hasDatadog ? [aws.iam.ManagedPolicy.AWSXRayDaemonWriteAccess] : []
             ]));
 
         const policies = this.config.policies.map((policyDoc, index) =>
@@ -137,7 +139,7 @@ export abstract class AppProvisioner<T extends AppConfig>
                 `${this.name}-tr`, undefined, [
                 aws.iam.ManagedPolicy.CloudWatchFullAccess,
                     "arn:aws:iam::aws:policy/AWSAppMeshEnvoyAccess",
-                    ...!this.hasDatadog ? ["aws.iam.ManagedPolicy.AWSXRayDaemonWriteAccess"] : [],
+                    ...!this.hasDatadog ? [aws.iam.ManagedPolicy.AWSXRayDaemonWriteAccess] : [],
                 ...resolvedArns
             ], { dependsOn: policies }));
     }
