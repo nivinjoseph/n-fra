@@ -1,15 +1,17 @@
-import { SecurityGroup } from "@pulumi/awsx/ec2";
+// import { SecurityGroup } from "@pulumi/awsx/ec2";
+import * as awsx from "@pulumi/awsx";
 import { AppProvisioner } from "../app-provisioner";
 import * as Pulumi from "@pulumi/pulumi";
 import { given } from "@nivinjoseph/n-defensive";
 import { VpcDetails } from "../../vpc/vpc-details";
 import { InfraConfig } from "../../infra-config";
 // import { Instance as SdInstance, Service as SdService } from "@pulumi/aws/servicediscovery";
-import { Service as SdService } from "@pulumi/aws/servicediscovery";
-import { VirtualNode, VirtualService } from "@pulumi/aws/appmesh";
-import { TaskDefinition } from "@pulumi/aws/ecs/taskDefinition";
-import { Cluster, Service } from "@pulumi/aws/ecs";
-import { Policy as AsPolicy, Target as AsTarget } from "@pulumi/aws/appautoscaling";
+// import { Service as SdService } from "@pulumi/aws/servicediscovery";
+import * as aws from "@pulumi/aws";
+// import { VirtualNode, VirtualService } from "@pulumi/aws/appmesh";
+// import { TaskDefinition } from "@pulumi/aws/ecs/taskDefinition";
+// import { Cluster, Service } from "@pulumi/aws/ecs";
+// import { Policy as AsPolicy, Target as AsTarget } from "@pulumi/aws/appautoscaling";
 import { GrpcAppConfig } from "./grpc-app-config";
 
 
@@ -32,7 +34,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
         const grpcPort = 50051;
 
         const secGroupName = `${this.name}-sg`;
-        const secGroup = new SecurityGroup(secGroupName, {
+        const secGroup = new awsx.ec2.SecurityGroup(secGroupName, {
             vpc: this.vpcDetails.vpc,
             ingress: [
                 {
@@ -61,7 +63,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
         });
 
         const sdServiceName = `${this.name}-sd-svc`;
-        const sdService = new SdService(sdServiceName, {
+        const sdService = new aws.servicediscovery.Service(sdServiceName, {
             name: this.name,
             dnsConfig: {
                 namespaceId: this.vpcDetails.privateDnsNamespace.id,
@@ -95,7 +97,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
         const ecsTaskDefFam = `${InfraConfig.env}-${this.name}-tdf`;
 
         const virtualNodeName = `${this.name}-vnode`;
-        const virtualNode = new VirtualNode(virtualNodeName, {
+        const virtualNode = new aws.appmesh.VirtualNode(virtualNodeName, {
             name: virtualNodeName,
             meshName: this.vpcDetails.serviceMesh.name,
             spec: {
@@ -146,7 +148,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
         });
 
         const virtualServiceName = `${this.name}-vsvc`;
-        new VirtualService(virtualServiceName, {
+        new aws.appmesh.VirtualService(virtualServiceName, {
             name: Pulumi.interpolate`${this.name}.${this.vpcDetails.privateDnsNamespace.name}`,
             meshName: this.vpcDetails.serviceMesh.name,
             spec: {
@@ -163,7 +165,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
         });
 
         const taskDefinitionName = `${this.name}-task-def`;
-        const taskDefinition = new TaskDefinition(taskDefinitionName, {
+        const taskDefinition = new aws.ecs.TaskDefinition(taskDefinitionName, {
             cpu: this.config.cpu!.toString(), // https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-cpu-memory-error.html
             memory: this.config.memory!.toString(),
             executionRoleArn: this.createExecutionRole().arn,
@@ -203,7 +205,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
         });
 
         const clusterName = `${this.name}-cluster`;
-        const cluster = new Cluster(clusterName, {
+        const cluster = new aws.ecs.Cluster(clusterName, {
             capacityProviders: ["FARGATE"],
             settings: [
                 {
@@ -218,7 +220,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
         });
 
         const serviceName = `${this.name}-service`;
-        const service = new Service(serviceName, {
+        const service = new aws.ecs.Service(serviceName, {
             deploymentMinimumHealthyPercent: 0,
             deploymentMaximumPercent: 100,
             // os: "linux",
@@ -242,7 +244,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
             }
         });
 
-        const asTarget = new AsTarget(`${this.name}-ast`, {
+        const asTarget = new aws.appautoscaling.Target(`${this.name}-ast`, {
             minCapacity: this.config.minCapacity,
             maxCapacity: this.config.maxCapacity,
             resourceId: Pulumi.interpolate`service/${cluster.name}/${service.name}`,
@@ -250,7 +252,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
             serviceNamespace: "ecs"
         });
 
-        new AsPolicy(`${this.name}-asp`, {
+        new aws.appautoscaling.Policy(`${this.name}-asp`, {
             policyType: "TargetTrackingScaling",
             resourceId: asTarget.resourceId,
             scalableDimension: asTarget.scalableDimension,

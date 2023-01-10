@@ -1,11 +1,13 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { TypeHelper } from "@nivinjoseph/n-util";
-import { Mesh } from "@pulumi/aws/appmesh";
-import { LogGroup } from "@pulumi/aws/cloudwatch";
-import { DefaultSecurityGroup, FlowLog } from "@pulumi/aws/ec2";
-import { Role, RolePolicy } from "@pulumi/aws/iam";
-import { PrivateDnsNamespace } from "@pulumi/aws/servicediscovery";
-import { VpcSubnetArgs, VpcSubnetType, Vpc } from "@pulumi/awsx/ec2";
+// import { Mesh } from "@pulumi/aws/appmesh";
+import * as aws from "@pulumi/aws";
+// import { LogGroup } from "@pulumi/aws/cloudwatch";
+// import { DefaultSecurityGroup, FlowLog } from "@pulumi/aws/ec2";
+// import { Role, RolePolicy } from "@pulumi/aws/iam";
+// import { PrivateDnsNamespace } from "@pulumi/aws/servicediscovery";
+// import { VpcSubnetArgs, VpcSubnetType, Vpc } from "@pulumi/awsx/ec2";
+import * as awsx from "@pulumi/awsx";
 import { EnvType } from "../env-type";
 import { InfraConfig } from "../infra-config";
 import { VpcAz } from "./vpc-az";
@@ -17,9 +19,9 @@ export class VpcProvisioner
 {
     private readonly _name: string;
     private readonly _config: VpcConfig;
-    private _vpc: Vpc | null = null;
-    private _serviceMesh: Mesh | null = null;
-    private _pvtDnsNsp: PrivateDnsNamespace | null = null;
+    private _vpc: awsx.ec2.Vpc | null = null;
+    private _serviceMesh: aws.appmesh.Mesh | null = null;
+    private _pvtDnsNsp: aws.servicediscovery.PrivateDnsNamespace | null = null;
     
     
     public constructor(name: string, config: VpcConfig)
@@ -63,7 +65,7 @@ export class VpcProvisioner
     
     public provision(): VpcDetails
     {
-        this._vpc = new Vpc(this._name, {
+        this._vpc = new awsx.ec2.Vpc(this._name, {
             cidrBlock: `${this._config.cidr16Bits}.0.0/16`,
             numberOfAvailabilityZones: 3,
             numberOfNatGateways: InfraConfig.env === EnvType.prod ? 3 : 1,
@@ -78,7 +80,7 @@ export class VpcProvisioner
         
         // denying all traffic on the default security group for aws security hub compliance
         const defaultSgName = `${this._name}-default-sg`;
-        new DefaultSecurityGroup(defaultSgName, {
+        new aws.ec2.DefaultSecurityGroup(defaultSgName, {
             vpcId: this._vpc.id,
             tags: {
                 ...InfraConfig.tags,
@@ -90,7 +92,7 @@ export class VpcProvisioner
             this._provisionVpcFlowLogs();
             
         const meshName = `${this._name}-sm`;
-        this._serviceMesh = new Mesh(meshName, {
+        this._serviceMesh = new aws.appmesh.Mesh(meshName, {
             name: meshName,
             spec: {
                 egressFilter: {
@@ -105,7 +107,7 @@ export class VpcProvisioner
         });
 
         const pvtDnsNspName = `${this._name}-pdn`;
-        this._pvtDnsNsp = new PrivateDnsNamespace(pvtDnsNspName, {
+        this._pvtDnsNsp = new aws.servicediscovery.PrivateDnsNamespace(pvtDnsNspName, {
             name: `${this._name.substring(0, this._name.length - 4)}.${InfraConfig.env}`,
             vpc: this._vpc.id,
             tags: {
@@ -121,7 +123,7 @@ export class VpcProvisioner
         };
     }
     
-    private _createSubnet(name: string, type: VpcSubnetType, cidrOctet3: number, az: VpcAz): VpcSubnetArgs
+    private _createSubnet(name: string, type: awsx.ec2.VpcSubnetType, cidrOctet3: number, az: VpcAz): awsx.ec2.VpcSubnetArgs
     {
         given(name, "name").ensureHasValue().ensureIsString();
         name = name.trim();
@@ -151,7 +153,7 @@ export class VpcProvisioner
     private _provisionVpcFlowLogs(): void
     {
         const logGroupName = `${this._name}-lg`;
-        const logGroup = new LogGroup(logGroupName, {
+        const logGroup = new aws.cloudwatch.LogGroup(logGroupName, {
             tags: {
                 ...InfraConfig.tags,
                 Name: logGroupName
@@ -159,7 +161,7 @@ export class VpcProvisioner
         });
         
         const logRoleName = `${this._name}-lr`;
-        const logRole = new Role(logRoleName, {
+        const logRole = new aws.iam.Role(logRoleName, {
             assumeRolePolicy: {
                 "Version": "2012-10-17",
                 "Statement": [
@@ -180,7 +182,7 @@ export class VpcProvisioner
         });
         
         const logRolePolicyName = `${this._name}-lrp`;
-        new RolePolicy(logRolePolicyName, {
+        new aws.iam.RolePolicy(logRolePolicyName, {
             role: logRole.id,
             policy: {
                 "Version": "2012-10-17",
@@ -201,7 +203,7 @@ export class VpcProvisioner
         });
         
         const flowLogName = `${this._name}-fl`;
-        new FlowLog(flowLogName, {
+        new aws.ec2.FlowLog(flowLogName, {
             iamRoleArn: logRole.arn,
             logDestination: logGroup.arn,
             trafficType: "ALL",

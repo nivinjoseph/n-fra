@@ -1,14 +1,15 @@
 import { EnvType } from "./env-type";
 import * as Pulumi from "@pulumi/pulumi";
 import { given } from "@nivinjoseph/n-defensive";
-import { Tags } from "@pulumi/aws";
+// import { Tags } from "@pulumi/aws";
+import * as aws from "@pulumi/aws";
 
 
 export class InfraConfig
 {
     private static readonly _pulumiAwsConfig = new Pulumi.Config("aws");
     private static readonly _pulumiAppConfig = new Pulumi.Config("app");
-    private static _userTags: Tags | null = null;
+    private static _userTags: aws.Tags | null = null;
     
     public static get awsAccount(): string { return this._pulumiAwsConfig.require("account"); }
     public static get awsRegion(): string { return this._pulumiAwsConfig.require("region"); }
@@ -22,7 +23,7 @@ export class InfraConfig
         return env;
     }
     
-    public static get tags(): Tags
+    public static get tags(): aws.Tags
     {
         return {
             provisioner: "n-fra",

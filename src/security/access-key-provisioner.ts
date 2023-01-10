@@ -1,5 +1,6 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { AccessKey, User } from "@pulumi/aws/iam";
+// import { AccessKey, User } from "@pulumi/aws/iam";
+import * as aws from "@pulumi/aws";
 import { InfraConfig } from "../infra-config";
 import { AccessKeyDetails } from "./access-key-details";
 
@@ -19,7 +20,7 @@ export class AccessKeyProvisioner
     public provision(): AccessKeyDetails
     {
         const userName = `${this._name}-aku`;
-        const user = new User(userName, {
+        const user = new aws.iam.User(userName, {
             path: "/system/aku/",
             tags: {
                 ...InfraConfig.tags,
@@ -27,7 +28,7 @@ export class AccessKeyProvisioner
             }
         });
         
-        const accessKey = new AccessKey(`${this._name}-ak`, {
+        const accessKey = new aws.iam.AccessKey(`${this._name}-ak`, {
             user: user.name
         });
         

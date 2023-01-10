@@ -1,6 +1,7 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { PolicyDocument, PolicyStatement } from "@pulumi/aws/iam";
-import { Bucket, BucketPolicy, BucketPublicAccessBlock } from "@pulumi/aws/s3";
+// import { PolicyDocument, PolicyStatement } from "@pulumi/aws/iam";
+import * as aws from "@pulumi/aws";
+// import { Bucket, BucketPolicy, BucketPublicAccessBlock } from "@pulumi/aws/s3";
 import * as Pulumi from "@pulumi/pulumi";
 import { InfraConfig } from "../infra-config";
 import { S3bucketConfig } from "./s3bucket-config";
@@ -33,7 +34,7 @@ export class S3bucketProvisioner
     public provision(): S3bucketDetails
     {
         const bucketName = this._config.bucketName;
-        const bucket = new Bucket(bucketName, {
+        const bucket = new aws.s3.Bucket(bucketName, {
             accelerationStatus: this._config.enableTransferAcceleration ? "Enabled" : undefined,
             serverSideEncryptionConfiguration: {
                 rule: {
@@ -64,7 +65,7 @@ export class S3bucketProvisioner
             }
         });
 
-        const bucketPublicAccessBlock = new BucketPublicAccessBlock(`${this._name}-bucket-pab`, {
+        const bucketPublicAccessBlock = new aws.s3.BucketPublicAccessBlock(`${this._name}-bucket-pab`, {
             bucket: bucket.id,
             blockPublicAcls: !this._config.isPublic,
             ignorePublicAcls: !this._config.isPublic,
@@ -72,7 +73,7 @@ export class S3bucketProvisioner
             restrictPublicBuckets: true
         });
 
-        const policy: PolicyDocument = {
+        const policy: aws.iam.PolicyDocument = {
             Version: "2012-10-17",
             Id: `${this._name}-policy`,
             Statement: [
@@ -89,7 +90,7 @@ export class S3bucketProvisioner
                             "s3:PutObjectAcl"
                         ],
                         Resource: Pulumi.interpolate`${bucket.arn}/*`
-                    } as PolicyStatement
+                    } as aws.iam.PolicyStatement
                 ] : [],
                 {
                     Sid: "Stmt2",
@@ -109,7 +110,7 @@ export class S3bucketProvisioner
             ]
         };
         
-        new BucketPolicy(`${this._name}-bucket-pol`, {
+        new aws.s3.BucketPolicy(`${this._name}-bucket-pol`, {
             bucket: bucket.id,
             policy
         }, { dependsOn: bucketPublicAccessBlock });

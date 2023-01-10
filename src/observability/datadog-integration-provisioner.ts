@@ -1,17 +1,17 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { Tags } from "@pulumi/aws";
-import { Policy, PolicyDocument, Role, RolePolicyAttachment } from "@pulumi/aws/iam";
-import { MonitorJson, Provider } from "@pulumi/datadog";
-import { Integration } from "@pulumi/datadog/aws/integration";
+// import { Policy, PolicyDocument, Role, RolePolicyAttachment } from "@pulumi/aws/iam";
+import * as aws from "@pulumi/aws";
+// import { MonitorJson, Provider } from "@pulumi/datadog";
+import * as datadog from "@pulumi/datadog";
+// import { Integration } from "@pulumi/datadog/aws/integration";
 import { InfraConfig } from "../infra-config";
 import { DatadogIntegrationConfig } from "./datadog-integration-config";
 
 
 export class DatadogIntegrationProvisioner
 {
-    private readonly _provider: Provider;
+    private readonly _provider: datadog.Provider;
     private readonly _notificationSlackChannel: string;
-    private readonly _tags: Tags;
 
     /**
      * @description Only provision this once within a given AWS account 
@@ -25,7 +25,7 @@ export class DatadogIntegrationProvisioner
                 notificationsSlackChannel: "string"
             });
         
-        const dataDogProvider = new Provider("datadogProvider", {
+        const dataDogProvider = new datadog.Provider("datadogProvider", {
             apiKey: config.apiKey,
             appKey: config.appKey,
             validate: true
@@ -37,8 +37,6 @@ export class DatadogIntegrationProvisioner
         
         given(notificationsSlackChannel, "notificationsSlackChannel").ensure(t => t.startsWith("@slack"));
         this._notificationSlackChannel = notificationsSlackChannel;
-        
-        this._tags = InfraConfig.tags;
     }
 
 
@@ -49,14 +47,14 @@ export class DatadogIntegrationProvisioner
         const roleName = "DatadogIntegrationRole";
 
         // Create a new Datadog - Amazon Web Services integration
-        const datadogIntegration = new Integration("datadog-integration", {
+        const datadogIntegration = new datadog.aws.Integration("datadog-integration", {
             accountId: InfraConfig.awsAccount,
             roleName
         }, {
             provider: this._provider
         });
 
-        const datadogAwsAccessPolicyDocument: PolicyDocument = {
+        const datadogAwsAccessPolicyDocument: aws.iam.PolicyDocument = {
             Version: "2012-10-17",
             Statement: [
                 {
@@ -139,17 +137,17 @@ export class DatadogIntegrationProvisioner
         };
 
         const datadogPolicyName = "datadog-policy";
-        const datadogPolicy = new Policy(datadogPolicyName, {
+        const datadogPolicy = new aws.iam.Policy(datadogPolicyName, {
             path: "/",
             description: "Datadog integration policy",
             policy: datadogAwsAccessPolicyDocument,
             tags: {
                 Name: datadogPolicyName,
-                ...this._tags
+                ...InfraConfig.tags
             }
         });
 
-        const datadogAssumeRolePolicyDocument: PolicyDocument = {
+        const datadogAssumeRolePolicyDocument: aws.iam.PolicyDocument = {
             Version: "2012-10-17",
             Statement: [
                 {
@@ -175,26 +173,26 @@ export class DatadogIntegrationProvisioner
             ]
         };
 
-        const datadogRole = new Role(roleName, {
+        const datadogRole = new aws.iam.Role(roleName, {
             name: roleName,
             assumeRolePolicy: datadogAssumeRolePolicyDocument,
             tags: {
                 Name: roleName,
-                ...this._tags
+                ...InfraConfig.tags
             }
         });
 
-        new RolePolicyAttachment("datadogPolicyAttachment", {
+        new aws.iam.RolePolicyAttachment("datadogPolicyAttachment", {
             role: datadogRole,
             policyArn: datadogPolicy.arn
         });
 
-        new RolePolicyAttachment("datadogCloudSecurityPolicyAttachment", {
+        new aws.iam.RolePolicyAttachment("datadogCloudSecurityPolicyAttachment", {
             role: datadogRole,
             policyArn: "arn:aws:iam::aws:policy/SecurityAudit"
         });
 
-        new MonitorJson("ecs-service-restart-monitor", {
+        new datadog.MonitorJson("ecs-service-restart-monitor", {
             monitor: JSON.stringify({
                 "name": "{{env}} {{servicename.name}} has been restarting frequently",
                 "type": "query alert",

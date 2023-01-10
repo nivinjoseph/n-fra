@@ -1,12 +1,15 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { Cluster, EngineMode, EngineType, SubnetGroup } from "@pulumi/aws/rds";
+// import { Cluster, EngineMode, EngineType, SubnetGroup } from "@pulumi/aws/rds";
+import * as aws from "@pulumi/aws";
 import { VpcDetails } from "../../vpc/vpc-details";
 import { Aspv1Config } from "./aspv1-config";
 import { Aspv1Details } from "./aspv1-details";
 import * as Pulumi from "@pulumi/pulumi";
 import { InfraConfig } from "../../infra-config";
-import { SecurityGroup } from "@pulumi/awsx/ec2";
-import { RandomPassword } from "@pulumi/random";
+// import { SecurityGroup } from "@pulumi/awsx/ec2";
+import * as awsx from "@pulumi/awsx";
+// import { RandomPassword } from "@pulumi/random";
+import * as random from "@pulumi/random";
 import { VpcAz } from "../../vpc/vpc-az";
 import { EnvType } from "../../env-type";
 
@@ -45,7 +48,7 @@ export class Aspv1Provisioner
         const postgresDbPort = 5432;
         
         const subnetGroupName = `${this._name}-subnet-grp`;
-        const subnetGroup = new SubnetGroup(subnetGroupName, {
+        const subnetGroup = new aws.rds.SubnetGroup(subnetGroupName, {
             subnetIds: Pulumi.output(this._vpcDetails.vpc.getSubnets("isolated"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
             tags: {
@@ -55,7 +58,7 @@ export class Aspv1Provisioner
         });
         
         const secGroupName = `${this._name}-sg`;
-        const secGroup = new SecurityGroup(secGroupName, {
+        const secGroup = new awsx.ec2.SecurityGroup(secGroupName, {
             vpc: this._vpcDetails.vpc,
             ingress: [{
                 protocol: "tcp",
@@ -74,7 +77,7 @@ export class Aspv1Provisioner
             }
         });
 
-        const dbPassword = new RandomPassword(`${this._name}-rpass`, {
+        const dbPassword = new random.RandomPassword(`${this._name}-rpass`, {
             length: 16,
             special: true,
             overrideSpecial: `_`
@@ -83,16 +86,16 @@ export class Aspv1Provisioner
         const isProd = InfraConfig.env === EnvType.prod;
         
         const clusterName = `${this._name}-cluster`;
-        const postgresDbCluster = new Cluster(clusterName, {
+        const postgresDbCluster = new aws.rds.Cluster(clusterName, {
             availabilityZones: [
                 InfraConfig.awsRegion + VpcAz.a,
                 InfraConfig.awsRegion + VpcAz.b,
                 InfraConfig.awsRegion + VpcAz.c
             ],
-            engine: EngineType.AuroraPostgresql,
+            engine: aws.rds.EngineType.AuroraPostgresql,
             allowMajorVersionUpgrade: false,
             // engineVersion: "", // TODO: this needs to be configurable, not sure if this can be set for serverless v1
-            engineMode: EngineMode.Serverless,
+            engineMode: aws.rds.EngineMode.Serverless,
             dbSubnetGroupName: subnetGroup.name,
             vpcSecurityGroupIds: [secGroup.id],
             databaseName: this._config.databaseName,

@@ -1,7 +1,8 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { SecretsCache } from "./secrets-cache";
 import * as Pulumi from "@pulumi/pulumi";
-import { Secret, SecretVersion } from "@pulumi/aws/secretsmanager";
+// import { Secret, SecretVersion } from "@pulumi/aws/secretsmanager";
+import * as aws from "@pulumi/aws";
 import { InfraConfig } from "../infra-config";
 import { AppSecret } from "./app-secret";
 
@@ -18,7 +19,7 @@ export class SecretsProvisioner
             const secretValue = Pulumi.secret(value.toString());
 
             const secretName = `${name}-secret`;
-            const secret = new Secret(secretName, {
+            const secret = new aws.secretsmanager.Secret(secretName, {
                 forceOverwriteReplicaSecret: true,
                 tags: {
                     ...InfraConfig.tags,
@@ -26,7 +27,7 @@ export class SecretsProvisioner
                 }
             });
 
-            new SecretVersion(`${secretName}-version`, {
+            new aws.secretsmanager.SecretVersion(`${secretName}-version`, {
                 secretId: secret.id,
                 secretString: secretValue,
                 versionStages: ["AWSCURRENT"]

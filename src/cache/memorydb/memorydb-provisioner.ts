@@ -1,11 +1,13 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { Cluster, ParameterGroup, SubnetGroup } from "@pulumi/aws/memorydb";
+// import { Cluster, ParameterGroup, SubnetGroup } from "@pulumi/aws/memorydb";
+import * as aws from "@pulumi/aws";
 import { VpcDetails } from "../../vpc/vpc-details";
 import { MemorydbConfig } from "./memorydb-config";
 import { MemorydbDetails } from "./memorydb-details";
 import * as Pulumi from "@pulumi/pulumi";
 import { InfraConfig } from "../../infra-config";
-import { SecurityGroup } from "@pulumi/awsx/ec2";
+// import { SecurityGroup } from "@pulumi/awsx/ec2";
+import * as awsx from "@pulumi/awsx";
 import { EnvType } from "../../env-type";
 
 
@@ -40,7 +42,7 @@ export class MemorydbProvisioner
         const memorydbPort = 6379;
         
         const subnetGroupName = `${this._name}-subnet-grp`;
-        const subnetGroup = new SubnetGroup(subnetGroupName, {
+        const subnetGroup = new aws.memorydb.SubnetGroup(subnetGroupName, {
             subnetIds: Pulumi.output(this._vpcDetails.vpc.getSubnets("isolated"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
             tags: {
@@ -50,7 +52,7 @@ export class MemorydbProvisioner
         });
         
         const secGroupName = `${this._name}-sg`;
-        const secGroup = new SecurityGroup(secGroupName, {
+        const secGroup = new awsx.ec2.SecurityGroup(secGroupName, {
             vpc: this._vpcDetails.vpc,
             ingress: [{
                 protocol: "tcp",
@@ -70,7 +72,7 @@ export class MemorydbProvisioner
         });
 
         const paramGroupName = `${this._name}-param-grp`;
-        const paramGroup = new ParameterGroup(paramGroupName, {
+        const paramGroup = new aws.memorydb.ParameterGroup(paramGroupName, {
             family: "memorydb_redis6",
             parameters: [
                 {
@@ -90,7 +92,7 @@ export class MemorydbProvisioner
         const isProd = InfraConfig.env === EnvType.prod;
 
         const clusterName = `${this._name}-cluster`;
-        const memdbCluster = new Cluster("memdb-cluster", {
+        const memdbCluster = new aws.memorydb.Cluster("memdb-cluster", {
             nodeType: this._config.nodeType,
             engineVersion: "6.2",
             numShards: this._config.numShards!,

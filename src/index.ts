@@ -40,6 +40,7 @@ export { RedisProvisioner } from "./cache/redis/redis-provisioner";
 export { RedisDetails } from "./cache/redis/redis-details";
 
 export { AppConfig } from "./app/app-config";
+export { PolicyDocument } from "./app/policy-document";
 export { AppDatadogConfig } from "./app/app-datadog-config";
 export { EcsEnvVar } from "./app/ecs-env-var";
 

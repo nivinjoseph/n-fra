@@ -1,10 +1,12 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { ParameterGroup, ReplicationGroup, SubnetGroup } from "@pulumi/aws/elasticache";
+// import { ParameterGroup, ReplicationGroup, SubnetGroup } from "@pulumi/aws/elasticache";
+import * as aws from "@pulumi/aws";
 import { VpcDetails } from "../../vpc/vpc-details";
 import { RedisConfig } from "./redis-config";
 import * as Pulumi from "@pulumi/pulumi";
 import { InfraConfig } from "../../infra-config";
-import { SecurityGroup } from "@pulumi/awsx/ec2";
+// import { SecurityGroup } from "@pulumi/awsx/ec2";
+import * as awsx from "@pulumi/awsx";
 import { EnvType } from "../../env-type";
 import { VpcAz } from "../../vpc/vpc-az";
 import { RedisDetails } from "./redis-details";
@@ -39,7 +41,7 @@ export class RedisProvisioner
         const redisPort = 6379;        
         
         const subnetGroupName = `${this._name}-subnet-grp`;
-        const subnetGroup = new SubnetGroup(subnetGroupName, {
+        const subnetGroup = new aws.elasticache.SubnetGroup(subnetGroupName, {
             subnetIds: Pulumi.output(this._vpcDetails.vpc.getSubnets("isolated"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
             tags: {
@@ -49,7 +51,7 @@ export class RedisProvisioner
         });
 
         const secGroupName = `${this._name}-sg`;
-        const secGroup = new SecurityGroup(secGroupName, {
+        const secGroup = new awsx.ec2.SecurityGroup(secGroupName, {
             vpc: this._vpcDetails.vpc,
             ingress: [{
                 protocol: "tcp",
@@ -69,7 +71,7 @@ export class RedisProvisioner
         });
 
         const paramGroupName = `${this._name}-param-grp`;
-        const paramGroup = new ParameterGroup(paramGroupName, {
+        const paramGroup = new aws.elasticache.ParameterGroup(paramGroupName, {
             family: "redis6.x",
             parameters: [{
                 name: "maxmemory-policy",
@@ -84,7 +86,7 @@ export class RedisProvisioner
         const isProd = InfraConfig.env === EnvType.prod;
 
         const replicationGroupName = `${this._name}-repli-grp`;
-        const replicationGroup = new ReplicationGroup(replicationGroupName, {
+        const replicationGroup = new aws.elasticache.ReplicationGroup(replicationGroupName, {
             replicationGroupDescription: `${this._name}-replication-group`,
             engine: "redis",
             engineVersion: "6.2",

@@ -3,14 +3,17 @@ import { VpcDetails } from "../../vpc/vpc-details";
 import { Aspv2Config } from "./aspv2-config";
 import { Aspv2Details } from "./aspv2-details";
 import * as Pulumi from "@pulumi/pulumi";
-import { SecurityGroup } from "@pulumi/awsx/ec2";
+// import { SecurityGroup } from "@pulumi/awsx/ec2";
+import * as awsx from "@pulumi/awsx";
 import { InfraConfig } from "../../infra-config";
-import { Cluster, ClusterInstance, EngineMode, EngineType, SubnetGroup, Proxy as RdsProxy, ProxyDefaultTargetGroup, ProxyTarget, ProxyEndpoint } from "@pulumi/aws/rds";
-import { RandomPassword } from "@pulumi/random";
+// import { Cluster, ClusterInstance, EngineMode, EngineType, SubnetGroup, Proxy as RdsProxy, ProxyDefaultTargetGroup, ProxyTarget, ProxyEndpoint } from "@pulumi/aws/rds";
+import * as aws from "@pulumi/aws";
+// import { RandomPassword } from "@pulumi/random";
+import * as random from "@pulumi/random";
 import { VpcAz } from "../../vpc/vpc-az";
 import { EnvType } from "../../env-type";
-import { Secret, SecretPolicy, SecretVersion } from "@pulumi/aws/secretsmanager";
-import { PolicyDocument, Role } from "@pulumi/aws/iam";
+// import { Secret, SecretPolicy, SecretVersion } from "@pulumi/aws/secretsmanager";
+// import { PolicyDocument, Role } from "@pulumi/aws/iam";
 
 
 export class Aspv2Provisioner
@@ -49,7 +52,7 @@ export class Aspv2Provisioner
             .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)));
             
         const subnetGroupName = `${this._name}-subnet-grp`;
-        const subnetGroup = new SubnetGroup(subnetGroupName, {
+        const subnetGroup = new aws.rds.SubnetGroup(subnetGroupName, {
             subnetIds: dbSubnets.apply((subnets) => subnets.map(t => t.id)),
             tags: {
                 ...InfraConfig.tags,
@@ -58,7 +61,7 @@ export class Aspv2Provisioner
         });
 
         const proxySecGroupName = `${this._name}-proxy-sg`;
-        const dbProxySecGroup = new SecurityGroup(proxySecGroupName, {
+        const dbProxySecGroup = new awsx.ec2.SecurityGroup(proxySecGroupName, {
             vpc: this._vpcDetails.vpc,
             ingress: [{
                 protocol: "tcp",
@@ -84,7 +87,7 @@ export class Aspv2Provisioner
         });
 
         const dbSecGroupName = `${this._name}-db-sg`;
-        const dbSecGroup = new SecurityGroup(dbSecGroupName, {
+        const dbSecGroup = new awsx.ec2.SecurityGroup(dbSecGroupName, {
             vpc: this._vpcDetails.vpc,
             ingress: [{
                 protocol: "tcp",
@@ -98,7 +101,7 @@ export class Aspv2Provisioner
             }
         });
         
-        const dbPassword = new RandomPassword(`${this._name}-rpass`, {
+        const dbPassword = new random.RandomPassword(`${this._name}-rpass`, {
             length: 16,
             special: true,
             overrideSpecial: `_`
@@ -107,14 +110,14 @@ export class Aspv2Provisioner
         const isProd = InfraConfig.env === EnvType.prod;
         
         const clusterName = `${this._name}-cluster`;
-        const postgresDbCluster = new Cluster(clusterName, {
+        const postgresDbCluster = new aws.rds.Cluster(clusterName, {
             availabilityZones: [
                 InfraConfig.awsRegion + VpcAz.a,
                 InfraConfig.awsRegion + VpcAz.b,
                 InfraConfig.awsRegion + VpcAz.c
             ],
-            engine: EngineType.AuroraPostgresql,
-            engineMode: EngineMode.Provisioned,
+            engine: aws.rds.EngineType.AuroraPostgresql,
+            engineMode: aws.rds.EngineMode.Provisioned,
             engineVersion: "13.7",
             dbSubnetGroupName: subnetGroup.name,
             vpcSecurityGroupIds: [dbSecGroup.id],
@@ -141,14 +144,14 @@ export class Aspv2Provisioner
         });
 
         const numInstances = 3;
-        const clusterInstances = new Array<ClusterInstance>();
+        const clusterInstances = new Array<aws.rds.ClusterInstance>();
         for (let i = 1; i <= numInstances; i++)
         {
             const clusterInstanceName = `${this._name}-clins-${i}`;
-            clusterInstances.push(new ClusterInstance(clusterInstanceName, {
+            clusterInstances.push(new aws.rds.ClusterInstance(clusterInstanceName, {
                 clusterIdentifier: postgresDbCluster.id,
                 instanceClass: "db.serverless",
-                engine: EngineType.AuroraPostgresql,
+                engine: aws.rds.EngineType.AuroraPostgresql,
                 engineVersion: postgresDbCluster.engineVersion,
                 publiclyAccessible: false,
                 performanceInsightsEnabled: true,
@@ -161,7 +164,7 @@ export class Aspv2Provisioner
         }
 
         const dbCredsSecretName = `${this._name}-dbc-secret`;
-        const dbCredsSecret = new Secret(dbCredsSecretName, {
+        const dbCredsSecret = new aws.secretsmanager.Secret(dbCredsSecretName, {
             forceOverwriteReplicaSecret: true,
             tags: {
                 ...InfraConfig.tags,
@@ -169,12 +172,12 @@ export class Aspv2Provisioner
             }
         });
 
-        new SecretVersion(`${dbCredsSecretName}-version`, {
+        new aws.secretsmanager.SecretVersion(`${dbCredsSecretName}-version`, {
             secretId: dbCredsSecret.id,
             secretString: Pulumi.interpolate`{"username": "${postgresDbCluster.masterUsername}", "password": "${postgresDbCluster.masterPassword}"}`
         });
 
-        const assumeRolePolicyDocument: PolicyDocument = {
+        const assumeRolePolicyDocument: aws.iam.PolicyDocument = {
             Version: "2012-10-17",
             Statement: [
                 {
@@ -188,7 +191,7 @@ export class Aspv2Provisioner
         };
 
         const dbProxyRoleName = `${this._name}-dbp-role`;
-        const dbProxyRole = new Role(dbProxyRoleName, {
+        const dbProxyRole = new aws.iam.Role(dbProxyRoleName, {
             assumeRolePolicy: assumeRolePolicyDocument,
             tags: {
                 ...InfraConfig.tags,
@@ -196,11 +199,11 @@ export class Aspv2Provisioner
             }
         });
 
-        new SecretPolicy(`${this._name}-dbc-secret-policy`, {
+        new aws.secretsmanager.SecretPolicy(`${this._name}-dbc-secret-policy`, {
             secretArn: dbCredsSecret.arn,
             policy: Pulumi.all([dbProxyRole.arn, dbCredsSecret.arn]).apply(([roleArn, secretArn]) =>
             {
-                return JSON.stringify(<PolicyDocument>{
+                return JSON.stringify(<aws.iam.PolicyDocument>{
                     "Version": "2012-10-17",
                     "Statement": [
                         {
@@ -218,7 +221,7 @@ export class Aspv2Provisioner
         });
 
         const dbProxyName = `${this._name}-dbp`;
-        const dbProxy = new RdsProxy(dbProxyName, {
+        const dbProxy = new aws.rds.Proxy(dbProxyName, {
             debugLogging: false,
             engineFamily: "POSTGRESQL",
             idleClientTimeout: 1800,
@@ -237,7 +240,7 @@ export class Aspv2Provisioner
             }
         }, { dependsOn: clusterInstances });
 
-        const dbProxyDefaultTargetGroup = new ProxyDefaultTargetGroup(`${this._name}-dbp-dft-tgrp`, {
+        const dbProxyDefaultTargetGroup = new aws.rds.ProxyDefaultTargetGroup(`${this._name}-dbp-dft-tgrp`, {
             dbProxyName: dbProxy.name,
             connectionPoolConfig: {
                 connectionBorrowTimeout: 120,
@@ -246,14 +249,14 @@ export class Aspv2Provisioner
             }
         });
 
-        new ProxyTarget(`${this._name}-dbp-tg`, {
+        new aws.rds.ProxyTarget(`${this._name}-dbp-tg`, {
             dbClusterIdentifier: postgresDbCluster.id,
             dbProxyName: dbProxy.name,
             targetGroupName: dbProxyDefaultTargetGroup.name
         });
 
         const dbProxyReadonlyEndpointName = `${this._name}-dbp-roep`;
-        const dbProxyReadonlyEndpoint = new ProxyEndpoint(dbProxyReadonlyEndpointName, {
+        const dbProxyReadonlyEndpoint = new aws.rds.ProxyEndpoint(dbProxyReadonlyEndpointName, {
             dbProxyName: dbProxy.name,
             dbProxyEndpointName: dbProxyReadonlyEndpointName,
             targetRole: "READ_ONLY",

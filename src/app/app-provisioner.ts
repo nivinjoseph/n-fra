@@ -3,12 +3,14 @@ import { ArgumentException } from "@nivinjoseph/n-exception";
 import { VpcDetails } from "../vpc/vpc-details";
 import { AppConfig } from "./app-config";
 import * as Pulumi from "@pulumi/pulumi";
-import { ManagedPolicy, Policy, Role } from "@pulumi/aws/iam";
-import { Container, FargateTaskDefinition } from "@pulumi/awsx/ecs";
+// import { ManagedPolicy, Policy, Role } from "@pulumi/aws/iam";
+import * as aws from "@pulumi/aws";
+// import { Container, FargateTaskDefinition } from "@pulumi/awsx/ecs";
+import * as awsx from "@pulumi/awsx";
 import { InfraConfig } from "../infra-config";
 import { EcsEnvVar } from "./ecs-env-var";
-import { LogConfiguration } from "@pulumi/aws/ecs";
-import { VirtualNode } from "@pulumi/aws/appmesh";
+// import { LogConfiguration } from "@pulumi/aws/ecs";
+// import { VirtualNode } from "@pulumi/aws/appmesh";
 
 
 export abstract class AppProvisioner<T extends AppConfig>
@@ -66,15 +68,15 @@ export abstract class AppProvisioner<T extends AppConfig>
     
     public abstract provision(): void;
 
-    protected createExecutionRole(): Pulumi.Output<Role>
+    protected createExecutionRole(): Pulumi.Output<aws.iam.Role>
     {
         if (this.config.secrets == null || this.config.secrets.isEmpty)
-            return Pulumi.output(FargateTaskDefinition.createExecutionRole(`${this.name}-er`, undefined, [
+            return Pulumi.output(awsx.ecs.FargateTaskDefinition.createExecutionRole(`${this.name}-er`, undefined, [
                 "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
             ]));
 
         const secretPolicyName = `${this.name}-secrets-tp`;
-        const secretPolicy = new Policy(secretPolicyName, {
+        const secretPolicy = new aws.iam.Policy(secretPolicyName, {
             policy: {
                 "Version": "2012-10-17",
                 "Statement": [
@@ -92,18 +94,18 @@ export abstract class AppProvisioner<T extends AppConfig>
         });
 
         return secretPolicy.arn.apply(secretPolicyArn =>
-            FargateTaskDefinition.createExecutionRole(
+            awsx.ecs.FargateTaskDefinition.createExecutionRole(
                 `${this.name}-ter`, undefined, [
                 "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
                 secretPolicyArn
             ], { dependsOn: secretPolicy }));
     }
 
-    protected createTaskRole(): Pulumi.Output<Role>
+    protected createTaskRole(): Pulumi.Output<aws.iam.Role>
     {
         if (this.config.policies == null || this.config.policies.isEmpty)
-            return Pulumi.output(FargateTaskDefinition.createTaskRole(`${this.name}-tr`, undefined, [
-                ManagedPolicy.CloudWatchFullAccess,
+            return Pulumi.output(awsx.ecs.FargateTaskDefinition.createTaskRole(`${this.name}-tr`, undefined, [
+                aws.iam.ManagedPolicy.CloudWatchFullAccess,
                 "arn:aws:iam::aws:policy/AWSAppMeshEnvoyAccess",
                 ...!this.hasDatadog ? ["aws.iam.ManagedPolicy.AWSXRayDaemonWriteAccess"] : []
             ]));
@@ -111,7 +113,7 @@ export abstract class AppProvisioner<T extends AppConfig>
         const policies = this.config.policies.map((policyDoc, index) =>
         {
             const policyName = `${this.name}-tp-${index}`;
-            const policy = new Policy(policyName, {
+            const policy = new aws.iam.Policy(policyName, {
                 path: "/",
                 policy: policyDoc,
                 tags: {
@@ -124,16 +126,16 @@ export abstract class AppProvisioner<T extends AppConfig>
         });
 
         return Pulumi.all(policies.map(t => t.arn)).apply(resolvedArns =>
-            FargateTaskDefinition.createTaskRole(
+            awsx.ecs.FargateTaskDefinition.createTaskRole(
                 `${this.name}-tr`, undefined, [
-                ManagedPolicy.CloudWatchFullAccess,
+                aws.iam.ManagedPolicy.CloudWatchFullAccess,
                     "arn:aws:iam::aws:policy/AWSAppMeshEnvoyAccess",
                     ...!this.hasDatadog ? ["aws.iam.ManagedPolicy.AWSXRayDaemonWriteAccess"] : [],
                 ...resolvedArns
             ], { dependsOn: policies }));
     }
     
-    protected createAppContainer(): Container
+    protected createAppContainer(): awsx.ecs.Container
     {
         return {
             image: `${InfraConfig.ecr}/${this.config.image}`,
@@ -182,7 +184,7 @@ export abstract class AppProvisioner<T extends AppConfig>
         };
     }
     
-    protected createContainerDefinitions(virtualNode: VirtualNode, appContainerOverrides?: Partial<Container>): Pulumi.Output<string>
+    protected createContainerDefinitions(virtualNode: aws.appmesh.VirtualNode, appContainerOverrides?: Partial<awsx.ecs.Container>): Pulumi.Output<string>
     {
         given(virtualNode, "virtualNode").ensureHasValue().ensureIsObject();
         given(appContainerOverrides, "appContainerOverrides").ensureIsObject();
@@ -198,7 +200,7 @@ export abstract class AppProvisioner<T extends AppConfig>
         });
     }
     
-    private _stringifyContainerDefinitions(containerDefinitions: Record<string, Container>): Pulumi.Output<string>
+    private _stringifyContainerDefinitions(containerDefinitions: Record<string, awsx.ecs.Container>): Pulumi.Output<string>
     {
         return Object.entries(containerDefinitions)
             .map(entry =>
@@ -239,7 +241,7 @@ export abstract class AppProvisioner<T extends AppConfig>
             }, Pulumi.interpolate`[`) as Pulumi.Output<string>;
     }
 
-    private _createLogConfiguration(): Pulumi.Output<LogConfiguration>
+    private _createLogConfiguration(): Pulumi.Output<aws.ecs.LogConfiguration>
     {
         if (this.hasDatadog)
         {
@@ -262,7 +264,7 @@ export abstract class AppProvisioner<T extends AppConfig>
                         name: "apikey",
                         valueFrom: arn
                     }]
-                } as LogConfiguration; 
+                } as aws.ecs.LogConfiguration; 
             });
         }
         else
@@ -282,7 +284,7 @@ export abstract class AppProvisioner<T extends AppConfig>
         }
     }
 
-    private _createAwsLogsConfiguration(containerName: string): LogConfiguration
+    private _createAwsLogsConfiguration(containerName: string): aws.ecs.LogConfiguration
     {
         given(containerName, "containerName").ensureHasValue().ensureIsString();
         
@@ -326,9 +328,9 @@ export abstract class AppProvisioner<T extends AppConfig>
         };
     }
 
-    private _createInstrumentationContainers(vnode: VirtualNode): Record<string, Container>
+    private _createInstrumentationContainers(vnode: aws.appmesh.VirtualNode): Record<string, awsx.ecs.Container>
     {
-        const containers: Record<string, Container> = {
+        const containers: Record<string, awsx.ecs.Container> = {
             "log_router": this._createLogRouterContainer(),
             "envoy": this._createEnvoyContainer(vnode)
         };
@@ -341,7 +343,7 @@ export abstract class AppProvisioner<T extends AppConfig>
         return containers;
     }
     
-    private _createLogRouterContainer(): Container
+    private _createLogRouterContainer(): awsx.ecs.Container
     {
         return {
             image: "public.ecr.aws/aws-observability/aws-for-fluent-bit:2.19.0",
@@ -375,7 +377,7 @@ export abstract class AppProvisioner<T extends AppConfig>
         };
     }
     
-    private _createEnvoyContainer(vnode: VirtualNode): Container
+    private _createEnvoyContainer(vnode: aws.appmesh.VirtualNode): awsx.ecs.Container
     {
         given(vnode, "vnode").ensureHasValue().ensureIsObject();
         
@@ -476,7 +478,7 @@ export abstract class AppProvisioner<T extends AppConfig>
         };
     }
 
-    private _createDatadogAgentContainer(): Container
+    private _createDatadogAgentContainer(): awsx.ecs.Container
     {
         given(this, "this").ensure(t => t.hasDatadog, "no datadog config provided");
         
@@ -575,7 +577,7 @@ export abstract class AppProvisioner<T extends AppConfig>
         };
     }
     
-    private _createAwsOtelCollectorContainer(): Container
+    private _createAwsOtelCollectorContainer(): awsx.ecs.Container
     {
         given(this, "this").ensure(t => !t.hasDatadog, "cannot use Xray when datadog config is provided");
         

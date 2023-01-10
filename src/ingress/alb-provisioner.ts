@@ -1,14 +1,16 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { SecurityGroup } from "@pulumi/awsx/ec2";
+// import { SecurityGroup } from "@pulumi/awsx/ec2";
+import * as awsx from "@pulumi/awsx";
 import { VpcDetails } from "../vpc/vpc-details";
 import { AlbConfig } from "./alb-config";
 import { AlbDetails } from "./alb-details";
 import * as Pulumi from "@pulumi/pulumi";
 import { InfraConfig } from "../infra-config";
-import { ApplicationLoadBalancer } from "@pulumi/awsx/lb";
-import { Listener, ListenerRule } from "@pulumi/aws/lb";
-import { WebAcl, WebAclAssociation } from "@pulumi/aws/wafv2";
-import { Distribution } from "@pulumi/aws/cloudfront";
+// import { ApplicationLoadBalancer } from "@pulumi/awsx/lb";
+// import { Listener, ListenerRule } from "@pulumi/aws/lb";
+import * as aws from "@pulumi/aws";
+// import { WebAcl, WebAclAssociation } from "@pulumi/aws/wafv2";
+// import { Distribution } from "@pulumi/aws/cloudfront";
 
 
 export class AlbProvisioner
@@ -60,7 +62,7 @@ export class AlbProvisioner
     public provision(): AlbDetails
     {
         const albSecGroupName = `${this._name}-sg`;
-        const appAlbSecGroup = new SecurityGroup(albSecGroupName, {
+        const appAlbSecGroup = new awsx.ec2.SecurityGroup(albSecGroupName, {
             vpc: this._vpcDetails.vpc,
             ingress: [
                 {
@@ -94,7 +96,7 @@ export class AlbProvisioner
         });
 
         const albName = `${this._name}-alb`;
-        const alb = new ApplicationLoadBalancer(albName, {
+        const alb = new awsx.lb.ApplicationLoadBalancer(albName, {
             external: true,
             ipAddressType: "ipv4",
             vpc: this._vpcDetails.vpc,
@@ -108,7 +110,7 @@ export class AlbProvisioner
         });
 
         const httpListenerName = `${this._name}-http-lnr`;
-        new Listener(httpListenerName, {
+        new aws.lb.Listener(httpListenerName, {
             loadBalancerArn: alb.loadBalancer.arn,
             protocol: "HTTP",
             port: 80,
@@ -127,7 +129,7 @@ export class AlbProvisioner
         }, { parent: alb });
 
         const httpsListenerName = `${this._name}-https-lnr`;
-        const httpsListener = new Listener(httpsListenerName, {
+        const httpsListener = new aws.lb.Listener(httpsListenerName, {
             loadBalancerArn: alb.loadBalancer.arn,
             protocol: "HTTPS",
             port: 443,
@@ -169,7 +171,7 @@ export class AlbProvisioner
             });
             
             const listenerRuleName = `${this._name}-lnr-rle-${index}`;
-            new ListenerRule(listenerRuleName, {
+            new aws.lb.ListenerRule(listenerRuleName, {
                 listenerArn: httpsListener.arn,
                 priority: this._config.targets.length - index,
                 actions: [{
@@ -201,12 +203,12 @@ export class AlbProvisioner
         return result;
     }
     
-    private _provisionWaf(alb: ApplicationLoadBalancer): void
+    private _provisionWaf(alb: awsx.lb.ApplicationLoadBalancer): void
     {
         given(alb, "alb").ensureHasValue().ensureIsObject();
 
         const webAclName = `${this._name}-web-acl`;
-        const webAcl = new WebAcl(webAclName, {
+        const webAcl = new aws.wafv2.WebAcl(webAclName, {
             defaultAction: {
                 allow: {}
             },
@@ -247,18 +249,18 @@ export class AlbProvisioner
             }
         );
 
-        new WebAclAssociation(`${this._name}-web-acl-asc`, {
+        new aws.wafv2.WebAclAssociation(`${this._name}-web-acl-asc`, {
             resourceArn: alb.loadBalancer.arn,
             webAclArn: webAcl.arn
         });
     }
 
-    private _provisionCloudFrontDistro(alb: ApplicationLoadBalancer): void
+    private _provisionCloudFrontDistro(alb: awsx.lb.ApplicationLoadBalancer): void
     {
         given(alb, "alb").ensureHasValue().ensureIsObject();
 
         const distroName = `${this._name}-cf-distro`;
-        new Distribution(distroName, {
+        new aws.cloudfront.Distribution(distroName, {
             origins: [{
                 originId: alb.loadBalancer.dnsName,
                 domainName: alb.loadBalancer.dnsName,
