@@ -82,7 +82,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
                 ...InfraConfig.tags,
                 Name: sdServiceName
             }
-        });
+        }, { dependsOn: this.vpcDetails.privateDnsNamespace });
 
         // const sdInstanceName = `${this.name}-sd-ins`;
         // new SdInstance(sdInstanceName, {
@@ -145,7 +145,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
                 ...InfraConfig.tags,
                 Name: virtualNodeName
             }
-        });
+        }, { dependsOn: [this.vpcDetails.serviceMesh, sdService] });
 
         const virtualServiceName = `${this.name}-vsvc`;
         new aws.appmesh.VirtualService(virtualServiceName, {
@@ -162,7 +162,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
                 ...InfraConfig.tags,
                 Name: virtualServiceName
             }
-        });
+        }, { dependsOn: virtualNode });
 
         const taskDefinitionName = `${this.name}-task-def`;
         const taskDefinition = new aws.ecs.TaskDefinition(taskDefinitionName, {
