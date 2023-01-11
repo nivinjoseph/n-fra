@@ -148,7 +148,7 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
                 ...InfraConfig.tags,
                 Name: virtualNodeName
             }
-        }, { dependsOn: [this.vpcDetails.serviceMesh, sdService] });
+        }, { dependsOn: [this.vpcDetails.serviceMesh, this.vpcDetails.privateDnsNamespace, sdService] });
 
         const virtualServiceName = `${this.name}-vsvc`;
         new aws.appmesh.VirtualService(virtualServiceName, {
@@ -165,7 +165,7 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
                 ...InfraConfig.tags,
                 Name: virtualServiceName
             }
-        }, { dependsOn: virtualNode });
+        }, { dependsOn: [this.vpcDetails.serviceMesh, this.vpcDetails.privateDnsNamespace, virtualNode] });
         
         const taskDefinitionName = `${this.name}-task-def`;
         const taskDefinition = new aws.ecs.TaskDefinition(taskDefinitionName, {
@@ -205,7 +205,7 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
                 ...InfraConfig.tags,
                 Name: taskDefinitionName
             }
-        });
+        }, { dependsOn: virtualNode });
         
         const clusterName = `${this.name}-cluster`;
         const cluster = new aws.ecs.Cluster(clusterName, {
