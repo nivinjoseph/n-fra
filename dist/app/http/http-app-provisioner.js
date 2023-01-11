@@ -34,7 +34,7 @@ class HttpAppProvisioner extends app_provisioner_1.AppProvisioner {
                     protocol: "tcp",
                     fromPort: httpPort,
                     toPort: httpPort,
-                    cidrBlocks: Pulumi.output(this.vpcDetails.vpc.getSubnets("private"))
+                    cidrBlocks: Pulumi.output(this.vpcDetails.vpc.getSubnets(this.config.albTargetGroupArn != null ? "public" : "private"))
                         .apply((subnets) => subnets.where(subnet => this.config.ingressSubnetNamePrefixes.some(prefix => subnet.subnetName.startsWith(prefix)))
                         .map(t => t.subnet.cidrBlock))
                 }
