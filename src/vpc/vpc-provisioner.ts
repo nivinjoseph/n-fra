@@ -91,7 +91,7 @@ export class VpcProvisioner
         if (this._config.enableVpcFlowLogs)
             this._provisionVpcFlowLogs();
             
-        const meshName = `${this._name}-sm`;
+        const meshName = `${this._name}-${InfraConfig.env}-sm`;
         this._serviceMesh = new aws.appmesh.Mesh(meshName, {
             name: meshName,
             spec: {
