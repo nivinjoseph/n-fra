@@ -124,7 +124,7 @@ class HttpAppProvisioner extends app_provisioner_1.AppProvisioner {
                 }
             },
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: virtualNodeName })
-        }, { dependsOn: [this.vpcDetails.serviceMesh, sdService] });
+        }, { dependsOn: [this.vpcDetails.serviceMesh, this.vpcDetails.privateDnsNamespace, sdService] });
         const virtualServiceName = `${this.name}-vsvc`;
         new aws.appmesh.VirtualService(virtualServiceName, {
             name: Pulumi.interpolate `${this.name}.${this.vpcDetails.privateDnsNamespace.name}`,
@@ -137,7 +137,7 @@ class HttpAppProvisioner extends app_provisioner_1.AppProvisioner {
                 }
             },
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: virtualServiceName })
-        }, { dependsOn: virtualNode });
+        }, { dependsOn: [this.vpcDetails.serviceMesh, this.vpcDetails.privateDnsNamespace, virtualNode] });
         const taskDefinitionName = `${this.name}-task-def`;
         const taskDefinition = new aws.ecs.TaskDefinition(taskDefinitionName, {
             cpu: this.config.cpu.toString(),
@@ -173,7 +173,7 @@ class HttpAppProvisioner extends app_provisioner_1.AppProvisioner {
                     }]
             }),
             tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: taskDefinitionName })
-        });
+        }, { dependsOn: virtualNode });
         const clusterName = `${this.name}-cluster`;
         const cluster = new aws.ecs.Cluster(clusterName, {
             capacityProviders: ["FARGATE"],
