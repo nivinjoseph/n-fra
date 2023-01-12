@@ -5,7 +5,7 @@ import { given } from "@nivinjoseph/n-defensive";
 import * as aws from "@pulumi/aws";
 
 
-export class InfraConfig
+export class NfraConfig
 {
     private static readonly _pulumiAwsConfig = new Pulumi.Config("aws");
     private static readonly _pulumiAppConfig = new Pulumi.Config("nfra");
@@ -55,11 +55,11 @@ export class InfraConfig
     
     public static getConfig(key: string): string | null
     {
-        return this._pulumiAppConfig.get(key) ?? null;
+        return this._pulumiAppConfig.get(key)?.toString() ?? null;
     }
     
     public static requireConfig(key: string): string
     {
-        return this._pulumiAppConfig.require(key);
+        return this._pulumiAppConfig.require(key).toString();
     }
 }

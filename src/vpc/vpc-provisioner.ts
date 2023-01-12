@@ -9,7 +9,7 @@ import * as aws from "@pulumi/aws";
 // import { VpcSubnetArgs, VpcSubnetType, Vpc } from "@pulumi/awsx/ec2";
 import * as awsx from "@pulumi/awsx";
 import { EnvType } from "../env-type";
-import { InfraConfig } from "../infra-config";
+import { NfraConfig } from "../nfra-config";
 import { VpcAz } from "./vpc-az";
 import { VpcConfig } from "./vpc-config";
 import { VpcDetails } from "./vpc-details";
@@ -68,12 +68,12 @@ export class VpcProvisioner
         this._vpc = new awsx.ec2.Vpc(this._name, {
             cidrBlock: `${this._config.cidr16Bits}.0.0/16`,
             numberOfAvailabilityZones: 3,
-            numberOfNatGateways: InfraConfig.env === EnvType.prod ? 3 : 1,
+            numberOfNatGateways: NfraConfig.env === EnvType.prod ? 3 : 1,
             enableDnsHostnames: true,
             enableDnsSupport: true,
             subnets: this._config.subnets.map(t => this._createSubnet(t.name, t.type, t.cidrOctet3, t.az)),
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: this._name
             }
         });
@@ -83,7 +83,7 @@ export class VpcProvisioner
         new aws.ec2.DefaultSecurityGroup(defaultSgName, {
             vpcId: this._vpc.id,
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: defaultSgName
             }
         });
@@ -91,7 +91,7 @@ export class VpcProvisioner
         if (this._config.enableVpcFlowLogs)
             this._provisionVpcFlowLogs();
             
-        const meshName = `${this._name}-${InfraConfig.env}-sm`;
+        const meshName = `${this._name}-${NfraConfig.env}-sm`;
         this._serviceMesh = new aws.appmesh.Mesh(meshName, {
             name: meshName,
             spec: {
@@ -101,17 +101,17 @@ export class VpcProvisioner
                 }
             },
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: meshName
             }
         });
 
         const pvtDnsNspName = `${this._name}-pdn`;
         this._pvtDnsNsp = new aws.servicediscovery.PrivateDnsNamespace(pvtDnsNspName, {
-            name: `${this._name.substring(0, this._name.length - 4)}.${InfraConfig.env}`,
+            name: `${this._name.substring(0, this._name.length - 4)}.${NfraConfig.env}`,
             vpc: this._vpc.id,
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: pvtDnsNspName
             }
         });
@@ -139,12 +139,12 @@ export class VpcProvisioner
             type,
             location: {
                 cidrBlock: `${this._config.cidr16Bits}.${cidrOctet3}.0/24`,
-                availabilityZone: InfraConfig.awsRegion + az
+                availabilityZone: NfraConfig.awsRegion + az
             },
             mapPublicIpOnLaunch: false,
             assignIpv6AddressOnCreation: false,
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: name
             }
         };
@@ -155,7 +155,7 @@ export class VpcProvisioner
         const logGroupName = `${this._name}-lg`;
         const logGroup = new aws.cloudwatch.LogGroup(logGroupName, {
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: logGroupName
             }
         });
@@ -176,7 +176,7 @@ export class VpcProvisioner
                 ]
             },
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: logRoleName
             }
         });
@@ -209,7 +209,7 @@ export class VpcProvisioner
             trafficType: "ALL",
             vpcId: this._vpc!.id,
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: flowLogName
             }
         });

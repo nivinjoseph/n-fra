@@ -3,7 +3,7 @@ import { given } from "@nivinjoseph/n-defensive";
 import * as aws from "@pulumi/aws";
 // import { Bucket, BucketPolicy, BucketPublicAccessBlock } from "@pulumi/aws/s3";
 import * as Pulumi from "@pulumi/pulumi";
-import { InfraConfig } from "../infra-config";
+import { NfraConfig } from "../nfra-config";
 import { S3bucketConfig } from "./s3bucket-config";
 import { S3bucketDetails } from "./s3bucket-details";
 
@@ -60,7 +60,7 @@ export class S3bucketProvisioner
             ],
             forceDestroy: true,
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: bucketName
             }
         });

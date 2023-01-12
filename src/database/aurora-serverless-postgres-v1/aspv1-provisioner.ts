@@ -5,7 +5,7 @@ import { VpcDetails } from "../../vpc/vpc-details";
 import { Aspv1Config } from "./aspv1-config";
 import { Aspv1Details } from "./aspv1-details";
 import * as Pulumi from "@pulumi/pulumi";
-import { InfraConfig } from "../../infra-config";
+import { NfraConfig } from "../../nfra-config";
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
 // import { RandomPassword } from "@pulumi/random";
 import * as random from "@pulumi/random";
@@ -51,7 +51,7 @@ export class Aspv1Provisioner
             subnetIds: Pulumi.output(this._vpcDetails.vpc.getSubnets("isolated"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: subnetGroupName
             }
         });
@@ -72,7 +72,7 @@ export class Aspv1Provisioner
                             .map(t => t.subnet.cidrBlock as Pulumi.Output<string>))
             }],
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: secGroupName
             }
         }, {
@@ -85,14 +85,14 @@ export class Aspv1Provisioner
             overrideSpecial: `_`
         });
 
-        const isProd = InfraConfig.env === EnvType.prod;
+        const isProd = NfraConfig.env === EnvType.prod;
         
         const clusterName = `${this._name}-cluster`;
         const postgresDbCluster = new aws.rds.Cluster(clusterName, {
             availabilityZones: [
-                InfraConfig.awsRegion + VpcAz.a,
-                InfraConfig.awsRegion + VpcAz.b,
-                InfraConfig.awsRegion + VpcAz.c
+                NfraConfig.awsRegion + VpcAz.a,
+                NfraConfig.awsRegion + VpcAz.b,
+                NfraConfig.awsRegion + VpcAz.c
             ],
             engine: aws.rds.EngineType.AuroraPostgresql,
             allowMajorVersionUpgrade: false,
@@ -119,7 +119,7 @@ export class Aspv1Provisioner
             skipFinalSnapshot: this._config.skipFinalSnapshot, // to facilitate delete
             applyImmediately: true,
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: clusterName
             }
         });

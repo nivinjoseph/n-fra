@@ -4,7 +4,7 @@ import * as aws from "@pulumi/aws";
 // import { MonitorJson, Provider } from "@pulumi/datadog";
 import * as datadog from "@pulumi/datadog";
 // import { Integration } from "@pulumi/datadog/aws/integration";
-import { InfraConfig } from "../infra-config";
+import { NfraConfig } from "../nfra-config";
 import { DatadogIntegrationConfig } from "./datadog-integration-config";
 
 
@@ -48,7 +48,7 @@ export class DatadogIntegrationProvisioner
 
         // Create a new Datadog - Amazon Web Services integration
         const datadogIntegration = new datadog.aws.Integration("datadog-integration", {
-            accountId: InfraConfig.awsAccount,
+            accountId: NfraConfig.awsAccount,
             roleName
         }, {
             provider: this._provider
@@ -143,7 +143,7 @@ export class DatadogIntegrationProvisioner
             policy: datadogAwsAccessPolicyDocument,
             tags: {
                 Name: datadogPolicyName,
-                ...InfraConfig.tags
+                ...NfraConfig.tags
             }
         });
 
@@ -178,7 +178,7 @@ export class DatadogIntegrationProvisioner
             assumeRolePolicy: datadogAssumeRolePolicyDocument,
             tags: {
                 Name: roleName,
-                ...InfraConfig.tags
+                ...NfraConfig.tags
             }
         });
 

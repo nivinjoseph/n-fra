@@ -4,7 +4,7 @@ import * as aws from "@pulumi/aws";
 import { VpcDetails } from "../../vpc/vpc-details";
 import { RedisConfig } from "./redis-config";
 import * as Pulumi from "@pulumi/pulumi";
-import { InfraConfig } from "../../infra-config";
+import { NfraConfig } from "../../nfra-config";
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
 import { EnvType } from "../../env-type";
 import { VpcAz } from "../../vpc/vpc-az";
@@ -44,7 +44,7 @@ export class RedisProvisioner
             subnetIds: Pulumi.output(this._vpcDetails.vpc.getSubnets("isolated"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: subnetGroupName
             }
         });
@@ -65,7 +65,7 @@ export class RedisProvisioner
                             .map(t => t.subnet.cidrBlock as Pulumi.Output<string>))
             }],
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: secGroupName
             }
         }, {
@@ -80,12 +80,12 @@ export class RedisProvisioner
                 value: "allkeys-lru"
             }],
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: paramGroupName
             }
         });
         
-        const isProd = InfraConfig.env === EnvType.prod;
+        const isProd = NfraConfig.env === EnvType.prod;
 
         const replicationGroupName = `${this._name}-repli-grp`;
         const replicationGroup = new aws.elasticache.ReplicationGroup(replicationGroupName, {
@@ -100,11 +100,11 @@ export class RedisProvisioner
             numberCacheClusters: isProd ? 3 : 1,
             multiAzEnabled: isProd,
             availabilityZones: isProd ? [
-                InfraConfig.awsRegion + VpcAz.a,
-                InfraConfig.awsRegion + VpcAz.b,
-                InfraConfig.awsRegion + VpcAz.c
+                NfraConfig.awsRegion + VpcAz.a,
+                NfraConfig.awsRegion + VpcAz.b,
+                NfraConfig.awsRegion + VpcAz.c
             ] : [
-                InfraConfig.awsRegion + VpcAz.a
+                NfraConfig.awsRegion + VpcAz.a
             ],
             automaticFailoverEnabled: isProd,
             transitEncryptionEnabled: false,
@@ -120,7 +120,7 @@ export class RedisProvisioner
             securityGroupIds: [secGroup.id],
             applyImmediately: true,
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: replicationGroupName
             }
         });

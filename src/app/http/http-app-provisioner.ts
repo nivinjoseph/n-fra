@@ -4,7 +4,7 @@ import { HttpAppConfig } from "./http-app-config";
 import * as Pulumi from "@pulumi/pulumi";
 import { given } from "@nivinjoseph/n-defensive";
 import { VpcDetails } from "../../vpc/vpc-details";
-import { InfraConfig } from "../../infra-config";
+import { NfraConfig } from "../../nfra-config";
 // import { Instance as SdInstance, Service as SdService } from "@pulumi/aws/servicediscovery";
 import * as aws from "@pulumi/aws";
 // import { Service as SdService } from "@pulumi/aws/servicediscovery";
@@ -58,7 +58,7 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
                 ipv6CidrBlocks: ["::/0"]
             }],
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: secGroupName
             }
         }, {
@@ -82,7 +82,7 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
             },
             forceDestroy: true,
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: sdServiceName
             }
         }, { dependsOn: this.vpcDetails.privateDnsNamespace });
@@ -97,7 +97,7 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
         //     }
         // });
 
-        const ecsTaskDefFam = `${InfraConfig.env}-${this.name}-tdf`;
+        const ecsTaskDefFam = `${NfraConfig.env}-${this.name}-tdf`;
         
         const virtualNodeName = `${this.name}-vnode`;
         const virtualNode = new aws.appmesh.VirtualNode(virtualNodeName, {
@@ -145,7 +145,7 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
                 }
             },
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: virtualNodeName
             }
         }, { dependsOn: [this.vpcDetails.serviceMesh, this.vpcDetails.privateDnsNamespace, sdService] });
@@ -162,7 +162,7 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
                 }
             },
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: virtualServiceName
             }
         }, { dependsOn: [this.vpcDetails.serviceMesh, this.vpcDetails.privateDnsNamespace, virtualNode] });
@@ -202,7 +202,7 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
                 }]
             }),
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: taskDefinitionName
             }
         }, { dependsOn: virtualNode });
@@ -217,7 +217,7 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
                 }
             ],
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: clusterName
             }
         });
@@ -249,7 +249,7 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
                 : undefined,
             desiredCount: this.config.minCapacity,
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: serviceName
             }
         });

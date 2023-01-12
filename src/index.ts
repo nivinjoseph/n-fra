@@ -1,6 +1,6 @@
 import "@nivinjoseph/n-ext";
 
-export { InfraConfig } from "./infra-config";
+export { NfraConfig } from "./nfra-config";
 export { EnvType } from "./env-type";
 
 export { VpcSubnetType } from "./vpc/vpc-subnet-type";

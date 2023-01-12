@@ -5,7 +5,7 @@ import { VpcDetails } from "../vpc/vpc-details";
 import { AlbConfig } from "./alb-config";
 import { AlbDetails } from "./alb-details";
 import * as Pulumi from "@pulumi/pulumi";
-import { InfraConfig } from "../infra-config";
+import { NfraConfig } from "../nfra-config";
 // import { ApplicationLoadBalancer } from "@pulumi/awsx/lb";
 // import { Listener, ListenerRule } from "@pulumi/aws/lb";
 import * as aws from "@pulumi/aws";
@@ -91,7 +91,7 @@ export class AlbProvisioner
                             .map(t => t.subnet.cidrBlock as Pulumi.Output<string>))
             }],
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: albSecGroupName
             }
         });
@@ -105,7 +105,7 @@ export class AlbProvisioner
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
             securityGroups: [appAlbSecGroup],
             tags: { 
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: albName
             }
         });
@@ -127,7 +127,7 @@ export class AlbProvisioner
                 }
             }],
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: httpListenerName
             }
         }, {
@@ -150,7 +150,7 @@ export class AlbProvisioner
                 }
             }],
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: httpsListenerName
             }
         }, {
@@ -173,7 +173,7 @@ export class AlbProvisioner
                     path: target.healthCheckPath
                 },
                 tags: {
-                    ...InfraConfig.tags,
+                    ...NfraConfig.tags,
                     Name: targetGroupName
                 }
             });
@@ -192,7 +192,7 @@ export class AlbProvisioner
                     }
                 }],
                 tags: {
-                    ...InfraConfig.tags,
+                    ...NfraConfig.tags,
                     Name: listenerRuleName
                 }
             });
@@ -246,7 +246,7 @@ export class AlbProvisioner
                 sampledRequestsEnabled: true
             },
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: webAclName
             }
         },
@@ -312,7 +312,7 @@ export class AlbProvisioner
             httpVersion: "http2",
             isIpv6Enabled: true,
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: distroName
             }
         });

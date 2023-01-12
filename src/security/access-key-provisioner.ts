@@ -1,7 +1,7 @@
 import { given } from "@nivinjoseph/n-defensive";
 // import { AccessKey, User } from "@pulumi/aws/iam";
 import * as aws from "@pulumi/aws";
-import { InfraConfig } from "../infra-config";
+import { NfraConfig } from "../nfra-config";
 import { AccessKeyDetails } from "./access-key-details";
 
 
@@ -23,7 +23,7 @@ export class AccessKeyProvisioner
         const user = new aws.iam.User(userName, {
             path: "/system/aku/",
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: userName
             }
         });

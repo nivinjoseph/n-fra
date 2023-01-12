@@ -3,7 +3,7 @@ import { SecretsCache } from "./secrets-cache";
 import * as Pulumi from "@pulumi/pulumi";
 // import { Secret, SecretVersion } from "@pulumi/aws/secretsmanager";
 import * as aws from "@pulumi/aws";
-import { InfraConfig } from "../infra-config";
+import { NfraConfig } from "../nfra-config";
 import { AppSecret } from "./app-secret";
 
 
@@ -22,7 +22,7 @@ export class SecretsProvisioner
             const secret = new aws.secretsmanager.Secret(secretName, {
                 forceOverwriteReplicaSecret: true,
                 tags: {
-                    ...InfraConfig.tags,
+                    ...NfraConfig.tags,
                     Name: secretName
                 }
             });

@@ -7,7 +7,7 @@ import * as Pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 // import { Container, FargateTaskDefinition } from "@pulumi/awsx/ecs";
 import * as awsx from "@pulumi/awsx";
-import { InfraConfig } from "../infra-config";
+import { NfraConfig } from "../nfra-config";
 import { EcsEnvVar } from "./ecs-env-var";
 import { AppSecret } from "../secrets/app-secret";
 // import { LogConfiguration } from "@pulumi/aws/ecs";
@@ -96,7 +96,7 @@ export abstract class AppProvisioner<T extends AppConfig>
                 ]
             },
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: secretPolicyName
             }
         });
@@ -126,7 +126,7 @@ export abstract class AppProvisioner<T extends AppConfig>
                 path: "/",
                 policy: policyDoc,
                 tags: {
-                    ...InfraConfig.tags,
+                    ...NfraConfig.tags,
                     Name: policyName
                 }
             });
@@ -147,7 +147,7 @@ export abstract class AppProvisioner<T extends AppConfig>
     protected createAppContainer(): awsx.ecs.Container
     {
         return {
-            image: `${InfraConfig.ecr}/${this.config.image}`,
+            image: `${NfraConfig.ecr}/${this.config.image}`,
             essential: true,
             readonlyRootFilesystem: true,
             cpu: 0,
@@ -263,10 +263,10 @@ export abstract class AppProvisioner<T extends AppConfig>
                         "Host": `http-intake.logs.${this._config.datadogConfig!.ddHost}`,
                         "TLS": "on",
                         "compress": "gzip",
-                        "dd_env": InfraConfig.env,
+                        "dd_env": NfraConfig.env,
                         "dd_service": this._name,
                         "dd_source": "nodejs",
-                        "dd_tags": `env:${InfraConfig.env}`,
+                        "dd_tags": `env:${NfraConfig.env}`,
                         "provider": "ecs"
                     },
                     secretOptions: [{
@@ -282,7 +282,7 @@ export abstract class AppProvisioner<T extends AppConfig>
                 logDriver: "awsfirelens",
                 options: {
                     "Name": "cloudwatch",
-                    "region": InfraConfig.awsRegion,
+                    "region": NfraConfig.awsRegion,
                     "log_key": "log",
                     "log_group_name": this._name,
                     "auto_create_group": "true",
@@ -301,7 +301,7 @@ export abstract class AppProvisioner<T extends AppConfig>
             logDriver: "awslogs",
             options: {
                 "awslogs-create-group": "true",
-                "awslogs-region": InfraConfig.awsRegion,
+                "awslogs-region": NfraConfig.awsRegion,
                 "awslogs-group": containerName,
                 "awslogs-stream-prefix": `ecs/${this.name}`
             }
@@ -311,12 +311,12 @@ export abstract class AppProvisioner<T extends AppConfig>
     private _createInstrumentationEnvironmentVariables(): Array<EcsEnvVar>
     {
         const result: Array<EcsEnvVar> = [
-            { name: "env", value: InfraConfig.env }
+            { name: "env", value: NfraConfig.env }
         ];
         
         if (this.hasDatadog)
             result.push(
-                { name: "DD_ENV", value: InfraConfig.env },
+                { name: "DD_ENV", value: NfraConfig.env },
                 { name: "DD_SERVICE", value: this._name },
                 { name: "DD_VERSION", value: this._version }
             );
@@ -331,7 +331,7 @@ export abstract class AppProvisioner<T extends AppConfig>
     private _createInstrumentationLabels(): { [label: string]: string; }
     {
         return {
-            "com.datadoghq.tags.env": InfraConfig.env,
+            "com.datadoghq.tags.env": NfraConfig.env,
             "com.datadoghq.tags.service": this._name,
             "com.datadoghq.tags.version": this._version
         };
@@ -403,7 +403,7 @@ export abstract class AppProvisioner<T extends AppConfig>
                     ...this.hasDatadog
                         ? [
                             { name: "ENABLE_ENVOY_DATADOG_TRACING", value: "1" },
-                            { name: "DD_ENV", value: InfraConfig.env },
+                            { name: "DD_ENV", value: NfraConfig.env },
                             { name: "DD_SERVICE", value: this._name }
                             // { name: "DATADOG_TRACER_PORT", value: "8126" },
                             // { name: "DATADOG_TRACER_ADDRESS", value: "127.0.0.1" }, // <- service discovery for the datadog agent
@@ -421,7 +421,7 @@ export abstract class AppProvisioner<T extends AppConfig>
             dockerLabels: this.hasDatadog
                 ? {
                     "com.datadoghq.ad.logs": `[{"source": "envoy", "service": "${this._name}-envoy"}]`,
-                    "com.datadoghq.tags.env": InfraConfig.env,
+                    "com.datadoghq.tags.env": NfraConfig.env,
                     "com.datadoghq.tags.service": `${this._name}-envoy`,
                     "com.datadoghq.ad.instances": `[{ "stats_url": "http://%%host%%:9901/stats" }]`,
                     "com.datadoghq.ad.check_names": `["envoy"]`,

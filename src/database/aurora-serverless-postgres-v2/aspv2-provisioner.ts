@@ -5,7 +5,7 @@ import { Aspv2Details } from "./aspv2-details";
 import * as Pulumi from "@pulumi/pulumi";
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
 import * as awsx from "@pulumi/awsx";
-import { InfraConfig } from "../../infra-config";
+import { NfraConfig } from "../../nfra-config";
 // import { Cluster, ClusterInstance, EngineMode, EngineType, SubnetGroup, Proxy as RdsProxy, ProxyDefaultTargetGroup, ProxyTarget, ProxyEndpoint } from "@pulumi/aws/rds";
 import * as aws from "@pulumi/aws";
 // import { RandomPassword } from "@pulumi/random";
@@ -55,7 +55,7 @@ export class Aspv2Provisioner
         const subnetGroup = new aws.rds.SubnetGroup(subnetGroupName, {
             subnetIds: dbSubnets.apply((subnets) => subnets.map(t => t.id)),
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: subnetGroupName
             }
         });
@@ -82,7 +82,7 @@ export class Aspv2Provisioner
                 cidrBlocks: dbSubnets.apply((subnets) => subnets.map(t => t.subnet.cidrBlock as Pulumi.Output<string>))
             }],
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: proxySecGroupName
             }
         }, {
@@ -99,7 +99,7 @@ export class Aspv2Provisioner
                 sourceSecurityGroupId: dbProxySecGroup.id
             }],
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: dbSecGroupName
             }
         });
@@ -110,14 +110,14 @@ export class Aspv2Provisioner
             overrideSpecial: `_`
         });
 
-        const isProd = InfraConfig.env === EnvType.prod;
+        const isProd = NfraConfig.env === EnvType.prod;
         
         const clusterName = `${this._name}-cluster`;
         const postgresDbCluster = new aws.rds.Cluster(clusterName, {
             availabilityZones: [
-                InfraConfig.awsRegion + VpcAz.a,
-                InfraConfig.awsRegion + VpcAz.b,
-                InfraConfig.awsRegion + VpcAz.c
+                NfraConfig.awsRegion + VpcAz.a,
+                NfraConfig.awsRegion + VpcAz.b,
+                NfraConfig.awsRegion + VpcAz.c
             ],
             engine: aws.rds.EngineType.AuroraPostgresql,
             engineMode: aws.rds.EngineMode.Provisioned,
@@ -141,7 +141,7 @@ export class Aspv2Provisioner
             skipFinalSnapshot: this._config.skipFinalSnapshot, // to facilitate delete
             applyImmediately: true,
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: clusterName
             }
         });
@@ -160,7 +160,7 @@ export class Aspv2Provisioner
                 performanceInsightsEnabled: true,
                 applyImmediately: true,
                 tags: {
-                    ...InfraConfig.tags,
+                    ...NfraConfig.tags,
                     Name: clusterInstanceName
                 }
             }));
@@ -170,7 +170,7 @@ export class Aspv2Provisioner
         const dbCredsSecret = new aws.secretsmanager.Secret(dbCredsSecretName, {
             forceOverwriteReplicaSecret: true,
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: dbCredsSecretName
             }
         });
@@ -197,7 +197,7 @@ export class Aspv2Provisioner
         const dbProxyRole = new aws.iam.Role(dbProxyRoleName, {
             assumeRolePolicy: assumeRolePolicyDocument,
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: dbProxyRoleName
             }
         });
@@ -238,7 +238,7 @@ export class Aspv2Provisioner
                 secretArn: dbCredsSecret.arn
             }],
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: dbProxyName
             }
         }, { dependsOn: clusterInstances });
@@ -266,7 +266,7 @@ export class Aspv2Provisioner
             vpcSecurityGroupIds: [dbProxySecGroup.id],
             vpcSubnetIds: dbSubnets.apply((subnets) => subnets.map(t => t.id)),
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: dbProxyReadonlyEndpointName
             }
         });

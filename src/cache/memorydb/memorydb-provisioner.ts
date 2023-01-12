@@ -5,7 +5,7 @@ import { VpcDetails } from "../../vpc/vpc-details";
 import { MemorydbConfig } from "./memorydb-config";
 import { MemorydbDetails } from "./memorydb-details";
 import * as Pulumi from "@pulumi/pulumi";
-import { InfraConfig } from "../../infra-config";
+import { NfraConfig } from "../../nfra-config";
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
 import { EnvType } from "../../env-type";
 
@@ -45,7 +45,7 @@ export class MemorydbProvisioner
             subnetIds: Pulumi.output(this._vpcDetails.vpc.getSubnets("isolated"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: subnetGroupName
             }
         });
@@ -66,7 +66,7 @@ export class MemorydbProvisioner
                             .map(t => t.subnet.cidrBlock as Pulumi.Output<string>))
             }],
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: secGroupName
             }
         }, {
@@ -86,12 +86,12 @@ export class MemorydbProvisioner
                 }
             ],
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: paramGroupName
             }
         });
         
-        const isProd = InfraConfig.env === EnvType.prod;
+        const isProd = NfraConfig.env === EnvType.prod;
 
         const clusterName = `${this._name}-cluster`;
         const memdbCluster = new aws.memorydb.Cluster("memdb-cluster", {
@@ -110,7 +110,7 @@ export class MemorydbProvisioner
             numReplicasPerShard: isProd ? 3 : 1,
             parameterGroupName: paramGroup.name,
             tags: {
-                ...InfraConfig.tags,
+                ...NfraConfig.tags,
                 Name: clusterName
             }
         });
