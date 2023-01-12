@@ -12,7 +12,7 @@ const aws = require("@pulumi/aws");
 // import { VpcSubnetArgs, VpcSubnetType, Vpc } from "@pulumi/awsx/ec2";
 const awsx = require("@pulumi/awsx");
 const env_type_1 = require("../env-type");
-const infra_config_1 = require("../infra-config");
+const nfra_config_1 = require("../nfra-config");
 const vpc_az_1 = require("./vpc-az");
 class VpcProvisioner {
     constructor(name, config) {
@@ -55,21 +55,21 @@ class VpcProvisioner {
         this._vpc = new awsx.ec2.Vpc(this._name, {
             cidrBlock: `${this._config.cidr16Bits}.0.0/16`,
             numberOfAvailabilityZones: 3,
-            numberOfNatGateways: infra_config_1.InfraConfig.env === env_type_1.EnvType.prod ? 3 : 1,
+            numberOfNatGateways: nfra_config_1.NfraConfig.env === env_type_1.EnvType.prod ? 3 : 1,
             enableDnsHostnames: true,
             enableDnsSupport: true,
             subnets: this._config.subnets.map(t => this._createSubnet(t.name, t.type, t.cidrOctet3, t.az)),
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: this._name })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: this._name })
         });
         // denying all traffic on the default security group for aws security hub compliance
         const defaultSgName = `${this._name}-default-sg`;
         new aws.ec2.DefaultSecurityGroup(defaultSgName, {
             vpcId: this._vpc.id,
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: defaultSgName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: defaultSgName })
         });
         if (this._config.enableVpcFlowLogs)
             this._provisionVpcFlowLogs();
-        const meshName = `${this._name}-${infra_config_1.InfraConfig.env}-sm`;
+        const meshName = `${this._name}-${nfra_config_1.NfraConfig.env}-sm`;
         this._serviceMesh = new aws.appmesh.Mesh(meshName, {
             name: meshName,
             spec: {
@@ -78,13 +78,13 @@ class VpcProvisioner {
                     type: "ALLOW_ALL"
                 }
             },
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: meshName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: meshName })
         });
         const pvtDnsNspName = `${this._name}-pdn`;
         this._pvtDnsNsp = new aws.servicediscovery.PrivateDnsNamespace(pvtDnsNspName, {
-            name: `${this._name.substring(0, this._name.length - 4)}.${infra_config_1.InfraConfig.env}`,
+            name: `${this._name.substring(0, this._name.length - 4)}.${nfra_config_1.NfraConfig.env}`,
             vpc: this._vpc.id,
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: pvtDnsNspName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: pvtDnsNspName })
         });
         return {
             vpc: this._vpc,
@@ -103,17 +103,17 @@ class VpcProvisioner {
             type,
             location: {
                 cidrBlock: `${this._config.cidr16Bits}.${cidrOctet3}.0/24`,
-                availabilityZone: infra_config_1.InfraConfig.awsRegion + az
+                availabilityZone: nfra_config_1.NfraConfig.awsRegion + az
             },
             mapPublicIpOnLaunch: false,
             assignIpv6AddressOnCreation: false,
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: name })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: name })
         };
     }
     _provisionVpcFlowLogs() {
         const logGroupName = `${this._name}-lg`;
         const logGroup = new aws.cloudwatch.LogGroup(logGroupName, {
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: logGroupName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: logGroupName })
         });
         const logRoleName = `${this._name}-lr`;
         const logRole = new aws.iam.Role(logRoleName, {
@@ -130,7 +130,7 @@ class VpcProvisioner {
                     }
                 ]
             },
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: logRoleName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: logRoleName })
         });
         const logRolePolicyName = `${this._name}-lrp`;
         new aws.iam.RolePolicy(logRolePolicyName, {
@@ -158,7 +158,7 @@ class VpcProvisioner {
             logDestination: logGroup.arn,
             trafficType: "ALL",
             vpcId: this._vpc.id,
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: flowLogName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: flowLogName })
         });
     }
 }

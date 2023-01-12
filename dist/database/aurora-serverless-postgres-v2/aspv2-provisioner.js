@@ -5,7 +5,7 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const Pulumi = require("@pulumi/pulumi");
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
 const awsx = require("@pulumi/awsx");
-const infra_config_1 = require("../../infra-config");
+const nfra_config_1 = require("../../nfra-config");
 // import { Cluster, ClusterInstance, EngineMode, EngineType, SubnetGroup, Proxy as RdsProxy, ProxyDefaultTargetGroup, ProxyTarget, ProxyEndpoint } from "@pulumi/aws/rds";
 const aws = require("@pulumi/aws");
 // import { RandomPassword } from "@pulumi/random";
@@ -38,7 +38,7 @@ class Aspv2Provisioner {
         const subnetGroupName = `${this._name}-subnet-grp`;
         const subnetGroup = new aws.rds.SubnetGroup(subnetGroupName, {
             subnetIds: dbSubnets.apply((subnets) => subnets.map(t => t.id)),
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: subnetGroupName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: subnetGroupName })
         });
         const proxySecGroupName = `${this._name}-proxy-sg`;
         const dbProxySecGroup = new aws.ec2.SecurityGroup(proxySecGroupName, {
@@ -58,7 +58,7 @@ class Aspv2Provisioner {
                     toPort: postgresDbPort,
                     cidrBlocks: dbSubnets.apply((subnets) => subnets.map(t => t.subnet.cidrBlock))
                 }],
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: proxySecGroupName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: proxySecGroupName })
         }, {
             replaceOnChanges: ["*"]
         });
@@ -71,20 +71,20 @@ class Aspv2Provisioner {
                     toPort: postgresDbPort,
                     sourceSecurityGroupId: dbProxySecGroup.id
                 }],
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: dbSecGroupName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: dbSecGroupName })
         });
         const dbPassword = new random.RandomPassword(`${this._name}-rpass`, {
             length: 16,
             special: true,
             overrideSpecial: `_`
         });
-        const isProd = infra_config_1.InfraConfig.env === env_type_1.EnvType.prod;
+        const isProd = nfra_config_1.NfraConfig.env === env_type_1.EnvType.prod;
         const clusterName = `${this._name}-cluster`;
         const postgresDbCluster = new aws.rds.Cluster(clusterName, {
             availabilityZones: [
-                infra_config_1.InfraConfig.awsRegion + vpc_az_1.VpcAz.a,
-                infra_config_1.InfraConfig.awsRegion + vpc_az_1.VpcAz.b,
-                infra_config_1.InfraConfig.awsRegion + vpc_az_1.VpcAz.c
+                nfra_config_1.NfraConfig.awsRegion + vpc_az_1.VpcAz.a,
+                nfra_config_1.NfraConfig.awsRegion + vpc_az_1.VpcAz.b,
+                nfra_config_1.NfraConfig.awsRegion + vpc_az_1.VpcAz.c
             ],
             engine: aws.rds.EngineType.AuroraPostgresql,
             engineMode: aws.rds.EngineMode.Provisioned,
@@ -107,7 +107,7 @@ class Aspv2Provisioner {
             deletionProtection: this._config.deletionProtection,
             skipFinalSnapshot: this._config.skipFinalSnapshot,
             applyImmediately: true,
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: clusterName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: clusterName })
         });
         const numInstances = 3;
         const clusterInstances = new Array();
@@ -121,13 +121,13 @@ class Aspv2Provisioner {
                 publiclyAccessible: false,
                 performanceInsightsEnabled: true,
                 applyImmediately: true,
-                tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: clusterInstanceName })
+                tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: clusterInstanceName })
             }));
         }
         const dbCredsSecretName = `${this._name}-dbc-secret`;
         const dbCredsSecret = new aws.secretsmanager.Secret(dbCredsSecretName, {
             forceOverwriteReplicaSecret: true,
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: dbCredsSecretName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: dbCredsSecretName })
         });
         new aws.secretsmanager.SecretVersion(`${dbCredsSecretName}-version`, {
             secretId: dbCredsSecret.id,
@@ -148,7 +148,7 @@ class Aspv2Provisioner {
         const dbProxyRoleName = `${this._name}-dbp-role`;
         const dbProxyRole = new aws.iam.Role(dbProxyRoleName, {
             assumeRolePolicy: assumeRolePolicyDocument,
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: dbProxyRoleName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: dbProxyRoleName })
         });
         new aws.secretsmanager.SecretPolicy(`${this._name}-dbc-secret-policy`, {
             secretArn: dbCredsSecret.arn,
@@ -183,7 +183,7 @@ class Aspv2Provisioner {
                     iamAuth: "DISABLED",
                     secretArn: dbCredsSecret.arn
                 }],
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: dbProxyName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: dbProxyName })
         }, { dependsOn: clusterInstances });
         const dbProxyDefaultTargetGroup = new aws.rds.ProxyDefaultTargetGroup(`${this._name}-dbp-dft-tgrp`, {
             dbProxyName: dbProxy.name,
@@ -205,7 +205,7 @@ class Aspv2Provisioner {
             targetRole: "READ_ONLY",
             vpcSecurityGroupIds: [dbProxySecGroup.id],
             vpcSubnetIds: dbSubnets.apply((subnets) => subnets.map(t => t.id)),
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: dbProxyReadonlyEndpointName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: dbProxyReadonlyEndpointName })
         });
         return {
             host: dbProxy.endpoint,

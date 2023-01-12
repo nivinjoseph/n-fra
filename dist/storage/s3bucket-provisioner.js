@@ -6,7 +6,7 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const aws = require("@pulumi/aws");
 // import { Bucket, BucketPolicy, BucketPublicAccessBlock } from "@pulumi/aws/s3";
 const Pulumi = require("@pulumi/pulumi");
-const infra_config_1 = require("../infra-config");
+const nfra_config_1 = require("../nfra-config");
 class S3bucketProvisioner {
     constructor(name, config) {
         var _a;
@@ -48,7 +48,7 @@ class S3bucketProvisioner {
                 }
             ],
             forceDestroy: true,
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: bucketName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: bucketName })
         });
         const bucketPublicAccessBlock = new aws.s3.BucketPublicAccessBlock(`${this._name}-bucket-pab`, {
             bucket: bucket.id,

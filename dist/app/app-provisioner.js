@@ -8,7 +8,7 @@ const Pulumi = require("@pulumi/pulumi");
 const aws = require("@pulumi/aws");
 // import { Container, FargateTaskDefinition } from "@pulumi/awsx/ecs";
 const awsx = require("@pulumi/awsx");
-const infra_config_1 = require("../infra-config");
+const nfra_config_1 = require("../nfra-config");
 // import { LogConfiguration } from "@pulumi/aws/ecs";
 // import { VirtualNode } from "@pulumi/aws/appmesh";
 class AppProvisioner {
@@ -71,7 +71,7 @@ class AppProvisioner {
                     }
                 ]
             },
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: secretPolicyName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: secretPolicyName })
         });
         return secretPolicy.arn.apply(secretPolicyArn => awsx.ecs.FargateTaskDefinition.createExecutionRole(`${this.name}-ter`, undefined, [
             "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
@@ -91,7 +91,7 @@ class AppProvisioner {
             const policy = new aws.iam.Policy(policyName, {
                 path: "/",
                 policy: policyDoc,
-                tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: policyName })
+                tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: policyName })
             });
             return policy;
         });
@@ -104,7 +104,7 @@ class AppProvisioner {
     }
     createAppContainer() {
         return {
-            image: `${infra_config_1.InfraConfig.ecr}/${this.config.image}`,
+            image: `${nfra_config_1.NfraConfig.ecr}/${this.config.image}`,
             essential: true,
             readonlyRootFilesystem: true,
             cpu: 0,
@@ -189,10 +189,10 @@ class AppProvisioner {
                         "Host": `http-intake.logs.${this._config.datadogConfig.ddHost}`,
                         "TLS": "on",
                         "compress": "gzip",
-                        "dd_env": infra_config_1.InfraConfig.env,
+                        "dd_env": nfra_config_1.NfraConfig.env,
                         "dd_service": this._name,
                         "dd_source": "nodejs",
-                        "dd_tags": `env:${infra_config_1.InfraConfig.env}`,
+                        "dd_tags": `env:${nfra_config_1.NfraConfig.env}`,
                         "provider": "ecs"
                     },
                     secretOptions: [{
@@ -207,7 +207,7 @@ class AppProvisioner {
                 logDriver: "awsfirelens",
                 options: {
                     "Name": "cloudwatch",
-                    "region": infra_config_1.InfraConfig.awsRegion,
+                    "region": nfra_config_1.NfraConfig.awsRegion,
                     "log_key": "log",
                     "log_group_name": this._name,
                     "auto_create_group": "true",
@@ -223,7 +223,7 @@ class AppProvisioner {
             logDriver: "awslogs",
             options: {
                 "awslogs-create-group": "true",
-                "awslogs-region": infra_config_1.InfraConfig.awsRegion,
+                "awslogs-region": nfra_config_1.NfraConfig.awsRegion,
                 "awslogs-group": containerName,
                 "awslogs-stream-prefix": `ecs/${this.name}`
             }
@@ -231,17 +231,17 @@ class AppProvisioner {
     }
     _createInstrumentationEnvironmentVariables() {
         const result = [
-            { name: "env", value: infra_config_1.InfraConfig.env }
+            { name: "env", value: nfra_config_1.NfraConfig.env }
         ];
         if (this.hasDatadog)
-            result.push({ name: "DD_ENV", value: infra_config_1.InfraConfig.env }, { name: "DD_SERVICE", value: this._name }, { name: "DD_VERSION", value: this._version });
+            result.push({ name: "DD_ENV", value: nfra_config_1.NfraConfig.env }, { name: "DD_SERVICE", value: this._name }, { name: "DD_VERSION", value: this._version });
         else
             result.push({ name: "enableXrayTracing", value: "true" });
         return result;
     }
     _createInstrumentationLabels() {
         return {
-            "com.datadoghq.tags.env": infra_config_1.InfraConfig.env,
+            "com.datadoghq.tags.env": nfra_config_1.NfraConfig.env,
             "com.datadoghq.tags.service": this._name,
             "com.datadoghq.tags.version": this._version
         };
@@ -303,7 +303,7 @@ class AppProvisioner {
                     ...this.hasDatadog
                         ? [
                             { name: "ENABLE_ENVOY_DATADOG_TRACING", value: "1" },
-                            { name: "DD_ENV", value: infra_config_1.InfraConfig.env },
+                            { name: "DD_ENV", value: nfra_config_1.NfraConfig.env },
                             { name: "DD_SERVICE", value: this._name }
                             // { name: "DATADOG_TRACER_PORT", value: "8126" },
                             // { name: "DATADOG_TRACER_ADDRESS", value: "127.0.0.1" }, // <- service discovery for the datadog agent
@@ -321,7 +321,7 @@ class AppProvisioner {
             dockerLabels: this.hasDatadog
                 ? {
                     "com.datadoghq.ad.logs": `[{"source": "envoy", "service": "${this._name}-envoy"}]`,
-                    "com.datadoghq.tags.env": infra_config_1.InfraConfig.env,
+                    "com.datadoghq.tags.env": nfra_config_1.NfraConfig.env,
                     "com.datadoghq.tags.service": `${this._name}-envoy`,
                     "com.datadoghq.ad.instances": `[{ "stats_url": "http://%%host%%:9901/stats" }]`,
                     "com.datadoghq.ad.check_names": `["envoy"]`,

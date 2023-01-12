@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AlbProvisioner = exports.GrpcAppProvisioner = exports.HttpAppProvisioner = exports.WorkerAppProvisioner = exports.RedisProvisioner = exports.MemorydbProvisioner = exports.Aspv2Provisioner = exports.Aspv1Provisioner = exports.DatadogIntegrationProvisioner = exports.SecretsProvisioner = exports.AccessKeyProvisioner = exports.S3bucketProvisioner = exports.VpcProvisioner = exports.VpcAz = exports.VpcSubnetType = exports.EnvType = exports.InfraConfig = void 0;
+exports.AlbProvisioner = exports.GrpcAppProvisioner = exports.HttpAppProvisioner = exports.WorkerAppProvisioner = exports.RedisProvisioner = exports.MemorydbProvisioner = exports.Aspv2Provisioner = exports.Aspv1Provisioner = exports.DatadogIntegrationProvisioner = exports.SecretsProvisioner = exports.AccessKeyProvisioner = exports.S3bucketProvisioner = exports.VpcProvisioner = exports.VpcAz = exports.VpcSubnetType = exports.EnvType = exports.NfraConfig = void 0;
 require("@nivinjoseph/n-ext");
-var infra_config_1 = require("./infra-config");
-Object.defineProperty(exports, "InfraConfig", { enumerable: true, get: function () { return infra_config_1.InfraConfig; } });
+var nfra_config_1 = require("./nfra-config");
+Object.defineProperty(exports, "NfraConfig", { enumerable: true, get: function () { return nfra_config_1.NfraConfig; } });
 var env_type_1 = require("./env-type");
 Object.defineProperty(exports, "EnvType", { enumerable: true, get: function () { return env_type_1.EnvType; } });
 var vpc_subnet_type_1 = require("./vpc/vpc-subnet-type");

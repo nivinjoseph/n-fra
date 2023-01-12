@@ -5,7 +5,7 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 // import { Cluster, ParameterGroup, SubnetGroup } from "@pulumi/aws/memorydb";
 const aws = require("@pulumi/aws");
 const Pulumi = require("@pulumi/pulumi");
-const infra_config_1 = require("../../infra-config");
+const nfra_config_1 = require("../../nfra-config");
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
 const env_type_1 = require("../../env-type");
 class MemorydbProvisioner {
@@ -30,7 +30,7 @@ class MemorydbProvisioner {
         const subnetGroup = new aws.memorydb.SubnetGroup(subnetGroupName, {
             subnetIds: Pulumi.output(this._vpcDetails.vpc.getSubnets("isolated"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: subnetGroupName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: subnetGroupName })
         });
         const secGroupName = `${this._name}-sg`;
         const secGroup = new aws.ec2.SecurityGroup(secGroupName, {
@@ -44,7 +44,7 @@ class MemorydbProvisioner {
                         .apply((subnets) => subnets.where(subnet => this._config.ingressSubnetNamePrefixes.some(prefix => subnet.subnetName.startsWith(prefix)))
                         .map(t => t.subnet.cidrBlock))
                 }],
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: secGroupName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: secGroupName })
         }, {
             replaceOnChanges: ["*"]
         });
@@ -60,9 +60,9 @@ class MemorydbProvisioner {
                     value: "volatile-ttl"
                 }
             ],
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: paramGroupName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: paramGroupName })
         });
-        const isProd = infra_config_1.InfraConfig.env === env_type_1.EnvType.prod;
+        const isProd = nfra_config_1.NfraConfig.env === env_type_1.EnvType.prod;
         const clusterName = `${this._name}-cluster`;
         const memdbCluster = new aws.memorydb.Cluster("memdb-cluster", {
             nodeType: this._config.nodeType,
@@ -79,7 +79,7 @@ class MemorydbProvisioner {
             autoMinorVersionUpgrade: true,
             numReplicasPerShard: isProd ? 3 : 1,
             parameterGroupName: paramGroup.name,
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: clusterName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: clusterName })
         });
         return {
             endpoints: memdbCluster.clusterEndpoints

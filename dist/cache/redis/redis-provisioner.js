@@ -5,7 +5,7 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 // import { ParameterGroup, ReplicationGroup, SubnetGroup } from "@pulumi/aws/elasticache";
 const aws = require("@pulumi/aws");
 const Pulumi = require("@pulumi/pulumi");
-const infra_config_1 = require("../../infra-config");
+const nfra_config_1 = require("../../nfra-config");
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
 const env_type_1 = require("../../env-type");
 const vpc_az_1 = require("../../vpc/vpc-az");
@@ -28,7 +28,7 @@ class RedisProvisioner {
         const subnetGroup = new aws.elasticache.SubnetGroup(subnetGroupName, {
             subnetIds: Pulumi.output(this._vpcDetails.vpc.getSubnets("isolated"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: subnetGroupName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: subnetGroupName })
         });
         const secGroupName = `${this._name}-sg`;
         const secGroup = new aws.ec2.SecurityGroup(secGroupName, {
@@ -42,7 +42,7 @@ class RedisProvisioner {
                         .apply((subnets) => subnets.where(subnet => this._config.ingressSubnetNamePrefixes.some(prefix => subnet.subnetName.startsWith(prefix)))
                         .map(t => t.subnet.cidrBlock))
                 }],
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: secGroupName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: secGroupName })
         }, {
             replaceOnChanges: ["*"]
         });
@@ -53,9 +53,9 @@ class RedisProvisioner {
                     name: "maxmemory-policy",
                     value: "allkeys-lru"
                 }],
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: paramGroupName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: paramGroupName })
         });
-        const isProd = infra_config_1.InfraConfig.env === env_type_1.EnvType.prod;
+        const isProd = nfra_config_1.NfraConfig.env === env_type_1.EnvType.prod;
         const replicationGroupName = `${this._name}-repli-grp`;
         const replicationGroup = new aws.elasticache.ReplicationGroup(replicationGroupName, {
             replicationGroupDescription: `${this._name}-replication-group`,
@@ -69,11 +69,11 @@ class RedisProvisioner {
             numberCacheClusters: isProd ? 3 : 1,
             multiAzEnabled: isProd,
             availabilityZones: isProd ? [
-                infra_config_1.InfraConfig.awsRegion + vpc_az_1.VpcAz.a,
-                infra_config_1.InfraConfig.awsRegion + vpc_az_1.VpcAz.b,
-                infra_config_1.InfraConfig.awsRegion + vpc_az_1.VpcAz.c
+                nfra_config_1.NfraConfig.awsRegion + vpc_az_1.VpcAz.a,
+                nfra_config_1.NfraConfig.awsRegion + vpc_az_1.VpcAz.b,
+                nfra_config_1.NfraConfig.awsRegion + vpc_az_1.VpcAz.c
             ] : [
-                infra_config_1.InfraConfig.awsRegion + vpc_az_1.VpcAz.a
+                nfra_config_1.NfraConfig.awsRegion + vpc_az_1.VpcAz.a
             ],
             automaticFailoverEnabled: isProd,
             transitEncryptionEnabled: false,
@@ -88,7 +88,7 @@ class RedisProvisioner {
             subnetGroupName: subnetGroup.name,
             securityGroupIds: [secGroup.id],
             applyImmediately: true,
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: replicationGroupName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: replicationGroupName })
         });
         return {
             host: replicationGroup.primaryEndpointAddress,

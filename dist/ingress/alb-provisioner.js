@@ -5,7 +5,7 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
 const awsx = require("@pulumi/awsx");
 const Pulumi = require("@pulumi/pulumi");
-const infra_config_1 = require("../infra-config");
+const nfra_config_1 = require("../nfra-config");
 // import { ApplicationLoadBalancer } from "@pulumi/awsx/lb";
 // import { Listener, ListenerRule } from "@pulumi/aws/lb";
 const aws = require("@pulumi/aws");
@@ -70,7 +70,7 @@ class AlbProvisioner {
                         .apply((subnets) => subnets.where(subnet => this._config.egressSubnetNamePrefixes.some(prefix => subnet.subnetName.startsWith(prefix)))
                         .map(t => t.subnet.cidrBlock))
                 }],
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: albSecGroupName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: albSecGroupName })
         });
         const albName = `${this._name}-alb`;
         const alb = new awsx.lb.ApplicationLoadBalancer(albName, {
@@ -80,7 +80,7 @@ class AlbProvisioner {
             subnets: Pulumi.output(this._vpcDetails.vpc.getSubnets("public"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
             securityGroups: [appAlbSecGroup],
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: albName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: albName })
         });
         if (this._config.justAlb)
             return {};
@@ -97,7 +97,7 @@ class AlbProvisioner {
                         statusCode: "HTTP_301"
                     }
                 }],
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: httpListenerName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: httpListenerName })
         }, {
             parent: alb
         });
@@ -116,7 +116,7 @@ class AlbProvisioner {
                         statusCode: "404"
                     }
                 }],
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: httpsListenerName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: httpsListenerName })
         }, {
             parent: alb
         });
@@ -132,7 +132,7 @@ class AlbProvisioner {
                 healthCheck: {
                     path: target.healthCheckPath
                 },
-                tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: targetGroupName })
+                tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: targetGroupName })
             });
             const listenerRuleName = `${this._name}-lnr-rle-${index}`;
             new aws.lb.ListenerRule(listenerRuleName, {
@@ -147,7 +147,7 @@ class AlbProvisioner {
                             values: [target.host]
                         }
                     }],
-                tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: listenerRuleName })
+                tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: listenerRuleName })
             });
             result[target.host] = {
                 albTargetGroupArn: targetGroup.targetGroup.arn
@@ -191,7 +191,7 @@ class AlbProvisioner {
                 metricName: "app-web-acl-metric",
                 sampledRequestsEnabled: true
             },
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: webAclName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: webAclName })
         }, {
             // FIXME: this is a workaround for https://github.com/pulumi/pulumi-aws/issues/1423
             // Be cognizant of this when updating the rules
@@ -248,7 +248,7 @@ class AlbProvisioner {
             },
             httpVersion: "http2",
             isIpv6Enabled: true,
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: distroName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: distroName })
         });
     }
 }

@@ -7,7 +7,7 @@ const aws = require("@pulumi/aws");
 // import { MonitorJson, Provider } from "@pulumi/datadog";
 const datadog = require("@pulumi/datadog");
 // import { Integration } from "@pulumi/datadog/aws/integration";
-const infra_config_1 = require("../infra-config");
+const nfra_config_1 = require("../nfra-config");
 class DatadogIntegrationProvisioner {
     /**
      * @description Only provision this once within a given AWS account
@@ -34,7 +34,7 @@ class DatadogIntegrationProvisioner {
         const roleName = "DatadogIntegrationRole";
         // Create a new Datadog - Amazon Web Services integration
         const datadogIntegration = new datadog.aws.Integration("datadog-integration", {
-            accountId: infra_config_1.InfraConfig.awsAccount,
+            accountId: nfra_config_1.NfraConfig.awsAccount,
             roleName
         }, {
             provider: this._provider
@@ -125,7 +125,7 @@ class DatadogIntegrationProvisioner {
             path: "/",
             description: "Datadog integration policy",
             policy: datadogAwsAccessPolicyDocument,
-            tags: Object.assign({ Name: datadogPolicyName }, infra_config_1.InfraConfig.tags)
+            tags: Object.assign({ Name: datadogPolicyName }, nfra_config_1.NfraConfig.tags)
         });
         const datadogAssumeRolePolicyDocument = {
             Version: "2012-10-17",
@@ -154,7 +154,7 @@ class DatadogIntegrationProvisioner {
         const datadogRole = new aws.iam.Role(roleName, {
             name: roleName,
             assumeRolePolicy: datadogAssumeRolePolicyDocument,
-            tags: Object.assign({ Name: roleName }, infra_config_1.InfraConfig.tags)
+            tags: Object.assign({ Name: roleName }, nfra_config_1.NfraConfig.tags)
         });
         new aws.iam.RolePolicyAttachment("datadogPolicyAttachment", {
             role: datadogRole,

@@ -5,7 +5,7 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 // import { Cluster, EngineMode, EngineType, SubnetGroup } from "@pulumi/aws/rds";
 const aws = require("@pulumi/aws");
 const Pulumi = require("@pulumi/pulumi");
-const infra_config_1 = require("../../infra-config");
+const nfra_config_1 = require("../../nfra-config");
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
 // import { RandomPassword } from "@pulumi/random";
 const random = require("@pulumi/random");
@@ -35,7 +35,7 @@ class Aspv1Provisioner {
         const subnetGroup = new aws.rds.SubnetGroup(subnetGroupName, {
             subnetIds: Pulumi.output(this._vpcDetails.vpc.getSubnets("isolated"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: subnetGroupName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: subnetGroupName })
         });
         const secGroupName = `${this._name}-sg`;
         const secGroup = new aws.ec2.SecurityGroup(secGroupName, {
@@ -49,7 +49,7 @@ class Aspv1Provisioner {
                         .apply((subnets) => subnets.where(subnet => this._config.ingressSubnetNamePrefixes.some(prefix => subnet.subnetName.startsWith(prefix)))
                         .map(t => t.subnet.cidrBlock))
                 }],
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: secGroupName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: secGroupName })
         }, {
             replaceOnChanges: ["*"]
         });
@@ -58,13 +58,13 @@ class Aspv1Provisioner {
             special: true,
             overrideSpecial: `_`
         });
-        const isProd = infra_config_1.InfraConfig.env === env_type_1.EnvType.prod;
+        const isProd = nfra_config_1.NfraConfig.env === env_type_1.EnvType.prod;
         const clusterName = `${this._name}-cluster`;
         const postgresDbCluster = new aws.rds.Cluster(clusterName, {
             availabilityZones: [
-                infra_config_1.InfraConfig.awsRegion + vpc_az_1.VpcAz.a,
-                infra_config_1.InfraConfig.awsRegion + vpc_az_1.VpcAz.b,
-                infra_config_1.InfraConfig.awsRegion + vpc_az_1.VpcAz.c
+                nfra_config_1.NfraConfig.awsRegion + vpc_az_1.VpcAz.a,
+                nfra_config_1.NfraConfig.awsRegion + vpc_az_1.VpcAz.b,
+                nfra_config_1.NfraConfig.awsRegion + vpc_az_1.VpcAz.c
             ],
             engine: aws.rds.EngineType.AuroraPostgresql,
             allowMajorVersionUpgrade: false,
@@ -90,7 +90,7 @@ class Aspv1Provisioner {
             deletionProtection: this._config.deletionProtection,
             skipFinalSnapshot: this._config.skipFinalSnapshot,
             applyImmediately: true,
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: clusterName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: clusterName })
         });
         return {
             host: postgresDbCluster.endpoint,

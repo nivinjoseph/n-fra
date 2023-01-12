@@ -4,7 +4,7 @@ exports.WorkerAppProvisioner = void 0;
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
 const app_provisioner_1 = require("../app-provisioner");
 const Pulumi = require("@pulumi/pulumi");
-const infra_config_1 = require("../../infra-config");
+const nfra_config_1 = require("../../nfra-config");
 // import { Instance as SdInstance, Service as SdService } from "@pulumi/aws/servicediscovery";
 // import { Service as SdService } from "@pulumi/aws/servicediscovery";
 const aws = require("@pulumi/aws");
@@ -24,7 +24,7 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
                     cidrBlocks: ["0.0.0.0/0"],
                     ipv6CidrBlocks: ["::/0"]
                 }],
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: secGroupName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: secGroupName })
         }, {
             replaceOnChanges: ["*"]
         });
@@ -43,9 +43,9 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
                 failureThreshold: 1
             },
             forceDestroy: true,
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: sdServiceName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: sdServiceName })
         }, { dependsOn: this.vpcDetails.privateDnsNamespace });
-        const ecsTaskDefFam = `${infra_config_1.InfraConfig.env}-${this.name}-tdf`;
+        const ecsTaskDefFam = `${nfra_config_1.NfraConfig.env}-${this.name}-tdf`;
         const virtualNodeName = `${this.name}-vnode`;
         const virtualNode = new aws.appmesh.VirtualNode(virtualNodeName, {
             name: virtualNodeName,
@@ -74,7 +74,7 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
                     }
                 }
             },
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: virtualNodeName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: virtualNodeName })
         }, { dependsOn: [this.vpcDetails.serviceMesh, this.vpcDetails.privateDnsNamespace, sdService] });
         const virtualServiceName = `${this.name}-vsvc`;
         new aws.appmesh.VirtualService(virtualServiceName, {
@@ -87,7 +87,7 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
                     }
                 }
             },
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: virtualServiceName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: virtualServiceName })
         }, { dependsOn: [this.vpcDetails.serviceMesh, this.vpcDetails.privateDnsNamespace, virtualNode] });
         const taskDefinitionName = `${this.name}-task-def`;
         const taskDefinition = new aws.ecs.TaskDefinition(taskDefinitionName, {
@@ -117,7 +117,7 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
                 ? [{ "name": "etc-datadog_agent" }]
                 : [],
             containerDefinitions: this.createContainerDefinitions(virtualNode),
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: taskDefinitionName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: taskDefinitionName })
         }, { deleteBeforeReplace: true, dependsOn: virtualNode });
         const clusterName = `${this.name}-cluster`;
         const cluster = new aws.ecs.Cluster(clusterName, {
@@ -128,7 +128,7 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
                     value: "enabled"
                 }
             ],
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: clusterName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: clusterName })
         });
         const serviceName = `${this.name}-service`;
         new aws.ecs.Service(serviceName, {
@@ -149,7 +149,7 @@ class WorkerAppProvisioner extends app_provisioner_1.AppProvisioner {
                 registryArn: sdService.arn
             },
             desiredCount: 1,
-            tags: Object.assign(Object.assign({}, infra_config_1.InfraConfig.tags), { Name: serviceName })
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: serviceName })
         });
     }
 }
