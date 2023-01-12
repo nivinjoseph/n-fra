@@ -40,7 +40,7 @@ export class DatadogIntegrationProvisioner
     }
 
 
-    public provisionResources(): void
+    public provision(): void
     {
         // We only set this up once and we do it in the stage environment
 
