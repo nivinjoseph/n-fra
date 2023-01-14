@@ -71,7 +71,7 @@ export class S3bucketProvisioner
         });
     }
     
-    public static createBucketAccessPolicyDocument(config: Pick<S3bucketAccessConfig, "bucketDetails" | "accessControls">): PolicyDocument
+    public static createAccessPolicyDocument(config: Pick<S3bucketAccessConfig, "bucketDetails" | "accessControls">): PolicyDocument
     {
         given(config, "config").ensureHasValue().ensureHasStructure({
             bucketDetails: "object",

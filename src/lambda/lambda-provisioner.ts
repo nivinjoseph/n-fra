@@ -5,6 +5,7 @@ import * as aws from "@pulumi/aws";
 import { NfraConfig } from "../nfra-config";
 import * as Pulumi from "@pulumi/pulumi";
 import { LambdaAccessConfig } from "./lambda-access-config";
+import { PolicyDocument } from "../security/policy/policy-document";
 
 
 export class LambdaProvisioner
@@ -52,6 +53,26 @@ export class LambdaProvisioner
             function: config.lambdaDetails.functionName,
             principal: config.userOrRoleArn ?? config.awsService!
         });
+    }
+    
+    public static createAccessPolicyDocument(config: Pick<LambdaAccessConfig, "lambdaDetails">): PolicyDocument
+    {
+        given(config, "config").ensureHasValue().ensureHasStructure({
+            lambdaDetails: "object"
+        });
+        
+        const policy: aws.iam.PolicyDocument = {
+            Version: "2012-10-17",
+            Statement: [
+                {
+                    Effect: "Allow",
+                    Action: ["lambda:InvokeFunction"],
+                    Resource: Pulumi.interpolate`${config.lambdaDetails.lambdaArn}/*`
+                }
+            ]
+        };
+
+        return policy;
     }
     
     public provision(): LambdaDetails
