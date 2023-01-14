@@ -6,6 +6,7 @@ import { NfraConfig } from "../nfra-config";
 import * as Pulumi from "@pulumi/pulumi";
 import { LambdaAccessConfig } from "./lambda-access-config";
 import { PolicyDocument } from "../security/policy/policy-document";
+import * as Fs from "fs";
 
 
 export class LambdaProvisioner
@@ -21,7 +22,7 @@ export class LambdaProvisioner
         
         given(config, "config").ensureHasValue()
             .ensureHasStructure({
-            codeZipFilePath: "string",
+            codeFilePath: "string",
             memorySize: "number",
             "envVars?": ["object"],
             handler: "string",
@@ -31,6 +32,11 @@ export class LambdaProvisioner
             "subnetNamePrefix?": "string",
             "ingressSubnetNamePrefixes?": ["string"]
             })
+            // .tar, .tar.gz, or .zip
+            .ensure(t => t.codeFilePath.startsWith("/"), "codeFilePath must absolute")
+            .ensure(t => t.codeFilePath.endsWith(".tar") || t.codeFilePath.endsWith(".tar.gz") || t.codeFilePath.endsWith(".zip"),
+                "codeFilePath must be a valid .tar, .tar.gz, or .zip file")
+            .ensure(t => Fs.existsSync(t.codeFilePath), "codeFilePath does not exist")
             .ensureWhen(config.vpcDetails != null, t => t.subnetNamePrefix != null,
                 "subnetNamePrefix is required when vpcDetails is provided")
             .ensureWhen(config.vpcDetails != null, t => t.ingressSubnetNamePrefixes != null && t.ingressSubnetNamePrefixes.isNotEmpty,
@@ -136,7 +142,7 @@ export class LambdaProvisioner
         const lambda = new aws.lambda.Function(lambdaName, {
             packageType: "Zip",
             // layers: ["arn:aws:lambda:us-east-2:464622532012:layer:Datadog-Extension:29"], // instrumentation
-            code: this._config.codeZipFilePath,
+            code: new Pulumi.asset.FileArchive(this._config.codeFilePath),
             runtime: aws.lambda.Runtime.NodeJS18dX,
             // handler: "node_modules/datadog-lambda-js/dist/handler.handler",
             // handler: "index.handler",
