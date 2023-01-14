@@ -107,8 +107,9 @@ export class VpcProvisioner
         });
 
         const pvtDnsNspName = `${this._name}-pdn`;
+        const pvtDnsName = `${this._name.substring(0, this._name.length - 4)}.${NfraConfig.env}`;
         this._pvtDnsNsp = new aws.servicediscovery.PrivateDnsNamespace(pvtDnsNspName, {
-            name: `${this._name.substring(0, this._name.length - 4)}.${NfraConfig.env}`,
+            name: pvtDnsName,
             vpc: this._vpc.id,
             tags: {
                 ...NfraConfig.tags,
@@ -119,7 +120,8 @@ export class VpcProvisioner
         return {
             vpc: this._vpc,
             serviceMesh: this._serviceMesh,
-            privateDnsNamespace: this._pvtDnsNsp
+            privateDnsNamespace: this._pvtDnsNsp,
+            privateDnsDomain: pvtDnsName
         };
     }
     

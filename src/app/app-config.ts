@@ -1,11 +1,13 @@
 import { AppDatadogConfig } from "./app-datadog-config";
-import { EcsEnvVar } from "./ecs-env-var";
+import { EcsEnvVar } from "../common/ecs-env-var";
 import { AppSecret } from "../secrets/app-secret";
-import { PolicyDocument } from "./policy-document";
+import { PolicyDocument } from "../security/policy/policy-document";
+import { VpcDetails } from "../vpc/vpc-details";
 
 
 export interface AppConfig
 {
+    vpcDetails: VpcDetails;
     subnetNamePrefix: string;
     cpu?: number;
     memory?: number;

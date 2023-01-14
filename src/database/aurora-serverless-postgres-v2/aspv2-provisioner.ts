@@ -1,5 +1,4 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { VpcDetails } from "../../vpc/vpc-details";
 import { Aspv2Config } from "./aspv2-config";
 import { Aspv2Details } from "./aspv2-details";
 import * as Pulumi from "@pulumi/pulumi";
@@ -19,19 +18,16 @@ import { EnvType } from "../../env-type";
 export class Aspv2Provisioner
 {
     private readonly _name: string;
-    private readonly _vpcDetails: VpcDetails;
     private readonly _config: Aspv2Config;
 
 
-    public constructor(name: string, vpcDetails: VpcDetails, config: Aspv2Config)
+    public constructor(name: string, config: Aspv2Config)
     {
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
 
-        given(vpcDetails, "vpcDetails").ensureHasValue().ensureIsObject();
-        this._vpcDetails = vpcDetails;
-
         given(config, "config").ensureHasValue().ensureIsObject().ensureHasStructure({
+            vpcDetails: "object",
             subnetNamePrefix: "string",
             ingressSubnetNamePrefixes: ["string"],
             databaseName: "string",
@@ -48,7 +44,7 @@ export class Aspv2Provisioner
     {
         const postgresDbPort = 5432;
 
-        const dbSubnets = Pulumi.output(this._vpcDetails.vpc.getSubnets("isolated"))
+        const dbSubnets = Pulumi.output(this._config.vpcDetails.vpc.getSubnets("isolated"))
             .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)));
             
         const subnetGroupName = `${this._name}-subnet-grp`;
@@ -62,13 +58,13 @@ export class Aspv2Provisioner
 
         const proxySecGroupName = `${this._name}-proxy-sg`;
         const dbProxySecGroup = new aws.ec2.SecurityGroup(proxySecGroupName, {
-            vpcId: this._vpcDetails.vpc.id,
+            vpcId: this._config.vpcDetails.vpc.id,
             revokeRulesOnDelete: true,
             ingress: [{
                 protocol: "tcp",
                 fromPort: postgresDbPort,
                 toPort: postgresDbPort,
-                cidrBlocks: Pulumi.output(this._vpcDetails.vpc.getSubnets("private"))
+                cidrBlocks: Pulumi.output(this._config.vpcDetails.vpc.getSubnets("private"))
                     .apply((subnets) =>
                         subnets.where(subnet =>
                             this._config.ingressSubnetNamePrefixes.some(prefix =>
@@ -91,7 +87,7 @@ export class Aspv2Provisioner
 
         const dbSecGroupName = `${this._name}-db-sg`;
         const dbSecGroup = new awsx.ec2.SecurityGroup(dbSecGroupName, {
-            vpc: this._vpcDetails.vpc,
+            vpc: this._config.vpcDetails.vpc,
             ingress: [{
                 protocol: "tcp",
                 fromPort: postgresDbPort,

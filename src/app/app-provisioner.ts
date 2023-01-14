@@ -8,8 +8,9 @@ import * as aws from "@pulumi/aws";
 // import { Container, FargateTaskDefinition } from "@pulumi/awsx/ecs";
 import * as awsx from "@pulumi/awsx";
 import { NfraConfig } from "../nfra-config";
-import { EcsEnvVar } from "./ecs-env-var";
+import { EcsEnvVar } from "../common/ecs-env-var";
 import { AppSecret } from "../secrets/app-secret";
+import { AppDetails } from "./app-details";
 // import { LogConfiguration } from "@pulumi/aws/ecs";
 // import { VirtualNode } from "@pulumi/aws/appmesh";
 
@@ -17,25 +18,21 @@ import { AppSecret } from "../secrets/app-secret";
 export abstract class AppProvisioner<T extends AppConfig>
 {
     private readonly _name: string;
-    private readonly _vpcDetails: VpcDetails;
     private readonly _config: T;
     private readonly _version: string;
 
 
     protected get name(): string { return this._name; }
-    protected get vpcDetails(): VpcDetails { return this._vpcDetails; }
+    protected get vpcDetails(): VpcDetails { return this._config.vpcDetails; }
     protected get config(): T { return this._config; }
     protected get version(): string { return this._version; }
     protected get hasDatadog(): boolean { return this._config.datadogConfig != null; }
 
 
-    protected constructor(name: string, vpcDetails: VpcDetails, config: T)
+    protected constructor(name: string, config: T)
     {
         given(name, "serviceName").ensureHasValue().ensureIsString();
         this._name = name;
-
-        given(vpcDetails, "vpcDetails").ensureHasValue().ensureIsObject();
-        this._vpcDetails = vpcDetails;
 
         const defaultConfig: Partial<AppConfig> = {
             cpu: 512,
@@ -45,15 +42,18 @@ export abstract class AppProvisioner<T extends AppConfig>
         config = Object.assign(defaultConfig, config);
         given(config, "config").ensureHasValue().ensureIsObject()
             .ensureHasStructure({
+                vpcDetails: "object",
                 subnetNamePrefix: "string",
                 cpu: "number",
                 memory: "number",
                 image: "string",
                 "command?": ["string"],
                 "entryPoint?": ["string"],
+                "envVars?": ["object"],
                 "secrets?": ["object"],
                 "policies?": ["object"],
-                isOn: "boolean"
+                isOn: "boolean",
+                "datadogConfig?": "object"
             })
             .ensure(t => t.image.contains(":v"), "config.image does not have a valid tag");
 
@@ -66,8 +66,9 @@ export abstract class AppProvisioner<T extends AppConfig>
         this._config = config;
         this._version = config.image.split(":").takeLast().substring(1);
     }
+
     
-    public abstract provision(): void;
+    public abstract provision(): AppDetails;
 
     protected createExecutionRole(): Pulumi.Output<aws.iam.Role>
     {

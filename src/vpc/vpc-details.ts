@@ -10,4 +10,5 @@ export interface VpcDetails
     vpc: awsx.ec2.Vpc;
     serviceMesh: aws.appmesh.Mesh;
     privateDnsNamespace: aws.servicediscovery.PrivateDnsNamespace;
+    privateDnsDomain: string;
 }

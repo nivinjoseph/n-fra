@@ -1,5 +1,9 @@
+import { VpcDetails } from "../../vpc/vpc-details";
+
+
 export interface MemorydbConfig
 {
+    vpcDetails: VpcDetails;
     subnetNamePrefix: string;
     ingressSubnetNamePrefixes: ReadonlyArray<string>;
     /**

@@ -1,7 +1,6 @@
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
 import { AppProvisioner } from "../app-provisioner";
 import * as Pulumi from "@pulumi/pulumi";
-import { VpcDetails } from "../../vpc/vpc-details";
 import { NfraConfig } from "../../nfra-config";
 // import { Instance as SdInstance, Service as SdService } from "@pulumi/aws/servicediscovery";
 // import { Service as SdService } from "@pulumi/aws/servicediscovery";
@@ -10,17 +9,19 @@ import * as aws from "@pulumi/aws";
 // import { TaskDefinition } from "@pulumi/aws/ecs/taskDefinition";
 // import { Cluster, Service } from "@pulumi/aws/ecs";
 import { WorkerAppConfig } from "./worker-app-config";
+import { WorkerAppDetails } from "./worker-app-details";
+// import { AppDetails } from "../app-details";
 
 
 export class WorkerAppProvisioner extends AppProvisioner<WorkerAppConfig>
 {
-    public constructor(name: string, vpcDetails: VpcDetails, config: WorkerAppConfig)
+    public constructor(name: string, config: WorkerAppConfig)
     {
-        super(name, vpcDetails, config);
+        super(name, config);
     }
 
     
-    public provision(): void
+    public provision(): WorkerAppDetails
     {
         const secGroupName = `${this.name}-sg`;
         const secGroup = new aws.ec2.SecurityGroup(secGroupName, {
@@ -115,12 +116,14 @@ export class WorkerAppProvisioner extends AppProvisioner<WorkerAppConfig>
             }
         }, { dependsOn: [this.vpcDetails.serviceMesh, this.vpcDetails.privateDnsNamespace, virtualNode] });
 
+        const taskRoleArn = this.createTaskRole().arn;
+        
         const taskDefinitionName = `${this.name}-task-def`;
         const taskDefinition = new aws.ecs.TaskDefinition(taskDefinitionName, {
             cpu: this.config.cpu!.toString(), // https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-cpu-memory-error.html
             memory: this.config.memory!.toString(),
             executionRoleArn: this.createExecutionRole().arn,
-            taskRoleArn: this.createTaskRole().arn,
+            taskRoleArn,
             requiresCompatibilities: ["FARGATE"],
             runtimePlatform: {
                 operatingSystemFamily: "LINUX",
@@ -188,5 +191,9 @@ export class WorkerAppProvisioner extends AppProvisioner<WorkerAppConfig>
                 Name: serviceName
             }
         });
+        
+        return {
+            // taskRoleArn
+        };
     }
 }

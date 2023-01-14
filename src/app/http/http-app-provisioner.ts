@@ -3,10 +3,11 @@ import { AppProvisioner } from "../app-provisioner";
 import { HttpAppConfig } from "./http-app-config";
 import * as Pulumi from "@pulumi/pulumi";
 import { given } from "@nivinjoseph/n-defensive";
-import { VpcDetails } from "../../vpc/vpc-details";
 import { NfraConfig } from "../../nfra-config";
 // import { Instance as SdInstance, Service as SdService } from "@pulumi/aws/servicediscovery";
 import * as aws from "@pulumi/aws";
+import { HttpAppDetails } from "./http-app-details";
+// import { AppDetails } from "../app-details";
 // import { Service as SdService } from "@pulumi/aws/servicediscovery";
 // import { VirtualNode, VirtualService } from "@pulumi/aws/appmesh";
 // import { TaskDefinition } from "@pulumi/aws/ecs/taskDefinition";
@@ -16,19 +17,20 @@ import * as aws from "@pulumi/aws";
 
 export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
 {
-    public constructor(name: string, vpcDetails: VpcDetails, config: HttpAppConfig)
+    public constructor(name: string, config: HttpAppConfig)
     {
-        super(name, vpcDetails, config);
+        super(name, config);
         
         given(config, "config").ensureHasStructure({
             ingressSubnetNamePrefixes: ["string"],
             healthCheckPath: "string",
             minCapacity: "number",
-            maxCapacity: "number"
+            maxCapacity: "number",
+            "albTargetGroupArn?": "object"
         });
     }
     
-    public provision(): void
+    public provision(): HttpAppDetails
     {
         const httpPort = 80;
         
@@ -167,12 +169,14 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
             }
         }, { dependsOn: [this.vpcDetails.serviceMesh, this.vpcDetails.privateDnsNamespace, virtualNode] });
         
+        const taskRoleArn = this.createTaskRole().arn;
+        
         const taskDefinitionName = `${this.name}-task-def`;
         const taskDefinition = new aws.ecs.TaskDefinition(taskDefinitionName, {
             cpu: this.config.cpu!.toString(), // https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-cpu-memory-error.html
             memory: this.config.memory!.toString(),
             executionRoleArn: this.createExecutionRole().arn,
-            taskRoleArn: this.createTaskRole().arn,
+            taskRoleArn,
             requiresCompatibilities: ["FARGATE"],
             runtimePlatform: {
                 operatingSystemFamily: "LINUX",
@@ -276,5 +280,11 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
                 }
             }
         });
+        
+        return {
+            // taskRoleArn
+            host: `${this.name}.${this.vpcDetails.privateDnsDomain}`,
+            port: httpPort
+        };
     }
 }

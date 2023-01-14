@@ -1,7 +1,6 @@
 import { given } from "@nivinjoseph/n-defensive";
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
 import * as awsx from "@pulumi/awsx";
-import { VpcDetails } from "../vpc/vpc-details";
 import { AlbConfig } from "./alb-config";
 import { AlbDetails } from "./alb-details";
 import * as Pulumi from "@pulumi/pulumi";
@@ -16,20 +15,17 @@ import * as aws from "@pulumi/aws";
 export class AlbProvisioner
 {
     private readonly _name: string;
-    private readonly _vpcDetails: VpcDetails;
     private readonly _config: AlbConfig;
     
     
-    public constructor(name: string, vpcDetails: VpcDetails, config: AlbConfig)
+    public constructor(name: string, config: AlbConfig)
     {
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
         
-        given(vpcDetails, "vpcDetails").ensureHasValue().ensureIsObject();
-        this._vpcDetails = vpcDetails;
-        
         given(config, "config").ensureHasValue().ensureIsObject()
             .ensureHasStructure({
+                vpcDetails: "object",
                 subnetNamePrefix: "string",
                 egressSubnetNamePrefixes: ["string"],
                 certificateArn: "string",
@@ -64,7 +60,7 @@ export class AlbProvisioner
     {
         const albSecGroupName = `${this._name}-sg`;
         const appAlbSecGroup = new awsx.ec2.SecurityGroup(albSecGroupName, {
-            vpc: this._vpcDetails.vpc,
+            vpc: this._config.vpcDetails.vpc,
             ingress: [
                 {
                     protocol: "tcp",
@@ -83,7 +79,7 @@ export class AlbProvisioner
                 protocol: "tcp",
                 fromPort: 80,
                 toPort: 80,
-                cidrBlocks: Pulumi.output(this._vpcDetails.vpc.getSubnets("private"))
+                cidrBlocks: Pulumi.output(this._config.vpcDetails.vpc.getSubnets("private"))
                     .apply((subnets) =>
                         subnets.where(subnet =>
                             this._config.egressSubnetNamePrefixes.some(prefix =>
@@ -100,8 +96,8 @@ export class AlbProvisioner
         const alb = new awsx.lb.ApplicationLoadBalancer(albName, {
             external: true,
             ipAddressType: "ipv4",
-            vpc: this._vpcDetails.vpc,
-            subnets: Pulumi.output(this._vpcDetails.vpc.getSubnets("public"))
+            vpc: this._config.vpcDetails.vpc,
+            subnets: Pulumi.output(this._config.vpcDetails.vpc.getSubnets("public"))
                 .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)).map(t => t.id)),
             securityGroups: [appAlbSecGroup],
             tags: { 

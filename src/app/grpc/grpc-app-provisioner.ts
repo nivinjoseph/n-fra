@@ -2,7 +2,6 @@
 import { AppProvisioner } from "../app-provisioner";
 import * as Pulumi from "@pulumi/pulumi";
 import { given } from "@nivinjoseph/n-defensive";
-import { VpcDetails } from "../../vpc/vpc-details";
 import { NfraConfig } from "../../nfra-config";
 // import { Instance as SdInstance, Service as SdService } from "@pulumi/aws/servicediscovery";
 // import { Service as SdService } from "@pulumi/aws/servicediscovery";
@@ -12,13 +11,15 @@ import * as aws from "@pulumi/aws";
 // import { Cluster, Service } from "@pulumi/aws/ecs";
 // import { Policy as AsPolicy, Target as AsTarget } from "@pulumi/aws/appautoscaling";
 import { GrpcAppConfig } from "./grpc-app-config";
+import { GrpcAppDetails } from "./grpc-app-details";
+// import { AppDetails } from "../app-details";
 
 
 export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
 {
-    public constructor(name: string, vpcDetails: VpcDetails, config: GrpcAppConfig)
+    public constructor(name: string, config: GrpcAppConfig)
     {
-        super(name, vpcDetails, config);
+        super(name, config);
 
         given(config, "config").ensureHasStructure({
             ingressSubnetNamePrefixes: ["string"],
@@ -28,7 +29,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
         });
     }
 
-    public provision(): void
+    public provision(): GrpcAppDetails
     {
         const grpcPort = 50051;
 
@@ -166,12 +167,14 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
             }
         }, { dependsOn: [this.vpcDetails.serviceMesh, this.vpcDetails.privateDnsNamespace, virtualNode] });
 
+        const taskRoleArn = this.createTaskRole().arn;
+        
         const taskDefinitionName = `${this.name}-task-def`;
         const taskDefinition = new aws.ecs.TaskDefinition(taskDefinitionName, {
             cpu: this.config.cpu!.toString(), // https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-cpu-memory-error.html
             memory: this.config.memory!.toString(),
             executionRoleArn: this.createExecutionRole().arn,
-            taskRoleArn: this.createTaskRole().arn,
+            taskRoleArn,
             requiresCompatibilities: ["FARGATE"],
             runtimePlatform: {
                 operatingSystemFamily: "LINUX",
@@ -268,5 +271,11 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig>
                 }
             }
         });
+        
+        return {
+            // taskRoleArn
+            host: `${this.name}.${this.vpcDetails.privateDnsDomain}`,
+            port: grpcPort
+        };
     }
 }

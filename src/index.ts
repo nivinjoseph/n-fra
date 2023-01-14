@@ -13,9 +13,15 @@ export { VpcDetails } from "./vpc/vpc-details";
 export { S3bucketConfig } from "./storage/s3bucket-config";
 export { S3bucketProvisioner } from "./storage/s3bucket-provisioner";
 export { S3bucketDetails } from "./storage/s3bucket-details";
+export { S3bucketAccessConfig } from "./storage/s3bucket-access-config";
 
-export { AccessKeyProvisioner } from "./security/access-key-provisioner";
-export { AccessKeyDetails } from "./security/access-key-details";
+export { PolicyDocument } from "./security/policy/policy-document";
+export { PolicyConfig } from "./security/policy/policy-config";
+export { PolicyProvisioner } from "./security/policy/policy-provisioner";
+export { PolicyDetails } from "./security/policy/policy-details";
+
+export { AccessUserProvisioner } from "./security/access-user/access-user-provisioner";
+export { AccessUserDetails } from "./security/access-user/access-user-details";
 
 export { SecretsProvisioner } from "./secrets/secrets-provisioner";
 export { AppSecret } from "./secrets/app-secret";
@@ -40,20 +46,28 @@ export { RedisProvisioner } from "./cache/redis/redis-provisioner";
 export { RedisDetails } from "./cache/redis/redis-details";
 
 export { AppConfig } from "./app/app-config";
-export { PolicyDocument } from "./app/policy-document";
 export { AppDatadogConfig } from "./app/app-datadog-config";
-export { EcsEnvVar } from "./app/ecs-env-var";
+export { EcsEnvVar } from "./common/ecs-env-var";
+export { AppDetails } from "./app/app-details";
 
 export { WorkerAppConfig } from "./app/worker/worker-app-config";
 export { WorkerAppProvisioner } from "./app/worker/worker-app-provisioner";
+export { WorkerAppDetails } from "./app/worker/worker-app-details";
 
 export { HttpAppConfig } from "./app/http/http-app-config";
 export { HttpAppProvisioner } from "./app/http/http-app-provisioner";
+export { HttpAppDetails } from "./app/http/http-app-details";
 
 export { GrpcAppConfig } from "./app/grpc/grpc-app-config";
 export { GrpcAppProvisioner } from "./app/grpc/grpc-app-provisioner";
+export { GrpcAppDetails } from "./app/grpc/grpc-app-details";
 
 export { AlbConfig } from "./ingress/alb-config";
 export { AlbTarget } from "./ingress/alb-target";
 export { AlbProvisioner } from "./ingress/alb-provisioner";
 export { AlbDetails } from "./ingress/alb-details";
+
+export { LambdaConfig } from "./lambda/lambda-config";
+export { LambdaProvisioner } from "./lambda/lambda-provisioner";
+export { LambdaDetails } from "./lambda/lambda-details";
+export { LambdaAccessConfig } from "./lambda/lambda-access-config";

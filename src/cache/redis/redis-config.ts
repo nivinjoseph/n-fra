@@ -1,5 +1,9 @@
+import { VpcDetails } from "../../vpc/vpc-details";
+
+
 export interface RedisConfig
 {
+    vpcDetails: VpcDetails;
     subnetNamePrefix: string;
     ingressSubnetNamePrefixes: ReadonlyArray<string>;
     /**
