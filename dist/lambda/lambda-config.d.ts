@@ -1,7 +1,7 @@
 import { EcsEnvVar } from "../common/ecs-env-var";
 import { VpcDetails } from "../vpc/vpc-details";
 export interface LambdaConfig {
-    codeZipFilePath: string;
+    codeFilePath: string;
     memorySize: number;
     envVars?: ReadonlyArray<EcsEnvVar>;
     handler: string;

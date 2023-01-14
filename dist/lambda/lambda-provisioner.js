@@ -5,13 +5,14 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const aws = require("@pulumi/aws");
 const nfra_config_1 = require("../nfra-config");
 const Pulumi = require("@pulumi/pulumi");
+const Fs = require("fs");
 class LambdaProvisioner {
     constructor(name, config) {
         (0, n_defensive_1.given)(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
         (0, n_defensive_1.given)(config, "config").ensureHasValue()
             .ensureHasStructure({
-            codeZipFilePath: "string",
+            codeFilePath: "string",
             memorySize: "number",
             "envVars?": ["object"],
             handler: "string",
@@ -21,6 +22,10 @@ class LambdaProvisioner {
             "subnetNamePrefix?": "string",
             "ingressSubnetNamePrefixes?": ["string"]
         })
+            // .tar, .tar.gz, or .zip
+            .ensure(t => t.codeFilePath.startsWith("/"), "codeFilePath must absolute")
+            .ensure(t => t.codeFilePath.endsWith(".tar") || t.codeFilePath.endsWith(".tar.gz") || t.codeFilePath.endsWith(".zip"), "codeFilePath must be a valid .tar, .tar.gz, or .zip file")
+            .ensure(t => Fs.existsSync(t.codeFilePath), "codeFilePath does not exist")
             .ensureWhen(config.vpcDetails != null, t => t.subnetNamePrefix != null, "subnetNamePrefix is required when vpcDetails is provided")
             .ensureWhen(config.vpcDetails != null, t => t.ingressSubnetNamePrefixes != null && t.ingressSubnetNamePrefixes.isNotEmpty, "ingressSubnetNamePrefixes is required when vpcDetails is provided");
         this._config = config;
@@ -103,7 +108,7 @@ class LambdaProvisioner {
         const lambda = new aws.lambda.Function(lambdaName, {
             packageType: "Zip",
             // layers: ["arn:aws:lambda:us-east-2:464622532012:layer:Datadog-Extension:29"], // instrumentation
-            code: this._config.codeZipFilePath,
+            code: new Pulumi.asset.FileArchive(this._config.codeFilePath),
             runtime: aws.lambda.Runtime.NodeJS18dX,
             // handler: "node_modules/datadog-lambda-js/dist/handler.handler",
             // handler: "index.handler",
