@@ -1,9 +1,9 @@
-import { EcsEnvVar } from "../common/ecs-env-var";
+import { EnvVar } from "../common/env-var";
 import { VpcDetails } from "../vpc/vpc-details";
 export interface LambdaConfig {
     codeFilePath: string;
     memorySize: number;
-    envVars?: ReadonlyArray<EcsEnvVar>;
+    envVars?: ReadonlyArray<EnvVar>;
     handler: string;
     timeout: number;
     provisionedConcurrency?: number;

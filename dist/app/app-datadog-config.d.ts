@@ -1,5 +1,5 @@
-import { AppSecret } from "../secrets/app-secret";
+import { Secret } from "../secrets/secret";
 export interface AppDatadogConfig {
     ddHost: string;
-    apiKey: AppSecret;
+    apiKey: Secret;
 }

@@ -1,4 +1,4 @@
-import { AppSecret } from "./app-secret";
+import { Secret } from "./secret";
 export declare class SecretsCache {
     private static readonly _map;
     /**
@@ -6,6 +6,6 @@ export declare class SecretsCache {
      */
     private constructor();
     static contains(name: string): boolean;
-    static store(secret: AppSecret): void;
-    static retrieve(name: string): AppSecret;
+    static store(secret: Secret): void;
+    static retrieve(name: string): Secret;
 }

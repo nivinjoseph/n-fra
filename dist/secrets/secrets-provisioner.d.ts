@@ -1,4 +1,4 @@
-import { AppSecret } from "./app-secret";
+import { Secret } from "./secret";
 export declare class SecretsProvisioner {
-    provision(name: string, value: string): AppSecret;
+    provision(name: string, value: string): Secret;
 }

@@ -1,6 +1,6 @@
 import { AppDatadogConfig } from "./app-datadog-config";
-import { EcsEnvVar } from "../common/ecs-env-var";
-import { AppSecret } from "../secrets/app-secret";
+import { EnvVar } from "../common/env-var";
+import { Secret } from "../secrets/secret";
 import { PolicyDocument } from "../security/policy/policy-document";
 import { VpcDetails } from "../vpc/vpc-details";
 export interface AppConfig {
@@ -11,8 +11,8 @@ export interface AppConfig {
     image: string;
     command?: ReadonlyArray<string>;
     entryPoint?: ReadonlyArray<string>;
-    envVars?: ReadonlyArray<EcsEnvVar>;
-    secrets?: ReadonlyArray<AppSecret>;
+    envVars?: ReadonlyArray<EnvVar>;
+    secrets?: ReadonlyArray<Secret>;
     policies?: ReadonlyArray<PolicyDocument>;
     isOn?: boolean;
     datadogConfig?: AppDatadogConfig;
