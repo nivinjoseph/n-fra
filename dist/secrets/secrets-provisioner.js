@@ -10,9 +10,9 @@ const nfra_config_1 = require("../nfra-config");
 class SecretsProvisioner {
     provision(name, value) {
         (0, n_defensive_1.given)(name, "name").ensureHasValue().ensureIsString();
-        (0, n_defensive_1.given)(value, "value").ensureHasValue().ensureIsString();
+        (0, n_defensive_1.given)(value, "value").ensureHasValue();
         if (!secrets_cache_1.SecretsCache.contains(name)) {
-            const secretValue = Pulumi.secret(value.toString());
+            const secretValue = Pulumi.secret(value);
             const secretName = `${name}-secret`;
             const secret = new aws.secretsmanager.Secret(secretName, {
                 forceOverwriteReplicaSecret: true,
