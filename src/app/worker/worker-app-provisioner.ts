@@ -152,20 +152,7 @@ export class WorkerAppProvisioner extends AppProvisioner<WorkerAppConfig>
             }
         }, { deleteBeforeReplace: true, dependsOn: virtualNode });
 
-        const clusterName = `${this.name}-cluster`;
-        const cluster = new aws.ecs.Cluster(clusterName, {
-            capacityProviders: ["FARGATE"],
-            settings: [
-                {
-                    name: "containerInsights",
-                    value: "enabled"
-                }
-            ],
-            tags: {
-                ...NfraConfig.tags,
-                Name: clusterName
-            }
-        });
+        const cluster = this.createAppCluster();
 
         const serviceName = `${this.name}-service`;
         new aws.ecs.Service(serviceName, {
@@ -173,7 +160,7 @@ export class WorkerAppProvisioner extends AppProvisioner<WorkerAppConfig>
             deploymentMaximumPercent: 100,
             // os: "linux",
             launchType: "FARGATE",
-            cluster: cluster.arn,
+            cluster: cluster.clusterArn,
             taskDefinition: taskDefinition.arn,
             networkConfiguration: {
                 subnets: Pulumi.output(this.vpcDetails.vpc.getSubnets("private"))

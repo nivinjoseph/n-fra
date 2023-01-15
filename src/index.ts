@@ -48,7 +48,9 @@ export { RedisDetails } from "./cache/redis/redis-details";
 export { AppConfig } from "./app/app-config";
 export { AppDatadogConfig } from "./app/app-datadog-config";
 export { EnvVar } from "./common/env-var";
+export { AppProvisioner } from "./app/app-provisioner";
 export { AppDetails } from "./app/app-details";
+export { AppClusterDetails } from "./app/app-cluster-details";
 
 export { WorkerAppConfig } from "./app/worker/worker-app-config";
 export { WorkerAppProvisioner } from "./app/worker/worker-app-provisioner";

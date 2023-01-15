@@ -11,6 +11,7 @@ import { NfraConfig } from "../nfra-config";
 import { EnvVar } from "../common/env-var";
 import { Secret } from "../secrets/secret";
 import { AppDetails } from "./app-details";
+import { AppClusterDetails } from "./app-cluster-details";
 // import { LogConfiguration } from "@pulumi/aws/ecs";
 // import { VirtualNode } from "@pulumi/aws/appmesh";
 
@@ -53,7 +54,8 @@ export abstract class AppProvisioner<T extends AppConfig>
                 "secrets?": ["object"],
                 "policies?": ["object"],
                 isOn: "boolean",
-                "datadogConfig?": "object"
+                "datadogConfig?": "object",
+                "cluster?": "object"
             })
             .ensure(t => t.image.contains(":v"), "config.image does not have a valid tag");
 
@@ -67,8 +69,35 @@ export abstract class AppProvisioner<T extends AppConfig>
         this._version = config.image.split(":").takeLast().substring(1);
     }
 
+    public static provisionAppCluster(name: string): AppClusterDetails
+    {
+        const clusterName = `${name}-cluster`;
+        const cluster = new aws.ecs.Cluster(clusterName, {
+            capacityProviders: ["FARGATE"],
+            settings: [
+                {
+                    name: "containerInsights",
+                    value: "enabled"
+                }
+            ],
+            tags: {
+                ...NfraConfig.tags,
+                Name: clusterName
+            }
+        });
+        
+        return {
+            clusterName: cluster.name,
+            clusterArn: cluster.arn
+        };
+    }
     
     public abstract provision(): AppDetails;
+    
+    protected createAppCluster(): AppClusterDetails
+    {
+        return this._config.cluster ?? AppProvisioner.provisionAppCluster(this._name);
+    }
 
     protected createExecutionRole(): Pulumi.Output<aws.iam.Role>
     {

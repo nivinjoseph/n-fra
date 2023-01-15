@@ -211,20 +211,7 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
             }
         }, { dependsOn: virtualNode });
         
-        const clusterName = `${this.name}-cluster`;
-        const cluster = new aws.ecs.Cluster(clusterName, {
-            capacityProviders: ["FARGATE"],
-            settings: [
-                {
-                    name: "containerInsights",
-                    value: "enabled"
-                }
-            ],
-            tags: {
-                ...NfraConfig.tags,
-                Name: clusterName
-            }
-        });
+        const cluster = this.createAppCluster();
 
         const serviceName = `${this.name}-service`;
         const service = new aws.ecs.Service(serviceName, {
@@ -232,7 +219,7 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
             deploymentMaximumPercent: 100,
             // os: "linux",
             launchType: "FARGATE",
-            cluster: cluster.arn,
+            cluster: cluster.clusterArn,
             taskDefinition: taskDefinition.arn,
             networkConfiguration: {
                 subnets: Pulumi.output(this.vpcDetails.vpc.getSubnets("private"))
@@ -261,7 +248,7 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig>
         const asTarget = new aws.appautoscaling.Target(`${this.name}-ast`, {
             minCapacity: this.config.minCapacity,
             maxCapacity: this.config.maxCapacity,
-            resourceId: Pulumi.interpolate`service/${cluster.name}/${service.name}`,
+            resourceId: Pulumi.interpolate`service/${cluster.clusterName}/${service.name}`,
             scalableDimension: "ecs:service:DesiredCount",
             serviceNamespace: "ecs"
         });
