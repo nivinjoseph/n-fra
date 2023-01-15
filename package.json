@@ -1,6 +1,6 @@
 {
     "name": "@nivinjoseph/n-fra",
-    "version": "1.0.33",
+    "version": "1.0.34",
     "description": "Infrastructure library",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
