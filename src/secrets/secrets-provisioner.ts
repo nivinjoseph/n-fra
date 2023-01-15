@@ -9,14 +9,14 @@ import { Secret } from "./secret";
 
 export class SecretsProvisioner
 {
-    public provision(name: string, value: string): Secret
+    public provision(name: string, value: string | Pulumi.Output<string>): Secret
     {
         given(name, "name").ensureHasValue().ensureIsString();
-        given(value, "value").ensureHasValue().ensureIsString();
+        given(value, "value").ensureHasValue();
         
         if (!SecretsCache.contains(name))
         {
-            const secretValue = Pulumi.secret(value.toString());
+            const secretValue = Pulumi.secret(value);
 
             const secretName = `${name}-secret`;
             const secret = new aws.secretsmanager.Secret(secretName, {
