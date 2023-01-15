@@ -4,6 +4,7 @@ import * as Pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 import { AppDetails } from "./app-details";
+import { AppClusterDetails } from "./app-cluster-details";
 export declare abstract class AppProvisioner<T extends AppConfig> {
     private readonly _name;
     private readonly _config;
@@ -14,7 +15,9 @@ export declare abstract class AppProvisioner<T extends AppConfig> {
     protected get version(): string;
     protected get hasDatadog(): boolean;
     protected constructor(name: string, config: T);
+    static provisionAppCluster(name: string): AppClusterDetails;
     abstract provision(): AppDetails;
+    protected createAppCluster(): AppClusterDetails;
     protected createExecutionRole(): Pulumi.Output<aws.iam.Role>;
     protected createTaskRole(): Pulumi.Output<aws.iam.Role>;
     protected createAppContainer(): awsx.ecs.Container;

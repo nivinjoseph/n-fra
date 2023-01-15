@@ -39,7 +39,8 @@ class AppProvisioner {
             "secrets?": ["object"],
             "policies?": ["object"],
             isOn: "boolean",
-            "datadogConfig?": "object"
+            "datadogConfig?": "object",
+            "cluster?": "object"
         })
             .ensure(t => t.image.contains(":v"), "config.image does not have a valid tag");
         if ((config.command == null || config.command.isEmpty) && (config.entryPoint == null || config.entryPoint.isEmpty))
@@ -48,6 +49,27 @@ class AppProvisioner {
             throw new n_exception_1.ArgumentException("config", "only one of either command or entryPoint must be provided");
         this._config = config;
         this._version = config.image.split(":").takeLast().substring(1);
+    }
+    static provisionAppCluster(name) {
+        const clusterName = `${name}-cluster`;
+        const cluster = new aws.ecs.Cluster(clusterName, {
+            capacityProviders: ["FARGATE"],
+            settings: [
+                {
+                    name: "containerInsights",
+                    value: "enabled"
+                }
+            ],
+            tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: clusterName })
+        });
+        return {
+            clusterName: cluster.name,
+            clusterArn: cluster.arn
+        };
+    }
+    createAppCluster() {
+        var _a;
+        return (_a = this._config.cluster) !== null && _a !== void 0 ? _a : AppProvisioner.provisionAppCluster(this._name);
     }
     createExecutionRole() {
         const secrets = new Array();

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LambdaProvisioner = exports.AlbProvisioner = exports.GrpcAppProvisioner = exports.HttpAppProvisioner = exports.WorkerAppProvisioner = exports.RedisProvisioner = exports.MemorydbProvisioner = exports.Aspv2Provisioner = exports.Aspv1Provisioner = exports.DatadogIntegrationProvisioner = exports.SecretsProvisioner = exports.AccessUserProvisioner = exports.PolicyProvisioner = exports.S3bucketProvisioner = exports.VpcProvisioner = exports.VpcAz = exports.VpcSubnetType = exports.EnvType = exports.NfraConfig = void 0;
+exports.LambdaProvisioner = exports.AlbProvisioner = exports.GrpcAppProvisioner = exports.HttpAppProvisioner = exports.WorkerAppProvisioner = exports.AppProvisioner = exports.RedisProvisioner = exports.MemorydbProvisioner = exports.Aspv2Provisioner = exports.Aspv1Provisioner = exports.DatadogIntegrationProvisioner = exports.SecretsProvisioner = exports.AccessUserProvisioner = exports.PolicyProvisioner = exports.S3bucketProvisioner = exports.VpcProvisioner = exports.VpcAz = exports.VpcSubnetType = exports.EnvType = exports.NfraConfig = void 0;
 require("@nivinjoseph/n-ext");
 var nfra_config_1 = require("./nfra-config");
 Object.defineProperty(exports, "NfraConfig", { enumerable: true, get: function () { return nfra_config_1.NfraConfig; } });
@@ -30,6 +30,8 @@ var memorydb_provisioner_1 = require("./cache/memorydb/memorydb-provisioner");
 Object.defineProperty(exports, "MemorydbProvisioner", { enumerable: true, get: function () { return memorydb_provisioner_1.MemorydbProvisioner; } });
 var redis_provisioner_1 = require("./cache/redis/redis-provisioner");
 Object.defineProperty(exports, "RedisProvisioner", { enumerable: true, get: function () { return redis_provisioner_1.RedisProvisioner; } });
+var app_provisioner_1 = require("./app/app-provisioner");
+Object.defineProperty(exports, "AppProvisioner", { enumerable: true, get: function () { return app_provisioner_1.AppProvisioner; } });
 var worker_app_provisioner_1 = require("./app/worker/worker-app-provisioner");
 Object.defineProperty(exports, "WorkerAppProvisioner", { enumerable: true, get: function () { return worker_app_provisioner_1.WorkerAppProvisioner; } });
 var http_app_provisioner_1 = require("./app/http/http-app-provisioner");
