@@ -8,8 +8,8 @@ import * as aws from "@pulumi/aws";
 // import { Container, FargateTaskDefinition } from "@pulumi/awsx/ecs";
 import * as awsx from "@pulumi/awsx";
 import { NfraConfig } from "../nfra-config";
-import { EcsEnvVar } from "../common/ecs-env-var";
-import { AppSecret } from "../secrets/app-secret";
+import { EnvVar } from "../common/env-var";
+import { Secret } from "../secrets/secret";
 import { AppDetails } from "./app-details";
 // import { LogConfiguration } from "@pulumi/aws/ecs";
 // import { VirtualNode } from "@pulumi/aws/appmesh";
@@ -72,7 +72,7 @@ export abstract class AppProvisioner<T extends AppConfig>
 
     protected createExecutionRole(): Pulumi.Output<aws.iam.Role>
     {
-        const secrets = new Array<AppSecret>();
+        const secrets = new Array<Secret>();
         if (this._config.secrets != null && this._config.secrets.isNotEmpty)
             secrets.push(...this._config.secrets);
         if (this._config.datadogConfig != null)
@@ -309,9 +309,9 @@ export abstract class AppProvisioner<T extends AppConfig>
         };
     }
     
-    private _createInstrumentationEnvironmentVariables(): Array<EcsEnvVar>
+    private _createInstrumentationEnvironmentVariables(): Array<EnvVar>
     {
-        const result: Array<EcsEnvVar> = [
+        const result: Array<EnvVar> = [
             { name: "env", value: NfraConfig.env }
         ];
         

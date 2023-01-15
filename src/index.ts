@@ -24,7 +24,7 @@ export { AccessUserProvisioner } from "./security/access-user/access-user-provis
 export { AccessUserDetails } from "./security/access-user/access-user-details";
 
 export { SecretsProvisioner } from "./secrets/secrets-provisioner";
-export { AppSecret } from "./secrets/app-secret";
+export { Secret } from "./secrets/secret";
 
 export { DatadogIntegrationConfig } from "./observability/datadog-integration-config";
 export { DatadogIntegrationProvisioner } from "./observability/datadog-integration-provisioner";
@@ -47,7 +47,7 @@ export { RedisDetails } from "./cache/redis/redis-details";
 
 export { AppConfig } from "./app/app-config";
 export { AppDatadogConfig } from "./app/app-datadog-config";
-export { EcsEnvVar } from "./common/ecs-env-var";
+export { EnvVar } from "./common/env-var";
 export { AppDetails } from "./app/app-details";
 
 export { WorkerAppConfig } from "./app/worker/worker-app-config";

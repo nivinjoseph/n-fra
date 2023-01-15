@@ -4,12 +4,12 @@ import * as Pulumi from "@pulumi/pulumi";
 // import { Secret, SecretVersion } from "@pulumi/aws/secretsmanager";
 import * as aws from "@pulumi/aws";
 import { NfraConfig } from "../nfra-config";
-import { AppSecret } from "./app-secret";
+import { Secret } from "./secret";
 
 
 export class SecretsProvisioner
 {
-    public provision(name: string, value: string): AppSecret
+    public provision(name: string, value: string): Secret
     {
         given(name, "name").ensureHasValue().ensureIsString();
         given(value, "value").ensureHasValue().ensureIsString();

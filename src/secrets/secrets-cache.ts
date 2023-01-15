@@ -1,10 +1,10 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { AppSecret } from "./app-secret";
+import { Secret } from "./secret";
 
 
 export class SecretsCache
 {
-    private static readonly _map = new Map<string, AppSecret>();
+    private static readonly _map = new Map<string, Secret>();
 
     /**
      * @static
@@ -20,7 +20,7 @@ export class SecretsCache
         return this._map.has(name);
     }
 
-    public static store(secret: AppSecret): void
+    public static store(secret: Secret): void
     {
         given(secret, "secret").ensureHasValue().ensureIsObject()
             .ensure(t => !this._map.has(t.name), "duplicate secret");
@@ -28,7 +28,7 @@ export class SecretsCache
         this._map.set(secret.name, secret);
     }
 
-    public static retrieve(name: string): AppSecret
+    public static retrieve(name: string): Secret
     {
         given(name, "name").ensureHasValue().ensureIsString().ensure(t => this._map.has(t.trim()), "secret not found");
         name = name.trim();
