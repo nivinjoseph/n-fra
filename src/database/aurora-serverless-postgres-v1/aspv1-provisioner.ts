@@ -122,7 +122,7 @@ export class Aspv1Provisioner
 
         return {
             host: postgresDbCluster.endpoint,
-            port: postgresDbCluster.port,
+            port: postgresDbPort,
             databaseName: postgresDbCluster.databaseName,
             username: postgresDbCluster.masterUsername,
             password: postgresDbCluster.masterPassword as Pulumi.Output<string>,

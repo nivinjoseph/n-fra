@@ -269,7 +269,7 @@ export class Aspv2Provisioner
 
         return {
             host: dbProxy.endpoint,
-            port: Pulumi.output(postgresDbPort),
+            port: postgresDbPort,
             databaseName: postgresDbCluster.databaseName,
             username: postgresDbCluster.masterUsername,
             password: postgresDbCluster.masterPassword as Pulumi.Output<string>,
