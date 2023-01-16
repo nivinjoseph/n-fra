@@ -7,6 +7,7 @@ import * as Pulumi from "@pulumi/pulumi";
 import { LambdaAccessConfig } from "./lambda-access-config";
 import { PolicyDocument } from "../security/policy/policy-document";
 import * as Fs from "fs";
+import { LambdaAccessPolicyConfig } from "./lambda-access-policy-config";
 
 
 export class LambdaProvisioner
@@ -61,7 +62,7 @@ export class LambdaProvisioner
         });
     }
     
-    public static createAccessPolicyDocument(config: Pick<LambdaAccessConfig, "lambdaDetails">): PolicyDocument
+    public static createAccessPolicyDocument(config: LambdaAccessPolicyConfig): PolicyDocument
     {
         given(config, "config").ensureHasValue().ensureHasStructure({
             lambdaDetails: "object"
