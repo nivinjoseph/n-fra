@@ -79,10 +79,14 @@ export class S3bucketProvisioner
     
     public static createAccessPolicyDocument(config: Pick<S3bucketAccessConfig, "bucketDetails" | "accessControls">): PolicyDocument
     {
-        given(config, "config").ensureHasValue().ensureHasStructure({
-            bucketDetails: "object",
-            accessControls: ["string"]
-        });
+        given(config, "config").ensureHasValue()
+            .ensureHasStructure({
+                bucketDetails: "object",
+                accessControls: ["string"]
+            })
+            .ensure(t => t.accessControls.isNotEmpty, "accessControls cannot be empty")
+            .ensure(t => t.accessControls.every(u => ["GET", "PUT"].contains(u)),
+                "only GET and PUT are allowed in accessControls");
         
         const allowedActions = new Array<string>();
         if (config.accessControls.contains("GET"))
