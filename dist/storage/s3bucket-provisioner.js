@@ -17,7 +17,7 @@ class S3bucketProvisioner {
             isPublic: "boolean",
             "enableTransferAcceleration?": "boolean",
             "accessUserArn?": "object"
-        }).ensureWhen(config.bucketName.contains("."), t => !!t.enableTransferAcceleration, "S3 Transfer Acceleration is not supported for buckets with periods (.) in their names");
+        }).ensureWhen(config.bucketName.contains("."), t => !t.enableTransferAcceleration, "S3 Transfer Acceleration is not supported for buckets with periods (.) in their names");
         (_a = config.enableTransferAcceleration) !== null && _a !== void 0 ? _a : (config.enableTransferAcceleration = false);
         this._config = config;
     }
