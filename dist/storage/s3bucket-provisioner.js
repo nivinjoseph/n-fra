@@ -59,10 +59,13 @@ class S3bucketProvisioner {
         });
     }
     static createAccessPolicyDocument(config) {
-        (0, n_defensive_1.given)(config, "config").ensureHasValue().ensureHasStructure({
+        (0, n_defensive_1.given)(config, "config").ensureHasValue()
+            .ensureHasStructure({
             bucketDetails: "object",
             accessControls: ["string"]
-        });
+        })
+            .ensure(t => t.accessControls.isNotEmpty, "accessControls cannot be empty")
+            .ensure(t => t.accessControls.every(u => ["GET", "PUT"].contains(u)), "only GET and PUT are allowed in accessControls");
         const allowedActions = new Array();
         if (config.accessControls.contains("GET"))
             allowedActions.push("s3:GetObject");
