@@ -66,7 +66,7 @@ class Aspv1Provisioner {
                 nfra_config_1.NfraConfig.awsRegion + vpc_az_1.VpcAz.c
             ],
             engine: aws.rds.EngineType.AuroraPostgresql,
-            allowMajorVersionUpgrade: false,
+            // allowMajorVersionUpgrade: false,
             // engineVersion: "", // TODO: this needs to be configurable, not sure if this can be set for serverless v1
             engineMode: aws.rds.EngineMode.Serverless,
             dbSubnetGroupName: subnetGroup.name,
