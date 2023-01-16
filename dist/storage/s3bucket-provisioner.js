@@ -23,12 +23,16 @@ class S3bucketProvisioner {
     }
     static provisionAccess(name, config) {
         (0, n_defensive_1.given)(name, "name").ensureHasValue().ensureIsString();
-        (0, n_defensive_1.given)(config, "config").ensureHasValue().ensureHasStructure({
+        (0, n_defensive_1.given)(config, "config").ensureHasValue()
+            .ensureHasStructure({
             bucketDetails: "object",
             "userOrRoleArn?": "object",
             "awsService?": "string",
             accessControls: ["string"]
-        }).ensure(t => !(t.userOrRoleArn == null && t.awsService == null) && !(t.userOrRoleArn != null && t.awsService != null), "only one of userOrRoleArn or awsService must be provided");
+        })
+            .ensure(t => !(t.userOrRoleArn == null && t.awsService == null) && !(t.userOrRoleArn != null && t.awsService != null), "only one of userOrRoleArn or awsService must be provided")
+            .ensure(t => t.accessControls.isNotEmpty, "accessControls cannot be empty")
+            .ensure(t => t.accessControls.every(u => ["GET", "PUT"].contains(u)), "only GET and PUT are allowed in accessControls");
         const allowedActions = new Array();
         if (config.accessControls.contains("GET"))
             allowedActions.push("s3:GetObject");
@@ -36,9 +40,10 @@ class S3bucketProvisioner {
             allowedActions.push("s3:PutObject", "s3:PutObjectAcl");
         const policy = {
             Version: "2012-10-17",
-            Id: `${name}-policy`,
+            Id: `${name}-acc-policy`,
             Statement: [
                 {
+                    Sid: `${name}-acc`,
                     Effect: "Allow",
                     Principal: config.userOrRoleArn != null
                         ? { AWS: config.userOrRoleArn }
@@ -48,7 +53,7 @@ class S3bucketProvisioner {
                 }
             ]
         };
-        new aws.s3.BucketPolicy(`${name}-bucket-pol`, {
+        new aws.s3.BucketPolicy(`${name}-bucket-acc-pol`, {
             bucket: config.bucketDetails.bucketId,
             policy
         });
@@ -87,6 +92,7 @@ class S3bucketProvisioner {
                     bucketKeyEnabled: false
                 }
             },
+            acl: "private",
             // loggings: [
             //     {
             //         targetBucket: `target.bucket`,
@@ -104,7 +110,7 @@ class S3bucketProvisioner {
             forceDestroy: true,
             tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: bucketName })
         });
-        const bucketPublicAccessBlock = new aws.s3.BucketPublicAccessBlock(`${this._name}-bucket-pab`, {
+        new aws.s3.BucketPublicAccessBlock(`${this._name}-bucket-pab`, {
             bucket: bucket.id,
             blockPublicAcls: !this._config.isPublic,
             ignorePublicAcls: !this._config.isPublic,
@@ -113,9 +119,10 @@ class S3bucketProvisioner {
         });
         const policy = {
             Version: "2012-10-17",
-            Id: `${this._name}-policy`,
+            Id: `${this._name}-noinsecure-policy`,
             Statement: [
                 {
+                    Sid: `${this._name}-noinsecure`,
                     Effect: "Deny",
                     Principal: "*",
                     Action: "s3:*",
@@ -131,10 +138,10 @@ class S3bucketProvisioner {
                 }
             ]
         };
-        new aws.s3.BucketPolicy(`${this._name}-bucket-pol`, {
+        new aws.s3.BucketPolicy(`${this._name}-bucket-noinsecure-pol`, {
             bucket: bucket.id,
             policy
-        }, { dependsOn: bucketPublicAccessBlock });
+        });
         return {
             bucketId: bucket.id,
             bucketArn: bucket.arn
