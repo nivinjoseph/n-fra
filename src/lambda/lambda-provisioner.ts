@@ -74,7 +74,7 @@ export class LambdaProvisioner
                 {
                     Effect: "Allow",
                     Action: ["lambda:InvokeFunction"],
-                    Resource: Pulumi.interpolate`${config.lambdaDetails.lambdaArn}/*`
+                    Resource: config.lambdaDetails.lambdaArn
                 }
             ]
         };
