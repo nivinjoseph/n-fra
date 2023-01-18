@@ -76,7 +76,7 @@ class MemorydbProvisioner {
             tlsEnabled: false,
             aclName: "open-access",
             autoMinorVersionUpgrade: true,
-            numReplicasPerShard: isProd ? 3 : 1,
+            numReplicasPerShard: isProd ? 2 : 0,
             parameterGroupName: paramGroup.name,
             tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: clusterName })
         });
