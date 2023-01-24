@@ -42,7 +42,8 @@ class AppProvisioner {
             "datadogConfig?": "object",
             "cluster?": "object"
         })
-            .ensure(t => t.image.contains(":v"), "config.image does not have a valid tag");
+            .ensure(t => t.image.contains(":v"), "config.image does not have a valid tag")
+            .ensureWhen(config.policies != null && config.policies.isNotEmpty && config.policies.some(t => typeof t === "string"), (t) => t.policies.where(u => typeof u === "string").every(u => u.startsWith("arn:aws:iam::aws:policy/")), "policy string values must be aws managed policies");
         if ((config.command == null || config.command.isEmpty) && (config.entryPoint == null || config.entryPoint.isEmpty))
             throw new n_exception_1.ArgumentException("config", "one of either command or entryPoint must be provided");
         if (config.command != null && config.entryPoint != null)
@@ -103,13 +104,17 @@ class AppProvisioner {
         ], { dependsOn: secretPolicy }));
     }
     createTaskRole() {
-        if (this.config.policies == null || this.config.policies.isEmpty)
+        var _a, _b, _c, _d;
+        const policyDocs = ((_b = (_a = this._config.policies) === null || _a === void 0 ? void 0 : _a.where(t => typeof t !== "string")) !== null && _b !== void 0 ? _b : []);
+        const managedPolicies = ((_d = (_c = this._config.policies) === null || _c === void 0 ? void 0 : _c.where(t => typeof t === "string")) !== null && _d !== void 0 ? _d : []);
+        if (policyDocs.isEmpty)
             return Pulumi.output(awsx.ecs.FargateTaskDefinition.createTaskRole(`${this.name}-tr`, undefined, [
+                ...managedPolicies,
                 aws.iam.ManagedPolicy.CloudWatchFullAccess,
                 "arn:aws:iam::aws:policy/AWSAppMeshEnvoyAccess",
                 ...!this.hasDatadog ? [aws.iam.ManagedPolicy.AWSXRayDaemonWriteAccess] : []
             ]));
-        const policies = this.config.policies.map((policyDoc, index) => {
+        const policies = policyDocs.map((policyDoc, index) => {
             const policyName = `${this.name}-tp-${index}`;
             const policy = new aws.iam.Policy(policyName, {
                 path: "/",
@@ -119,6 +124,7 @@ class AppProvisioner {
             return policy;
         });
         return Pulumi.all(policies.map(t => t.arn)).apply(resolvedArns => awsx.ecs.FargateTaskDefinition.createTaskRole(`${this.name}-tr`, undefined, [
+            ...managedPolicies,
             aws.iam.ManagedPolicy.CloudWatchFullAccess,
             "arn:aws:iam::aws:policy/AWSAppMeshEnvoyAccess",
             ...!this.hasDatadog ? [aws.iam.ManagedPolicy.AWSXRayDaemonWriteAccess] : [],
