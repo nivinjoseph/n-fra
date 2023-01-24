@@ -37,7 +37,7 @@ class AppProvisioner {
             "entryPoint?": ["string"],
             "envVars?": ["object"],
             "secrets?": ["object"],
-            "policies?": ["object"],
+            "policies?": "array",
             isOn: "boolean",
             "datadogConfig?": "object",
             "cluster?": "object"
