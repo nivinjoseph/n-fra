@@ -17,7 +17,7 @@ export interface AppConfig
     entryPoint?: ReadonlyArray<string>;
     envVars?: ReadonlyArray<EnvVar>;
     secrets?: ReadonlyArray<Secret>;
-    policies?: ReadonlyArray<PolicyDocument>;
+    policies?: ReadonlyArray<PolicyDocument | string>;
     isOn?: boolean;
     datadogConfig?: AppDatadogConfig;
     cluster?: AppClusterDetails;
