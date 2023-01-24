@@ -53,7 +53,7 @@ export abstract class AppProvisioner<T extends AppConfig>
                 "entryPoint?": ["string"],
                 "envVars?": ["object"],
                 "secrets?": ["object"],
-                "policies?": ["object"],
+                "policies?": "array",
                 isOn: "boolean",
                 "datadogConfig?": "object",
                 "cluster?": "object"
