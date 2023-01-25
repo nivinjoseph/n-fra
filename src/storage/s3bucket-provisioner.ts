@@ -132,7 +132,7 @@ export class S3bucketProvisioner
                     applyServerSideEncryptionByDefault: {
                         sseAlgorithm: "AES256"
                     },
-                    bucketKeyEnabled: false
+                    bucketKeyEnabled: true
                 }
             },
             acl: "private",
