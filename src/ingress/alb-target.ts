@@ -1,6 +1,6 @@
 export interface AlbTarget
 {
-    host: string;
+    host: string | "default";
     slowStart?: number;
     healthCheckPath: string;
 }

@@ -16,6 +16,8 @@ export class AlbProvisioner
 {
     private readonly _name: string;
     private readonly _config: AlbConfig;
+    private readonly _useTls: boolean;
+    private readonly _onlyDefault: boolean;
     
     
     public constructor(name: string, config: AlbConfig)
@@ -28,7 +30,7 @@ export class AlbProvisioner
                 vpcDetails: "object",
                 subnetNamePrefix: "string",
                 egressSubnetNamePrefixes: ["string"],
-                certificateArn: "string",
+                "certificateArn?": "string",
                 "enableWaf?": "boolean",
                 "enableCloudfront?": "boolean",
                 targets: [{
@@ -38,7 +40,8 @@ export class AlbProvisioner
                 }]
             })
             .ensure(t => t.targets.isNotEmpty, "at least 1 target must be provided")
-            .ensure(t => t.targets.distinct(u => u.host).length === t.targets.length, "hosts must be distinct");
+            .ensure(t => t.targets.distinct(u => u.host).length === t.targets.length, "target hosts must be distinct")
+            .ensureWhen(config.targets.some(u => u.host.trim().toLowerCase() === "default"), t => t.targets.length === 1, "default target can be the only target");
             
         const { targets } = config;
         targets.forEach(target =>
@@ -47,12 +50,16 @@ export class AlbProvisioner
                 .ensure(t => t.slowStart == null || (t.slowStart >= 30 && t.slowStart <= 900),
                     "slowStart value has to be between 30 and 900 inclusive")
                 .ensure(t => t.host.length <= 128, "host length cannot be over 128 characters");
+            
+            target.host = target.host.trim().toLowerCase();
         });
         
         config.enableWaf ??= false;
         config.enableCloudfront ??= false;
         config.justAlb ??= false;
         this._config = config;
+        this._useTls = this._config.certificateArn != null;
+        this._onlyDefault = this._config.targets.some(t => t.host === "default");
     }
     
     
@@ -109,95 +116,167 @@ export class AlbProvisioner
         if (this._config.justAlb)
             return {};
 
-        const httpListenerName = `${this._name}-http-lnr`;
-        new aws.lb.Listener(httpListenerName, {
-            loadBalancerArn: alb.loadBalancer.arn,
-            protocol: "HTTP",
-            port: 80,
-            defaultActions: [{
-                type: "redirect",
-                redirect: {
-                    protocol: "HTTPS",
-                    port: "443",
-                    statusCode: "HTTP_301"
-                }
-            }],
-            tags: {
-                ...NfraConfig.tags,
-                Name: httpListenerName
-            }
-        }, {
-            parent: alb
-        });
-
-        const httpsListenerName = `${this._name}-https-lnr`;
-        const httpsListener = new aws.lb.Listener(httpsListenerName, {
-            loadBalancerArn: alb.loadBalancer.arn,
-            protocol: "HTTPS",
-            port: 443,
-            certificateArn: this._config.certificateArn,
-            sslPolicy: "ELBSecurityPolicy-2016-08",
-            defaultActions: [{
-                type: "fixed-response",
-                fixedResponse: {
-                    contentType: "text/plain",
-                    messageBody: "Not found",
-                    statusCode: "404"
-                }
-            }],
-            tags: {
-                ...NfraConfig.tags,
-                Name: httpsListenerName
-            }
-        }, {
-            parent: alb
-        });
-        
-        
         const result: AlbDetails = {};
         
-        this._config.targets.forEach((target, index) =>
+        let defaultTargetGroupArn: Pulumi.Output<string> | null = null;
+
+        if (this._onlyDefault)
         {
-            const targetGroupName = `${this._name}-tgt-grp-${index}`;
-            const targetGroup = alb.createTargetGroup(targetGroupName, {
+            const defaultTargetGroupName = `${this._name}-tgt-grp-default`;
+            const defaultTargetGroup = alb.createTargetGroup(defaultTargetGroupName, {
                 protocol: "HTTP",
                 port: 80,
                 targetType: "ip",
-                slowStart: target.slowStart,
+                slowStart: this._config.targets[0].slowStart,
                 deregistrationDelay: 60,
                 healthCheck: {
-                    path: target.healthCheckPath
+                    path: this._config.targets[0].healthCheckPath
                 },
                 tags: {
                     ...NfraConfig.tags,
-                    Name: targetGroupName
+                    Name: defaultTargetGroupName
                 }
             });
-            
-            const listenerRuleName = `${this._name}-lnr-rle-${index}`;
-            new aws.lb.ListenerRule(listenerRuleName, {
-                listenerArn: httpsListener.arn,
-                priority: this._config.targets.length - index,
-                actions: [{
-                    type: "forward",
-                    targetGroupArn: targetGroup.targetGroup.arn
-                }],
-                conditions: [{
-                    hostHeader: {
-                        values: [target.host]
+
+            defaultTargetGroupArn = defaultTargetGroup.targetGroup.arn;
+
+            result[this._config.targets[0].host] = {
+                albTargetGroupArn: defaultTargetGroupArn
+            };
+        }
+        
+        
+        let listenerArn: Pulumi.Output<string>;    
+        
+        if (this._useTls)
+        {
+            const httpListenerName = `${this._name}-http-lnr`;
+            new aws.lb.Listener(httpListenerName, {
+                loadBalancerArn: alb.loadBalancer.arn,
+                protocol: "HTTP",
+                port: 80,
+                defaultActions: [{
+                    type: "redirect",
+                    redirect: {
+                        protocol: "HTTPS",
+                        port: "443",
+                        statusCode: "HTTP_301"
                     }
                 }],
                 tags: {
                     ...NfraConfig.tags,
-                    Name: listenerRuleName
+                    Name: httpListenerName
                 }
+            }, {
+                parent: alb
             });
             
-            result[target.host] = {
-                albTargetGroupArn: targetGroup.targetGroup.arn
-            };
-        });
+            const httpsListenerName = `${this._name}-https-lnr`;
+            const httpsListener = new aws.lb.Listener(httpsListenerName, {
+                loadBalancerArn: alb.loadBalancer.arn,
+                protocol: "HTTPS",
+                port: 443,
+                certificateArn: this._config.certificateArn!,
+                sslPolicy: "ELBSecurityPolicy-2016-08",
+                defaultActions: [this._onlyDefault
+                    ? {
+                        type: "forward",
+                        targetGroupArn: defaultTargetGroupArn!
+                    }
+                    : {
+                        type: "fixed-response",
+                        fixedResponse: {
+                            contentType: "text/plain",
+                            messageBody: "Not found",
+                            statusCode: "404"
+                        }
+                    }],
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: httpsListenerName
+                }
+            }, {
+                parent: alb
+            });
+            
+            listenerArn = httpsListener.arn;
+        }    
+        else
+        {
+            const httpListenerName = `${this._name}-http-lnr`;
+            const httpListener = new aws.lb.Listener(httpListenerName, {
+                loadBalancerArn: alb.loadBalancer.arn,
+                protocol: "HTTP",
+                port: 80,
+                defaultActions: [this._onlyDefault
+                    ? {
+                        type: "forward",
+                        targetGroupArn: defaultTargetGroupArn!
+                    }
+                    : {
+                        type: "fixed-response",
+                        fixedResponse: {
+                            contentType: "text/plain",
+                            messageBody: "Not found",
+                            statusCode: "404"
+                        }
+                    }],
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: httpListenerName
+                }
+            }, {
+                parent: alb
+            });
+            
+            listenerArn = httpListener.arn;
+        }
+        
+        if (!this._onlyDefault)
+        {
+            this._config.targets.forEach((target, index) =>
+            {
+                const targetGroupName = `${this._name}-tgt-grp-${index}`;
+                const targetGroup = alb.createTargetGroup(targetGroupName, {
+                    protocol: "HTTP",
+                    port: 80,
+                    targetType: "ip",
+                    slowStart: target.slowStart,
+                    deregistrationDelay: 60,
+                    healthCheck: {
+                        path: target.healthCheckPath
+                    },
+                    tags: {
+                        ...NfraConfig.tags,
+                        Name: targetGroupName
+                    }
+                });
 
+                const listenerRuleName = `${this._name}-lnr-rle-${index}`;
+                new aws.lb.ListenerRule(listenerRuleName, {
+                    listenerArn,
+                    priority: this._config.targets.length - index,
+                    actions: [{
+                        type: "forward",
+                        targetGroupArn: targetGroup.targetGroup.arn
+                    }],
+                    conditions: [{
+                        hostHeader: {
+                            values: [target.host]
+                        }
+                    }],
+                    tags: {
+                        ...NfraConfig.tags,
+                        Name: listenerRuleName
+                    }
+                });
+
+                result[target.host] = {
+                    albTargetGroupArn: targetGroup.targetGroup.arn
+                };
+            });    
+        }
+        
         if (this._config.enableWaf)
             this._provisionWaf(alb);
 
