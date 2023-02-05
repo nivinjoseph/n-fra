@@ -122,7 +122,7 @@ export class AlbProvisioner
 
         if (this._onlyDefault)
         {
-            const defaultTargetGroupName = `${this._name}-tgt-grp-default`;
+            const defaultTargetGroupName = `${this._name}-tgt-grp-d`;
             const defaultTargetGroup = alb.createTargetGroup(defaultTargetGroupName, {
                 protocol: "HTTP",
                 port: 80,
