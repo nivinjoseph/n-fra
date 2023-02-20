@@ -374,6 +374,23 @@ export class AlbProvisioner
                 ],
                 viewerProtocolPolicy: "redirect-to-https"
             },
+            orderedCacheBehaviors: [{
+                targetOriginId: alb.loadBalancer.dnsName,
+                cachePolicyId: "658327ea-f89d-4fab-a63d-7e88639e58f6",
+                pathPattern: "/api/*",
+                compress: true,
+                allowedMethods: [
+                    "DELETE",
+                    "GET",
+                    "HEAD",
+                    "OPTIONS",
+                    "PATCH",
+                    "POST",
+                    "PUT"
+                ],
+                cachedMethods: ["OPTIONS"],
+                viewerProtocolPolicy: "redirect-to-https"
+            }],
             enabled: true,
             priceClass: "PriceClass_All",
             restrictions: {
