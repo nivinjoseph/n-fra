@@ -356,7 +356,7 @@ export class AlbProvisioner
             }],
             defaultCacheBehavior: {
                 targetOriginId: alb.loadBalancer.dnsName,
-                cachePolicyId: "658327ea-f89d-4fab-a63d-7e88639e58f6", // "Managed-CachingOptimized",
+                cachePolicyId: "658327ea-f89d-4fab-a63d-7e88639e58f6", // "Managed-CachingOptimized"
                 compress: true,
                 allowedMethods: [
                     "DELETE",
@@ -376,9 +376,9 @@ export class AlbProvisioner
             },
             orderedCacheBehaviors: [{
                 targetOriginId: alb.loadBalancer.dnsName,
-                cachePolicyId: "658327ea-f89d-4fab-a63d-7e88639e58f6",
+                cachePolicyId: "4135ea2d-6df8-44a3-9df3-4b5a84be39ad", // "Managed-CachingDisabled"
                 pathPattern: "/api/*",
-                compress: true,
+                // compress: true,
                 allowedMethods: [
                     "DELETE",
                     "GET",
@@ -388,7 +388,11 @@ export class AlbProvisioner
                     "POST",
                     "PUT"
                 ],
-                cachedMethods: ["OPTIONS"],
+                cachedMethods: [
+                    "GET",
+                    "HEAD",
+                    "OPTIONS"
+                ],
                 viewerProtocolPolicy: "redirect-to-https"
             }],
             enabled: true,
