@@ -296,9 +296,9 @@ class AlbProvisioner {
             },
             orderedCacheBehaviors: [{
                     targetOriginId: alb.loadBalancer.dnsName,
-                    cachePolicyId: "658327ea-f89d-4fab-a63d-7e88639e58f6",
+                    cachePolicyId: "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
                     pathPattern: "/api/*",
-                    compress: true,
+                    // compress: true,
                     allowedMethods: [
                         "DELETE",
                         "GET",
@@ -308,7 +308,11 @@ class AlbProvisioner {
                         "POST",
                         "PUT"
                     ],
-                    cachedMethods: ["OPTIONS"],
+                    cachedMethods: [
+                        "GET",
+                        "HEAD",
+                        "OPTIONS"
+                    ],
                     viewerProtocolPolicy: "redirect-to-https"
                 }],
             enabled: true,
