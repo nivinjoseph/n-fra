@@ -103,7 +103,7 @@ export class MemorydbProvisioner
             tlsEnabled: false,
             aclName: "open-access",
             autoMinorVersionUpgrade: true,
-            numReplicasPerShard: isProd ? 3 : 0,
+            numReplicasPerShard: isProd ? 2 : 0,
             parameterGroupName: paramGroup.name,
             tags: {
                 ...NfraConfig.tags,
