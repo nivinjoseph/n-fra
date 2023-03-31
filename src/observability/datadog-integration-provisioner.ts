@@ -244,12 +244,14 @@ export class DatadogIntegrationProvisioner
             provider: this._provider
         });        
         
+        const notificationSlackChannel = `@slack-${this._config.slackAccountName.trim()}-${slackChannelName.substring(1)}`;
+        
         new datadog.MonitorJson("ecs-service-restart-monitor", {
             monitor: JSON.stringify({
                 "name": "{{env}} {{servicename.name}} has been restarting frequently",
                 "type": "query alert",
                 "query": "change(avg(last_1h),last_15m):sum:aws.ecs.service.running{*} by {servicename,env} < 0",
-                "message": `Action required.\n \n @slack-${this._config.slackAccountName.trim()}-${slackChannelName.substring(1)}`,
+                "message": `Action required.\n \n ${notificationSlackChannel}`,
                 "tags": [],
                 "options": {
                     "notify_audit": true,
@@ -268,7 +270,7 @@ export class DatadogIntegrationProvisioner
                     "evaluation_delay": 1200,
                     "new_group_delay": 300,
                     "no_data_timeframe": 60,
-                    "escalation_message": `{{env}} {{servicename.name}} is still restarting frequently. Somebody do something.\n \n ${this._notificationSlackChannel}`
+                    "escalation_message": `{{env}} {{servicename.name}} is still restarting frequently. Somebody do something.\n \n ${notificationSlackChannel}`
                 },
                 "priority": 1,
                 "restricted_roles": null
