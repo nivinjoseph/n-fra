@@ -5,13 +5,14 @@ import * as aws from "@pulumi/aws";
 import * as datadog from "@pulumi/datadog";
 // import { Integration } from "@pulumi/datadog/aws/integration";
 import { NfraConfig } from "../nfra-config";
+import { SecretsProvisioner } from "../secrets/secrets-provisioner";
 import { DatadogIntegrationConfig } from "./datadog-integration-config";
 
 
 export class DatadogIntegrationProvisioner
 {
     private readonly _provider: datadog.Provider;
-    private readonly _notificationSlackChannel: string;
+    private readonly _config: DatadogIntegrationConfig;
 
     /**
      * @description Only provision this once within a given AWS account 
@@ -20,9 +21,11 @@ export class DatadogIntegrationProvisioner
     {
         given(config, "config").ensureHasValue()
             .ensureHasStructure({
+                ddHost: "string",
                 apiKey: "string",
                 appKey: "string",
-                notificationsSlackChannel: "string"
+                slackAccountName: "string",
+                slackChannelName: "string"
             });
         
         const dataDogProvider = new datadog.Provider("datadogProvider", {
@@ -33,14 +36,11 @@ export class DatadogIntegrationProvisioner
 
         this._provider = dataDogProvider;
         
-        const { notificationsSlackChannel } = config;
-        
-        given(notificationsSlackChannel, "notificationsSlackChannel").ensure(t => t.startsWith("@slack"));
-        this._notificationSlackChannel = notificationsSlackChannel;
+        this._config = config;
     }
 
 
-    public provision(): void
+    public async provision(): Promise<void>
     {
         // We only set this up once and we do it in the stage environment
 
@@ -61,6 +61,7 @@ export class DatadogIntegrationProvisioner
                     Action: [
                         "apigateway:GET",
                         "autoscaling:Describe*",
+                        "backup:List*",
                         "budgets:ViewBudget",
                         "cloudfront:GetDistributionConfig",
                         "cloudfront:ListDistributions",
@@ -89,6 +90,7 @@ export class DatadogIntegrationProvisioner
                         "es:ListTags",
                         "es:ListDomainNames",
                         "es:DescribeElasticsearchDomains",
+                        "events:CreateEventBus",
                         "fsx:DescribeFileSystems",
                         "fsx:ListTagsForResource",
                         "health:DescribeEvents",
@@ -105,7 +107,8 @@ export class DatadogIntegrationProvisioner
                         "logs:FilterLogEvents",
                         "logs:PutSubscriptionFilter",
                         "logs:TestMetricFilter",
-                        "organizations:DescribeOrganization",
+                        "organizations:Describe*",
+                        "organizations:List*",
                         "rds:Describe*",
                         "rds:List*",
                         "redshift:DescribeClusters",
@@ -123,7 +126,8 @@ export class DatadogIntegrationProvisioner
                         "sqs:ListQueues",
                         "states:ListStateMachines",
                         "states:DescribeStateMachine",
-                        "support:*",
+                        "support:DescribeTrustedAdvisor*",
+                        "support:RefreshTrustedAdvisorCheck",
                         "tag:GetResources",
                         "tag:GetTagKeys",
                         "tag:GetTagValues",
@@ -189,15 +193,63 @@ export class DatadogIntegrationProvisioner
 
         new aws.iam.RolePolicyAttachment("datadogCloudSecurityPolicyAttachment", {
             role: datadogRole,
-            policyArn: "arn:aws:iam::aws:policy/SecurityAudit"
+            // policyArn: "arn:aws:iam::aws:policy/SecurityAudit"
+            policyArn: aws.iam.ManagedPolicies.SecurityAudit
         });
-
+        
+        const secretsProvisioner = new SecretsProvisioner();
+        const apiKeySecret = secretsProvisioner.provision("datadogApiKey", this._config.apiKey);
+        
+        const datadogForwarderStack = new aws.cloudformation.Stack("datadog-forwarder", {
+            parameters: {
+                DdApiKeySecretArn: apiKeySecret.arn,
+                DdSite: this._config.ddHost,
+                FunctionName: "datadog-forwarder"
+            },
+            templateUrl: "https://datadog-cloudformation-template.s3.amazonaws.com/aws/forwarder/latest.yaml"
+        });
+        
+        const forwarderLambdaArn = datadogForwarderStack.outputs.apply(t => t["DatadogForwarderArn"]);
+        
+        new datadog.aws.IntegrationLambdaArn("datadogLambdaCollector", {
+            accountId: NfraConfig.awsAccount,
+            lambdaArn: forwarderLambdaArn
+        }, {
+            provider: this._provider
+        });
+        
+        const logReadyServices = await datadog.aws.getIntegrationLogsServices({provider: this._provider});
+        
+        new datadog.aws.IntegrationLogCollection("datadogLogCollection", {
+            accountId: NfraConfig.awsAccount,
+            services: logReadyServices.awsLogsServices.map(t => t.id)
+        }, {
+            provider: this._provider
+        });
+        
+        let slackChannelName = this._config.slackChannelName.trim();
+        if (!slackChannelName.startsWith("#"))
+            slackChannelName = `#${slackChannelName}`;
+        
+        new datadog.slack.Channel("datadogAlertsChannel", {
+            accountName: this._config.slackAccountName.trim(),
+            channelName: slackChannelName,
+            display: {
+                message: true,
+                snapshot: true,
+                tags: true,
+                notified: true
+            }
+        }, {
+            provider: this._provider
+        });        
+        
         new datadog.MonitorJson("ecs-service-restart-monitor", {
             monitor: JSON.stringify({
                 "name": "{{env}} {{servicename.name}} has been restarting frequently",
                 "type": "query alert",
                 "query": "change(avg(last_1h),last_15m):sum:aws.ecs.service.running{*} by {servicename,env} < 0",
-                "message": `Action required.\n \n ${this._notificationSlackChannel}`,
+                "message": `Action required.\n \n @slack-${this._config.slackAccountName.trim()}-${slackChannelName.substring(1)}`,
                 "tags": [],
                 "options": {
                     "notify_audit": true,
@@ -221,6 +273,8 @@ export class DatadogIntegrationProvisioner
                 "priority": 1,
                 "restricted_roles": null
             })
-        }, { provider: this._provider });
+        }, {
+            provider: this._provider
+        });
     }
 }
