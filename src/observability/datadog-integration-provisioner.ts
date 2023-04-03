@@ -208,6 +208,7 @@ export class DatadogIntegrationProvisioner
                 DdSite: this._config.ddHost,
                 FunctionName: "datadog-forwarder"
             },
+            capabilities: ["CAPABILITY_IAM"],
             templateUrl: "https://datadog-cloudformation-template.s3.amazonaws.com/aws/forwarder/latest.yaml"
         });
         
