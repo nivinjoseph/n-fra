@@ -7,7 +7,12 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 class NfraConfig {
     static get awsAccount() {
         const ids = this._pulumiAwsConfig.require("allowedAccountIds").toString();
-        return ids.trim().substring(1, ids.length - 1);
+        const numbers = "0123456789".split("");
+        const id = ids.split("").filter(t => numbers.contains(t)).join("");
+        if (id.length !== 12)
+            throw new Error(`Invalid AWS account id ${id}`);
+        return id;
+        // return ids.trim().substring(1, ids.length - 1);
     }
     static get awsRegion() { return this._pulumiAwsConfig.require("region"); }
     static get env() {
