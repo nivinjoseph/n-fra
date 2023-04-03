@@ -8,6 +8,7 @@ import { NfraConfig } from "../nfra-config";
 import { SecretsProvisioner } from "../secrets/secrets-provisioner";
 import { DatadogIntegrationConfig } from "./datadog-integration-config";
 import { client, v1 } from "@datadog/datadog-api-client";
+import * as Pulumi from "@pulumi/pulumi";
 
 
 export class DatadogIntegrationProvisioner
@@ -219,17 +220,28 @@ export class DatadogIntegrationProvisioner
             provider: this._provider
         });
         
-        // const logReadyServices = await datadog.aws.getIntegrationLogsServices({ provider: this._provider });
-        // const logServices = logReadyServices.awsLogsServices;
-        
-        const logServices = await this._fetchLogReadyService();
-        
-        new datadog.aws.IntegrationLogCollection("datadogLogCollection", {
-            accountId: NfraConfig.awsAccount,
-            services: logServices.map(t => t.id)
-        }, {
-            provider: this._provider
-        });
+        try 
+        {
+            // const logReadyServices = await datadog.aws.getIntegrationLogsServices({ provider: this._provider });
+            // const logServices = logReadyServices.awsLogsServices;
+
+            const logServices = await this._fetchLogReadyService();
+
+            new datadog.aws.IntegrationLogCollection("datadogLogCollection", {
+                accountId: NfraConfig.awsAccount,
+                services: logServices.map(t => t.id)
+            }, {
+                provider: this._provider
+            });    
+            
+            await Pulumi.log.info("Successfully created datadog.aws.IntegrationLogCollection");
+        }
+        catch (e)
+        {
+            await Pulumi.log.warn("Failed to create datadog.aws.IntegrationLogCollection");
+            const error = e as Error;
+            await Pulumi.log.error(error.message);
+        }
         
         let slackChannelName = this._config.slackChannelName.trim();
         if (!slackChannelName.startsWith("#"))
