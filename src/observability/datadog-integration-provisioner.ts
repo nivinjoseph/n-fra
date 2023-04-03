@@ -7,6 +7,7 @@ import * as datadog from "@pulumi/datadog";
 import { NfraConfig } from "../nfra-config";
 import { SecretsProvisioner } from "../secrets/secrets-provisioner";
 import { DatadogIntegrationConfig } from "./datadog-integration-config";
+import { client, v1 } from "@datadog/datadog-api-client";
 
 
 export class DatadogIntegrationProvisioner
@@ -218,11 +219,14 @@ export class DatadogIntegrationProvisioner
             provider: this._provider
         });
         
-        const logReadyServices = await datadog.aws.getIntegrationLogsServices({provider: this._provider});
+        // const logReadyServices = await datadog.aws.getIntegrationLogsServices({ provider: this._provider });
+        // const logServices = logReadyServices.awsLogsServices;
+        
+        const logServices = await this._fetchLogReadyService();
         
         new datadog.aws.IntegrationLogCollection("datadogLogCollection", {
             accountId: NfraConfig.awsAccount,
-            services: logReadyServices.awsLogsServices.map(t => t.id)
+            services: logServices.map(t => t.id)
         }, {
             provider: this._provider
         });
@@ -278,5 +282,20 @@ export class DatadogIntegrationProvisioner
         }, {
             provider: this._provider
         });
+    }
+    
+    private async _fetchLogReadyService(): Promise<Array<{ id: string; label: string; }>>
+    {
+        const configuration = client.createConfiguration({
+            authMethods: {
+                apiKeyAuth: this._config.apiKey,
+                appKeyAuth: this._config.appKey
+            }
+        });
+        const apiInstance = new v1.AWSLogsIntegrationApi(configuration);
+
+        const result = await apiInstance.listAWSLogsServices();
+        
+        return result.map(t => ({ id: t.id!, label: t.label! }));
     }
 }
