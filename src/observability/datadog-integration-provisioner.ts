@@ -214,11 +214,12 @@ export class DatadogIntegrationProvisioner
         
         const forwarderLambdaArn = datadogForwarderStack.outputs.apply(t => t["DatadogForwarderArn"]);
         
-        new datadog.aws.IntegrationLambdaArn("datadogLambdaCollector", {
+        const integrationLambdaArn = new datadog.aws.IntegrationLambdaArn("datadogLambdaCollector", {
             accountId: NfraConfig.awsAccount,
             lambdaArn: forwarderLambdaArn
         }, {
-            provider: this._provider
+            provider: this._provider,
+            dependsOn: datadogForwarderStack
         });
         
         try 
@@ -232,7 +233,8 @@ export class DatadogIntegrationProvisioner
                 accountId: NfraConfig.awsAccount,
                 services: logServices.map(t => t.id)
             }, {
-                provider: this._provider
+                provider: this._provider,
+                dependsOn: integrationLambdaArn
             });    
             
             await Pulumi.log.info("Successfully created datadog.aws.IntegrationLogCollection");
