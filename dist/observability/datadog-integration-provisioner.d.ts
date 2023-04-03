@@ -7,4 +7,5 @@ export declare class DatadogIntegrationProvisioner {
      */
     constructor(config: DatadogIntegrationConfig);
     provision(): Promise<void>;
+    private _fetchLogReadyService;
 }

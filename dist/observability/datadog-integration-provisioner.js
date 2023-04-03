@@ -10,6 +10,7 @@ const datadog = require("@pulumi/datadog");
 // import { Integration } from "@pulumi/datadog/aws/integration";
 const nfra_config_1 = require("../nfra-config");
 const secrets_provisioner_1 = require("../secrets/secrets-provisioner");
+const datadog_api_client_1 = require("@datadog/datadog-api-client");
 class DatadogIntegrationProvisioner {
     /**
      * @description Only provision this once within a given AWS account
@@ -189,10 +190,12 @@ class DatadogIntegrationProvisioner {
             }, {
                 provider: this._provider
             });
-            const logReadyServices = yield datadog.aws.getIntegrationLogsServices({ provider: this._provider });
+            // const logReadyServices = await datadog.aws.getIntegrationLogsServices({ provider: this._provider });
+            // const logServices = logReadyServices.awsLogsServices;
+            const logServices = yield this._fetchLogReadyService();
             new datadog.aws.IntegrationLogCollection("datadogLogCollection", {
                 accountId: nfra_config_1.NfraConfig.awsAccount,
-                services: logReadyServices.awsLogsServices.map(t => t.id)
+                services: logServices.map(t => t.id)
             }, {
                 provider: this._provider
             });
@@ -244,6 +247,19 @@ class DatadogIntegrationProvisioner {
             }, {
                 provider: this._provider
             });
+        });
+    }
+    _fetchLogReadyService() {
+        return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            const configuration = datadog_api_client_1.client.createConfiguration({
+                authMethods: {
+                    apiKeyAuth: this._config.apiKey,
+                    appKeyAuth: this._config.appKey
+                }
+            });
+            const apiInstance = new datadog_api_client_1.v1.AWSLogsIntegrationApi(configuration);
+            const result = yield apiInstance.listAWSLogsServices();
+            return result.map(t => ({ id: t.id, label: t.label }));
         });
     }
 }
