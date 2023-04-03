@@ -186,11 +186,12 @@ class DatadogIntegrationProvisioner {
                 templateUrl: "https://datadog-cloudformation-template.s3.amazonaws.com/aws/forwarder/latest.yaml"
             });
             const forwarderLambdaArn = datadogForwarderStack.outputs.apply(t => t["DatadogForwarderArn"]);
-            new datadog.aws.IntegrationLambdaArn("datadogLambdaCollector", {
+            const integrationLambdaArn = new datadog.aws.IntegrationLambdaArn("datadogLambdaCollector", {
                 accountId: nfra_config_1.NfraConfig.awsAccount,
                 lambdaArn: forwarderLambdaArn
             }, {
-                provider: this._provider
+                provider: this._provider,
+                dependsOn: datadogForwarderStack
             });
             try {
                 // const logReadyServices = await datadog.aws.getIntegrationLogsServices({ provider: this._provider });
@@ -200,7 +201,8 @@ class DatadogIntegrationProvisioner {
                     accountId: nfra_config_1.NfraConfig.awsAccount,
                     services: logServices.map(t => t.id)
                 }, {
-                    provider: this._provider
+                    provider: this._provider,
+                    dependsOn: integrationLambdaArn
                 });
                 yield Pulumi.log.info("Successfully created datadog.aws.IntegrationLogCollection");
             }
