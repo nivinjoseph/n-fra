@@ -11,6 +11,7 @@ const datadog = require("@pulumi/datadog");
 const nfra_config_1 = require("../nfra-config");
 const secrets_provisioner_1 = require("../secrets/secrets-provisioner");
 const datadog_api_client_1 = require("@datadog/datadog-api-client");
+const Pulumi = require("@pulumi/pulumi");
 class DatadogIntegrationProvisioner {
     /**
      * @description Only provision this once within a given AWS account
@@ -190,15 +191,23 @@ class DatadogIntegrationProvisioner {
             }, {
                 provider: this._provider
             });
-            // const logReadyServices = await datadog.aws.getIntegrationLogsServices({ provider: this._provider });
-            // const logServices = logReadyServices.awsLogsServices;
-            const logServices = yield this._fetchLogReadyService();
-            new datadog.aws.IntegrationLogCollection("datadogLogCollection", {
-                accountId: nfra_config_1.NfraConfig.awsAccount,
-                services: logServices.map(t => t.id)
-            }, {
-                provider: this._provider
-            });
+            try {
+                // const logReadyServices = await datadog.aws.getIntegrationLogsServices({ provider: this._provider });
+                // const logServices = logReadyServices.awsLogsServices;
+                const logServices = yield this._fetchLogReadyService();
+                new datadog.aws.IntegrationLogCollection("datadogLogCollection", {
+                    accountId: nfra_config_1.NfraConfig.awsAccount,
+                    services: logServices.map(t => t.id)
+                }, {
+                    provider: this._provider
+                });
+                yield Pulumi.log.info("Successfully created datadog.aws.IntegrationLogCollection");
+            }
+            catch (e) {
+                yield Pulumi.log.warn("Failed to create datadog.aws.IntegrationLogCollection");
+                const error = e;
+                yield Pulumi.log.error(error.message);
+            }
             let slackChannelName = this._config.slackChannelName.trim();
             if (!slackChannelName.startsWith("#"))
                 slackChannelName = `#${slackChannelName}`;
