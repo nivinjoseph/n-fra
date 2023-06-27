@@ -27,8 +27,8 @@ class DatadogIntegrationProvisioner {
         });
         const dataDogProvider = new datadog.Provider("datadogProvider", {
             apiKey: config.apiKey,
-            appKey: config.appKey,
-            validate: true
+            appKey: config.appKey
+            // validate: true
         });
         this._provider = dataDogProvider;
         this._config = config;
