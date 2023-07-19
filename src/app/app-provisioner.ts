@@ -324,7 +324,7 @@ export abstract class AppProvisioner<T extends AppConfig>
                     "log_key": "message",
                     // "log_group_name": this._name,
                     // "log_group_name": "/aws/ecs/containerinsights/$(ecs_cluster)/application",
-                    "log_group_name": `/aws/ecs/${NfraConfig.env}/$(ecs_cluster)/application`,
+                    "log_group_name": `/aws/ecs/${NfraConfig.env}/${this._name}/application`,
                     "auto_create_group": "true",
                     // "log_stream_name": this._name,
                     "log_stream_name": "$(ecs_task_id)",
