@@ -321,10 +321,13 @@ export abstract class AppProvisioner<T extends AppConfig>
                 options: {
                     "Name": "cloudwatch",
                     "region": NfraConfig.awsRegion,
-                    "log_key": "log",
-                    "log_group_name": this._name,
+                    "log_key": "message",
+                    // "log_group_name": this._name,
+                    // "log_group_name": "/aws/ecs/containerinsights/$(ecs_cluster)/application",
+                    "log_group_name": `/aws/ecs/${NfraConfig.env}/$(ecs_cluster)/application`,
                     "auto_create_group": "true",
-                    "log_stream_name": this._name,
+                    // "log_stream_name": this._name,
+                    "log_stream_name": "$(ecs_task_id)",
                     "retry_limit": "2"
                 }
             });
@@ -401,7 +404,7 @@ export abstract class AppProvisioner<T extends AppConfig>
             firelensConfiguration: {
                 type: "fluentbit",
                 options: {
-                    "enable-ecs-log-metadata": "true",
+                    "enable-ecs-log-metadata": "false",
                     "config-file-type": "file",
                     "config-file-value": "/fluent-bit/configs/parse-json.conf"
                 }
