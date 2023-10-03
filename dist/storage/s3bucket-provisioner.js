@@ -133,6 +133,14 @@ class S3bucketProvisioner {
             blockPublicPolicy: true,
             restrictPublicBuckets: true
         });
+        if (this._config.isPublic) {
+            new aws.s3.BucketOwnershipControls(`${this._name}-bucket-oc`, {
+                bucket: bucket.id,
+                rule: {
+                    objectOwnership: "BucketOwnerPreferred"
+                }
+            });
+        }
         const policy = {
             Version: "2012-10-17",
             Id: `${this._name}-policy`,
