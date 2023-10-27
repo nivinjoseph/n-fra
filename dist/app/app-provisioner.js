@@ -81,7 +81,8 @@ class AppProvisioner {
         if (secrets.isEmpty)
             return Pulumi.output(awsx.ecs.FargateTaskDefinition.createExecutionRole(`${this.name}-ter`, undefined, [
                 "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
-                aws.iam.ManagedPolicy.CloudWatchFullAccess
+                // aws.iam.ManagedPolicy.CloudWatchFullAccess
+                "arn:aws:iam::aws:policy/CloudWatchFullAccessV2"
             ]));
         const secretPolicyName = `${this.name}-secrets-tp`;
         const secretPolicy = new aws.iam.Policy(secretPolicyName, {
@@ -99,7 +100,8 @@ class AppProvisioner {
         });
         return secretPolicy.arn.apply(secretPolicyArn => awsx.ecs.FargateTaskDefinition.createExecutionRole(`${this.name}-ter`, undefined, [
             "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
-            aws.iam.ManagedPolicy.CloudWatchFullAccess,
+            // aws.iam.ManagedPolicy.CloudWatchFullAccess,
+            "arn:aws:iam::aws:policy/CloudWatchFullAccessV2",
             secretPolicyArn
         ], { dependsOn: secretPolicy }));
     }
@@ -110,7 +112,8 @@ class AppProvisioner {
         if (policyDocs.isEmpty)
             return Pulumi.output(awsx.ecs.FargateTaskDefinition.createTaskRole(`${this.name}-tr`, undefined, [
                 ...managedPolicies,
-                aws.iam.ManagedPolicy.CloudWatchFullAccess,
+                // aws.iam.ManagedPolicy.CloudWatchFullAccess,
+                "arn:aws:iam::aws:policy/CloudWatchFullAccessV2",
                 "arn:aws:iam::aws:policy/AWSAppMeshEnvoyAccess",
                 ...!this.hasDatadog ? [aws.iam.ManagedPolicy.AWSXRayDaemonWriteAccess] : []
             ]));
@@ -125,7 +128,8 @@ class AppProvisioner {
         });
         return Pulumi.all(policies.map(t => t.arn)).apply(resolvedArns => awsx.ecs.FargateTaskDefinition.createTaskRole(`${this.name}-tr`, undefined, [
             ...managedPolicies,
-            aws.iam.ManagedPolicy.CloudWatchFullAccess,
+            // aws.iam.ManagedPolicy.CloudWatchFullAccess,
+            "arn:aws:iam::aws:policy/CloudWatchFullAccessV2",
             "arn:aws:iam::aws:policy/AWSAppMeshEnvoyAccess",
             ...!this.hasDatadog ? [aws.iam.ManagedPolicy.AWSXRayDaemonWriteAccess] : [],
             ...resolvedArns
