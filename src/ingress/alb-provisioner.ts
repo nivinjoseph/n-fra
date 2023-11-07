@@ -113,10 +113,13 @@ export class AlbProvisioner
             }
         });
         
+        const result: AlbDetails = {
+            dnsName: alb.loadBalancer.dnsName,
+            hostTargets: {}
+        };
+        
         if (this._config.justAlb)
-            return {};
-
-        const result: AlbDetails = {};
+            return result;
         
         let defaultTargetGroupArn: Pulumi.Output<string> | null = null;
 
@@ -140,7 +143,7 @@ export class AlbProvisioner
 
             defaultTargetGroupArn = defaultTargetGroup.targetGroup.arn;
 
-            result[this._config.targets[0].host] = {
+            result.hostTargets[this._config.targets[0].host] = {
                 albTargetGroupArn: defaultTargetGroupArn
             };
         }
@@ -271,7 +274,7 @@ export class AlbProvisioner
                     }
                 });
 
-                result[target.host] = {
+                result.hostTargets[target.host] = {
                     albTargetGroupArn: targetGroup.targetGroup.arn
                 };
             });    

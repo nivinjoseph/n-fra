@@ -3,7 +3,10 @@ import * as Pulumi from "@pulumi/pulumi";
 
 export interface AlbDetails
 {
-    [host: string]: {
-        albTargetGroupArn: Pulumi.Output<string>;
+    dnsName: Pulumi.Output<string>;
+    hostTargets: {
+        [host: string]: {
+            albTargetGroupArn: Pulumi.Output<string>;
+        }; 
     };
 }
