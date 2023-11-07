@@ -85,9 +85,12 @@ class AlbProvisioner {
             securityGroups: [appAlbSecGroup],
             tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: albName })
         });
+        const result = {
+            dnsName: alb.loadBalancer.dnsName,
+            hostTargets: {}
+        };
         if (this._config.justAlb)
-            return {};
-        const result = {};
+            return result;
         let defaultTargetGroupArn = null;
         if (this._onlyDefault) {
             const defaultTargetGroupName = `${this._name}-tgt-grp-d`;
@@ -103,7 +106,7 @@ class AlbProvisioner {
                 tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: defaultTargetGroupName })
             });
             defaultTargetGroupArn = defaultTargetGroup.targetGroup.arn;
-            result[this._config.targets[0].host] = {
+            result.hostTargets[this._config.targets[0].host] = {
                 albTargetGroupArn: defaultTargetGroupArn
             };
         }
@@ -206,7 +209,7 @@ class AlbProvisioner {
                         }],
                     tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: listenerRuleName })
                 });
-                result[target.host] = {
+                result.hostTargets[target.host] = {
                     albTargetGroupArn: targetGroup.targetGroup.arn
                 };
             });
