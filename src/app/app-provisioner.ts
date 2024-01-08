@@ -1,18 +1,18 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { ArgumentException } from "@nivinjoseph/n-exception";
-import { VpcDetails } from "../vpc/vpc-details";
-import { AppConfig } from "./app-config";
+import { VpcDetails } from "../vpc/vpc-details.js";
+import { AppConfig } from "./app-config.js";
 import * as Pulumi from "@pulumi/pulumi";
 // import { ManagedPolicy, Policy, Role } from "@pulumi/aws/iam";
 import * as aws from "@pulumi/aws";
 // import { Container, FargateTaskDefinition } from "@pulumi/awsx/ecs";
 import * as awsx from "@pulumi/awsx";
-import { NfraConfig } from "../nfra-config";
-import { EnvVar } from "../common/env-var";
-import { Secret } from "../secrets/secret";
-import { AppDetails } from "./app-details";
-import { AppClusterDetails } from "./app-cluster-details";
-import { PolicyDocument } from "../security/policy/policy-document";
+import { NfraConfig } from "../nfra-config.js";
+import { EnvVar } from "../common/env-var.js";
+import { Secret } from "../secrets/secret.js";
+import { AppDetails } from "./app-details.js";
+import { AppClusterDetails } from "./app-cluster-details.js";
+import { PolicyDocument } from "../security/policy/policy-document.js";
 // import { LogConfiguration } from "@pulumi/aws/ecs";
 // import { VirtualNode } from "@pulumi/aws/appmesh";
 

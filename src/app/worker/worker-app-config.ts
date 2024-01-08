@@ -1,4 +1,4 @@
-import { AppConfig } from "../app-config";
+import { AppConfig } from "../app-config.js";
 
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface

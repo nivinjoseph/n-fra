@@ -1,13 +1,13 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { LambdaConfig } from "./lambda-config";
-import { LambdaDetails } from "./lambda-details";
+import { LambdaConfig } from "./lambda-config.js";
+import { LambdaDetails } from "./lambda-details.js";
 import * as aws from "@pulumi/aws";
-import { NfraConfig } from "../nfra-config";
+import { NfraConfig } from "../nfra-config.js";
 import * as Pulumi from "@pulumi/pulumi";
-import { LambdaAccessConfig } from "./lambda-access-config";
-import { PolicyDocument } from "../security/policy/policy-document";
-import * as Fs from "fs";
-import { LambdaAccessPolicyConfig } from "./lambda-access-policy-config";
+import { LambdaAccessConfig } from "./lambda-access-config.js";
+import { PolicyDocument } from "../security/policy/policy-document.js";
+import { LambdaAccessPolicyConfig } from "./lambda-access-policy-config.js";
+import { existsSync } from "node:fs";
 
 
 export class LambdaProvisioner
@@ -37,7 +37,7 @@ export class LambdaProvisioner
             .ensure(t => t.codeFilePath.startsWith("/"), "codeFilePath must absolute")
             .ensure(t => t.codeFilePath.endsWith(".tar") || t.codeFilePath.endsWith(".tar.gz") || t.codeFilePath.endsWith(".zip"),
                 "codeFilePath must be a valid .tar, .tar.gz, or .zip file")
-            .ensure(t => Fs.existsSync(t.codeFilePath), "codeFilePath does not exist")
+            .ensure(t => existsSync(t.codeFilePath), "codeFilePath does not exist")
             .ensureWhen(config.vpcDetails != null, t => t.subnetNamePrefix != null,
                 "subnetNamePrefix is required when vpcDetails is provided")
             .ensureWhen(config.vpcDetails != null, t => t.ingressSubnetNamePrefixes != null && t.ingressSubnetNamePrefixes.isNotEmpty,

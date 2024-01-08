@@ -1,4 +1,4 @@
-import { LambdaDetails } from "./lambda-details";
+import { LambdaDetails } from "./lambda-details.js";
 
 
 export interface LambdaAccessPolicyConfig

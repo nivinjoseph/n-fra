@@ -1,5 +1,5 @@
-import { VpcDetails } from "../vpc/vpc-details";
-import { AlbTarget } from "./alb-target";
+import { VpcDetails } from "../vpc/vpc-details.js";
+import { AlbTarget } from "./alb-target.js";
 
 
 export interface AlbConfig

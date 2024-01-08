@@ -1,4 +1,4 @@
-import { AppConfig } from "../app-config";
+import { AppConfig } from "../app-config.js";
 
 
 export interface GrpcAppConfig extends AppConfig

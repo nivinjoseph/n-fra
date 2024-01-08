@@ -1,5 +1,5 @@
-import { EnvVar } from "../common/env-var";
-import { VpcDetails } from "../vpc/vpc-details";
+import { EnvVar } from "../common/env-var.js";
+import { VpcDetails } from "../vpc/vpc-details.js";
 
 
 export interface LambdaConfig

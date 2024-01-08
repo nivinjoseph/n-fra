@@ -1,4 +1,4 @@
-import { S3bucketAccessConfig } from "./s3bucket-access-config";
+import { S3bucketAccessConfig } from "./s3bucket-access-config.js";
 
 
 export interface S3bucketConfig

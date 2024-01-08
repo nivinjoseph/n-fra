@@ -4,9 +4,9 @@ import * as aws from "@pulumi/aws";
 // import { MonitorJson, Provider } from "@pulumi/datadog";
 import * as datadog from "@pulumi/datadog";
 // import { Integration } from "@pulumi/datadog/aws/integration";
-import { NfraConfig } from "../nfra-config";
-import { SecretsProvisioner } from "../secrets/secrets-provisioner";
-import { DatadogIntegrationConfig } from "./datadog-integration-config";
+import { NfraConfig } from "../nfra-config.js";
+import { SecretsProvisioner } from "../secrets/secrets-provisioner.js";
+import { DatadogIntegrationConfig } from "./datadog-integration-config.js";
 import { client, v1 } from "@datadog/datadog-api-client";
 import * as Pulumi from "@pulumi/pulumi";
 

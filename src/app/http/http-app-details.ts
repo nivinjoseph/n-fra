@@ -1,4 +1,4 @@
-import { AppDetails } from "../app-details";
+import { AppDetails } from "../app-details.js";
 
 
 export interface HttpAppDetails extends AppDetails

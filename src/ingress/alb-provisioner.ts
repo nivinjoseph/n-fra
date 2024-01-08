@@ -1,10 +1,10 @@
 import { given } from "@nivinjoseph/n-defensive";
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
 import * as awsx from "@pulumi/awsx";
-import { AlbConfig } from "./alb-config";
-import { AlbDetails } from "./alb-details";
+import { AlbConfig } from "./alb-config.js";
+import { AlbDetails } from "./alb-details.js";
 import * as Pulumi from "@pulumi/pulumi";
-import { NfraConfig } from "../nfra-config";
+import { NfraConfig } from "../nfra-config.js";
 // import { ApplicationLoadBalancer } from "@pulumi/awsx/lb";
 // import { Listener, ListenerRule } from "@pulumi/aws/lb";
 import * as aws from "@pulumi/aws";

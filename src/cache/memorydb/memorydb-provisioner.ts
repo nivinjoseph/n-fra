@@ -1,12 +1,12 @@
 import { given } from "@nivinjoseph/n-defensive";
 // import { Cluster, ParameterGroup, SubnetGroup } from "@pulumi/aws/memorydb";
 import * as aws from "@pulumi/aws";
-import { MemorydbConfig } from "./memorydb-config";
-import { MemorydbDetails } from "./memorydb-details";
+import { MemorydbConfig } from "./memorydb-config.js";
+import { MemorydbDetails } from "./memorydb-details.js";
 import * as Pulumi from "@pulumi/pulumi";
-import { NfraConfig } from "../../nfra-config";
+import { NfraConfig } from "../../nfra-config.js";
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
-import { EnvType } from "../../env-type";
+import { EnvType } from "../../env-type.js";
 
 
 export class MemorydbProvisioner

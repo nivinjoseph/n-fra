@@ -1,8 +1,8 @@
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
-import { AppProvisioner } from "../app-provisioner";
+import { AppProvisioner } from "../app-provisioner.js";
 import * as Pulumi from "@pulumi/pulumi";
 import { given } from "@nivinjoseph/n-defensive";
-import { NfraConfig } from "../../nfra-config";
+import { NfraConfig } from "../../nfra-config.js";
 // import { Instance as SdInstance, Service as SdService } from "@pulumi/aws/servicediscovery";
 // import { Service as SdService } from "@pulumi/aws/servicediscovery";
 import * as aws from "@pulumi/aws";
@@ -10,8 +10,8 @@ import * as aws from "@pulumi/aws";
 // import { TaskDefinition } from "@pulumi/aws/ecs/taskDefinition";
 // import { Cluster, Service } from "@pulumi/aws/ecs";
 // import { Policy as AsPolicy, Target as AsTarget } from "@pulumi/aws/appautoscaling";
-import { GrpcAppConfig } from "./grpc-app-config";
-import { GrpcAppDetails } from "./grpc-app-details";
+import { GrpcAppConfig } from "./grpc-app-config.js";
+import { GrpcAppDetails } from "./grpc-app-details.js";
 // import { AppDetails } from "../app-details";
 
 

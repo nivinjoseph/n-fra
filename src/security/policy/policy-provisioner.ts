@@ -1,8 +1,8 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { PolicyConfig } from "./policy-config";
+import { PolicyConfig } from "./policy-config.js";
 import * as aws from "@pulumi/aws";
-import { NfraConfig } from "../../nfra-config";
-import { PolicyDetails } from "./policy-details";
+import { NfraConfig } from "../../nfra-config.js";
+import { PolicyDetails } from "./policy-details.js";
 
 
 export class PolicyProvisioner
