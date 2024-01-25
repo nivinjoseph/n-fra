@@ -9,14 +9,14 @@
     "scripts": {
         "ts-compile": "tsc -p .",
         "ts-lint": "eslint . --ext .ts",
-        "ts-build": "npm run ts-compile && npm run ts-lint",
-        "ts-build-dist": "npm run ts-build && tsc -p ./dist",
+        "ts-build": "yarn ts-compile && yarn ts-lint",
+        "ts-build-dist": "yarn ts-build && tsc -p ./dist",
         "clean-src": "find ./src -name '*.js' -delete -o -name '*.map' -delete",
         "clean-test": "find ./test -name '*.js' -delete -o -name '*.map' -delete",
         "clean-dist": "find ./dist -name '*.js' -delete -o -name '*.map' -delete -o -name '*.ts' -delete",
         "clean-all": "yarn clean-src && yarn clean-test && yarn clean-dist",
         "test": "yarn ts-build && node --test --enable-source-maps ./test/",
-        "publish-package": "npm run ts-build-dist && git add . && git commit -m 'preparing to publish new version' && npm version patch && git push && npm publish --access=public"
+        "publish-package": "yarn ts-build-dist && git add . && git commit -m 'preparing to publish new version' && yarn version patch && git push && yarn npm publish --access=public"
     },
     "repository": {
         "type": "git",
