@@ -1,4 +1,4 @@
-import { EnvType } from "./env-type";
+import { EnvType } from "./env-type.js";
 import * as Pulumi from "@pulumi/pulumi";
 import { given } from "@nivinjoseph/n-defensive";
 // import { Tags } from "@pulumi/aws";

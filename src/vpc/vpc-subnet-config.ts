@@ -1,5 +1,5 @@
-import { VpcAz } from "./vpc-az";
-import { VpcSubnetType } from "./vpc-subnet-type";
+import { VpcAz } from "./vpc-az.js";
+import { VpcSubnetType } from "./vpc-subnet-type.js";
 
 
 export interface VpcSubnetConfig

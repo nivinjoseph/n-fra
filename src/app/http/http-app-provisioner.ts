@@ -1,12 +1,12 @@
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
-import { AppProvisioner } from "../app-provisioner";
-import { HttpAppConfig } from "./http-app-config";
+import { AppProvisioner } from "../app-provisioner.js";
+import { HttpAppConfig } from "./http-app-config.js";
 import * as Pulumi from "@pulumi/pulumi";
 import { given } from "@nivinjoseph/n-defensive";
-import { NfraConfig } from "../../nfra-config";
+import { NfraConfig } from "../../nfra-config.js";
 // import { Instance as SdInstance, Service as SdService } from "@pulumi/aws/servicediscovery";
 import * as aws from "@pulumi/aws";
-import { HttpAppDetails } from "./http-app-details";
+import { HttpAppDetails } from "./http-app-details.js";
 // import { AppDetails } from "../app-details";
 // import { Service as SdService } from "@pulumi/aws/servicediscovery";
 // import { VirtualNode, VirtualService } from "@pulumi/aws/appmesh";

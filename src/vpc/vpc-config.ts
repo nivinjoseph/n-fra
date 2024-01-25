@@ -1,4 +1,4 @@
-import { VpcSubnetConfig } from "./vpc-subnet-config";
+import { VpcSubnetConfig } from "./vpc-subnet-config.js";
 
 
 export interface VpcConfig

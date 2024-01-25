@@ -1,9 +1,9 @@
-import { AppDatadogConfig } from "./app-datadog-config";
-import { EnvVar } from "../common/env-var";
-import { Secret } from "../secrets/secret";
-import { PolicyDocument } from "../security/policy/policy-document";
-import { VpcDetails } from "../vpc/vpc-details";
-import { AppClusterDetails } from "./app-cluster-details";
+import { AppDatadogConfig } from "./app-datadog-config.js";
+import { EnvVar } from "../common/env-var.js";
+import { Secret } from "../secrets/secret.js";
+import { PolicyDocument } from "../security/policy/policy-document.js";
+import { VpcDetails } from "../vpc/vpc-details.js";
+import { AppClusterDetails } from "./app-cluster-details.js";
 
 
 export interface AppConfig

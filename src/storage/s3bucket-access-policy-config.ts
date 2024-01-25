@@ -1,4 +1,4 @@
-import { S3bucketDetails } from "./s3bucket-details";
+import { S3bucketDetails } from "./s3bucket-details.js";
 
 
 export interface S3bucketAccessPolicyConfig

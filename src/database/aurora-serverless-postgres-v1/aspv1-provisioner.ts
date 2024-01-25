@@ -1,15 +1,15 @@
 import { given } from "@nivinjoseph/n-defensive";
 // import { Cluster, EngineMode, EngineType, SubnetGroup } from "@pulumi/aws/rds";
 import * as aws from "@pulumi/aws";
-import { Aspv1Config } from "./aspv1-config";
-import { Aspv1Details } from "./aspv1-details";
+import { Aspv1Config } from "./aspv1-config.js";
+import { Aspv1Details } from "./aspv1-details.js";
 import * as Pulumi from "@pulumi/pulumi";
-import { NfraConfig } from "../../nfra-config";
+import { NfraConfig } from "../../nfra-config.js";
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
 // import { RandomPassword } from "@pulumi/random";
 import * as random from "@pulumi/random";
-import { VpcAz } from "../../vpc/vpc-az";
-import { EnvType } from "../../env-type";
+import { VpcAz } from "../../vpc/vpc-az.js";
+import { EnvType } from "../../env-type.js";
 
 
 export class Aspv1Provisioner

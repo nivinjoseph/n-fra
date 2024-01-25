@@ -1,4 +1,4 @@
-import { Secret } from "../secrets/secret";
+import { Secret } from "../secrets/secret.js";
 
 
 export interface AppDatadogConfig

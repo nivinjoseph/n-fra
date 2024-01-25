@@ -1,16 +1,16 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { Aspv2Config } from "./aspv2-config";
-import { Aspv2Details } from "./aspv2-details";
+import { Aspv2Config } from "./aspv2-config.js";
+import { Aspv2Details } from "./aspv2-details.js";
 import * as Pulumi from "@pulumi/pulumi";
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
 import * as awsx from "@pulumi/awsx";
-import { NfraConfig } from "../../nfra-config";
+import { NfraConfig } from "../../nfra-config.js";
 // import { Cluster, ClusterInstance, EngineMode, EngineType, SubnetGroup, Proxy as RdsProxy, ProxyDefaultTargetGroup, ProxyTarget, ProxyEndpoint } from "@pulumi/aws/rds";
 import * as aws from "@pulumi/aws";
 // import { RandomPassword } from "@pulumi/random";
 import * as random from "@pulumi/random";
-import { VpcAz } from "../../vpc/vpc-az";
-import { EnvType } from "../../env-type";
+import { VpcAz } from "../../vpc/vpc-az.js";
+import { EnvType } from "../../env-type.js";
 // import { Secret, SecretPolicy, SecretVersion } from "@pulumi/aws/secretsmanager";
 // import { PolicyDocument, Role } from "@pulumi/aws/iam";
 

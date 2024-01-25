@@ -8,11 +8,11 @@ import * as aws from "@pulumi/aws";
 // import { PrivateDnsNamespace } from "@pulumi/aws/servicediscovery";
 // import { VpcSubnetArgs, VpcSubnetType, Vpc } from "@pulumi/awsx/ec2";
 import * as awsx from "@pulumi/awsx";
-import { EnvType } from "../env-type";
-import { NfraConfig } from "../nfra-config";
-import { VpcAz } from "./vpc-az";
-import { VpcConfig } from "./vpc-config";
-import { VpcDetails } from "./vpc-details";
+import { EnvType } from "../env-type.js";
+import { NfraConfig } from "../nfra-config.js";
+import { VpcAz } from "./vpc-az.js";
+import { VpcConfig } from "./vpc-config.js";
+import { VpcDetails } from "./vpc-details.js";
 
 
 export class VpcProvisioner

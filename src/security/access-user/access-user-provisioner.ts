@@ -1,8 +1,8 @@
 import { given } from "@nivinjoseph/n-defensive";
 // import { AccessKey, User } from "@pulumi/aws/iam";
 import * as aws from "@pulumi/aws";
-import { NfraConfig } from "../../nfra-config";
-import { AccessUserDetails } from "./access-user-details";
+import { NfraConfig } from "../../nfra-config.js";
+import { AccessUserDetails } from "./access-user-details.js";
 
 
 export class AccessUserProvisioner

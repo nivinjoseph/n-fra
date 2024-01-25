@@ -1,5 +1,5 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { Secret } from "./secret";
+import { Secret } from "./secret.js";
 
 
 export class SecretsCache

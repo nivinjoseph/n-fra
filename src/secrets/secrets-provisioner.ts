@@ -1,10 +1,10 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { SecretsCache } from "./secrets-cache";
+import { SecretsCache } from "./secrets-cache.js";
 import * as Pulumi from "@pulumi/pulumi";
 // import { Secret, SecretVersion } from "@pulumi/aws/secretsmanager";
 import * as aws from "@pulumi/aws";
-import { NfraConfig } from "../nfra-config";
-import { Secret } from "./secret";
+import { NfraConfig } from "../nfra-config.js";
+import { Secret } from "./secret.js";
 
 
 export class SecretsProvisioner

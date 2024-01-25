@@ -1,5 +1,5 @@
 import * as Pulumi from "@pulumi/pulumi";
-import { PolicyDocument } from "./policy-document";
+import { PolicyDocument } from "./policy-document.js";
 
 
 export interface PolicyConfig

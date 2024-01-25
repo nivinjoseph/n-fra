@@ -1,13 +1,13 @@
 import { given } from "@nivinjoseph/n-defensive";
 // import { ParameterGroup, ReplicationGroup, SubnetGroup } from "@pulumi/aws/elasticache";
 import * as aws from "@pulumi/aws";
-import { RedisConfig } from "./redis-config";
+import { RedisConfig } from "./redis-config.js";
 import * as Pulumi from "@pulumi/pulumi";
-import { NfraConfig } from "../../nfra-config";
+import { NfraConfig } from "../../nfra-config.js";
 // import { SecurityGroup } from "@pulumi/awsx/ec2";
-import { EnvType } from "../../env-type";
-import { VpcAz } from "../../vpc/vpc-az";
-import { RedisDetails } from "./redis-details";
+import { EnvType } from "../../env-type.js";
+import { VpcAz } from "../../vpc/vpc-az.js";
+import { RedisDetails } from "./redis-details.js";
 
 
 export class RedisProvisioner

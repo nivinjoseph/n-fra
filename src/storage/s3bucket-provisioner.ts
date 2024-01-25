@@ -3,11 +3,11 @@ import { given } from "@nivinjoseph/n-defensive";
 import * as aws from "@pulumi/aws";
 // import { Bucket, BucketPolicy, BucketPublicAccessBlock } from "@pulumi/aws/s3";
 import * as Pulumi from "@pulumi/pulumi";
-import { NfraConfig } from "../nfra-config";
-import { PolicyDocument } from "../security/policy/policy-document";
-import { S3bucketAccessPolicyConfig } from "./s3bucket-access-policy-config";
-import { S3bucketConfig } from "./s3bucket-config";
-import { S3bucketDetails } from "./s3bucket-details";
+import { NfraConfig } from "../nfra-config.js";
+import { PolicyDocument } from "../security/policy/policy-document.js";
+import { S3bucketAccessPolicyConfig } from "./s3bucket-access-policy-config.js";
+import { S3bucketConfig } from "./s3bucket-config.js";
+import { S3bucketDetails } from "./s3bucket-details.js";
 
 
 export class S3bucketProvisioner

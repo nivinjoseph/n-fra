@@ -1,4 +1,4 @@
-import { VpcDetails } from "../../vpc/vpc-details";
+import { VpcDetails } from "../../vpc/vpc-details.js";
 
 
 export interface Aspv2Config
