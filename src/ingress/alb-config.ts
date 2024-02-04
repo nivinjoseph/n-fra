@@ -9,6 +9,7 @@ export interface AlbConfig
     egressSubnetNamePrefixes: ReadonlyArray<string>;
     certificateArn?: string;
     enableWaf?: boolean;
+    enableWafCloudWatchMetrics?: boolean; 
     enableCloudfront?: boolean;
     targets: ReadonlyArray<AlbTarget>;
     justAlb?: boolean;

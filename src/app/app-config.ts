@@ -20,5 +20,7 @@ export interface AppConfig
     policies?: ReadonlyArray<PolicyDocument | string>;
     isOn?: boolean;
     datadogConfig?: AppDatadogConfig;
+    enableXray?: boolean;
+    enableContainerInsights?: boolean;
     cluster?: AppClusterDetails;
 }

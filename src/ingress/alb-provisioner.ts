@@ -32,6 +32,7 @@ export class AlbProvisioner
                 egressSubnetNamePrefixes: ["string"],
                 "certificateArn?": "string",
                 "enableWaf?": "boolean",
+                "enableWafCloudWatchMetrics?": "boolean",
                 "enableCloudfront?": "boolean",
                 targets: [{
                     host: "string",
@@ -55,6 +56,7 @@ export class AlbProvisioner
         });
         
         config.enableWaf ??= false;
+        config.enableWafCloudWatchMetrics ??= false;
         config.enableCloudfront ??= false;
         config.justAlb ??= false;
         this._config = config;
@@ -312,14 +314,14 @@ export class AlbProvisioner
                     }
                 },
                 visibilityConfig: {
-                    cloudwatchMetricsEnabled: true,
+                    cloudwatchMetricsEnabled: this._config.enableWafCloudWatchMetrics!,
                     metricName: "app-web-acl-managed-common-rule-set-metric",
                     sampledRequestsEnabled: true
                 }
             }],
             scope: "REGIONAL",
             visibilityConfig: {
-                cloudwatchMetricsEnabled: true,
+                cloudwatchMetricsEnabled: this._config.enableWafCloudWatchMetrics!,
                 metricName: "app-web-acl-metric",
                 sampledRequestsEnabled: true
             },

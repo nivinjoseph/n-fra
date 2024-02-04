@@ -43,10 +43,13 @@ export class VpcProvisioner
                     type: "string",
                     cidrOctet3: "number",
                     az: "string"
-                }]
+                }],
+                "numNatGateways?": "number"
             })
             .ensure(t => t.subnets.distinct(u => u.name).length === t.subnets.length, "subnet name must be unique")
-            .ensure(t => t.subnets.distinct(u => u.cidrOctet3).length === t.subnets.length, "subnet cidrOctet3 must be unique");
+            .ensure(t => t.subnets.distinct(u => u.cidrOctet3).length === t.subnets.length, "subnet cidrOctet3 must be unique")
+            .ensure(t => t.numNatGateways == null || (t.numNatGateways >= 1 && t.numNatGateways <= 3), "numNatGateways must be between 1 and 3");
+        
         const { cidr16Bits } = config;
         given(cidr16Bits, "config.cidr16Bits")
             .ensure(t => t.split(".").length === 2, "provide only the first 2 octets")
@@ -58,7 +61,9 @@ export class VpcProvisioner
                 return secondOctet != null && secondOctet > 0 && secondOctet <= 250;
                 
             }, "second octet must be a valid number between 1 and 250 inclusive");
+        
         config.enableVpcFlowLogs ??= false;
+        config.numNatGateways ??= NfraConfig.env === EnvType.prod ? 3 : 1; 
         this._config = config;
     }
     
@@ -68,7 +73,7 @@ export class VpcProvisioner
         this._vpc = new awsx.ec2.Vpc(this._name, {
             cidrBlock: `${this._config.cidr16Bits}.0.0/16`,
             numberOfAvailabilityZones: 3,
-            numberOfNatGateways: NfraConfig.env === EnvType.prod ? 3 : 1,
+            numberOfNatGateways: this._config.numNatGateways,
             enableDnsHostnames: true,
             enableDnsSupport: true,
             subnets: this._config.subnets.map(t => this._createSubnet(t.name, t.type, t.cidrOctet3, t.az)),
