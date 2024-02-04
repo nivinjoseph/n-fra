@@ -15,7 +15,7 @@ export declare abstract class AppProvisioner<T extends AppConfig> {
     protected get version(): string;
     protected get hasDatadog(): boolean;
     protected constructor(name: string, config: T);
-    static provisionAppCluster(name: string): AppClusterDetails;
+    static provisionAppCluster(name: string, enableContainerInsights?: boolean): AppClusterDetails;
     abstract provision(): AppDetails;
     protected createAppCluster(): AppClusterDetails;
     protected createExecutionRole(): Pulumi.Output<aws.iam.Role>;
@@ -26,11 +26,10 @@ export declare abstract class AppProvisioner<T extends AppConfig> {
     private _createLogConfiguration;
     private _createAwsLogsConfiguration;
     private _createInstrumentationEnvironmentVariables;
-    private _createInstrumentationLabels;
+    private _createDatadogInstrumentationLabels;
     private _createInstrumentationContainers;
     private _createLogRouterContainer;
     private _createEnvoyContainer;
     private _createDatadogAgentContainer;
-    private _createAwsXrayDaemonContainer;
     private _createAwsOtelCollectorContainer;
 }

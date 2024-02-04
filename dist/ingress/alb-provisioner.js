@@ -13,7 +13,7 @@ const aws = require("@pulumi/aws");
 // import { Distribution } from "@pulumi/aws/cloudfront";
 class AlbProvisioner {
     constructor(name, config) {
-        var _a, _b, _c;
+        var _a, _b, _c, _d;
         (0, n_defensive_1.given)(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
         (0, n_defensive_1.given)(config, "config").ensureHasValue().ensureIsObject()
@@ -23,6 +23,7 @@ class AlbProvisioner {
             egressSubnetNamePrefixes: ["string"],
             "certificateArn?": "string",
             "enableWaf?": "boolean",
+            "enableWafCloudWatchMetrics?": "boolean",
             "enableCloudfront?": "boolean",
             targets: [{
                     host: "string",
@@ -41,8 +42,9 @@ class AlbProvisioner {
             target.host = target.host.trim().toLowerCase();
         });
         (_a = config.enableWaf) !== null && _a !== void 0 ? _a : (config.enableWaf = false);
-        (_b = config.enableCloudfront) !== null && _b !== void 0 ? _b : (config.enableCloudfront = false);
-        (_c = config.justAlb) !== null && _c !== void 0 ? _c : (config.justAlb = false);
+        (_b = config.enableWafCloudWatchMetrics) !== null && _b !== void 0 ? _b : (config.enableWafCloudWatchMetrics = false);
+        (_c = config.enableCloudfront) !== null && _c !== void 0 ? _c : (config.enableCloudfront = false);
+        (_d = config.justAlb) !== null && _d !== void 0 ? _d : (config.justAlb = false);
         this._config = config;
         this._useTls = this._config.certificateArn != null;
         this._onlyDefault = this._config.targets.some(t => t.host === "default");
@@ -241,14 +243,14 @@ class AlbProvisioner {
                         }
                     },
                     visibilityConfig: {
-                        cloudwatchMetricsEnabled: true,
+                        cloudwatchMetricsEnabled: this._config.enableWafCloudWatchMetrics,
                         metricName: "app-web-acl-managed-common-rule-set-metric",
                         sampledRequestsEnabled: true
                     }
                 }],
             scope: "REGIONAL",
             visibilityConfig: {
-                cloudwatchMetricsEnabled: true,
+                cloudwatchMetricsEnabled: this._config.enableWafCloudWatchMetrics,
                 metricName: "app-web-acl-metric",
                 sampledRequestsEnabled: true
             },

@@ -16,7 +16,7 @@ const nfra_config_1 = require("../nfra-config");
 const vpc_az_1 = require("./vpc-az");
 class VpcProvisioner {
     constructor(name, config) {
-        var _a;
+        var _a, _b;
         this._vpc = null;
         this._serviceMesh = null;
         this._pvtDnsNsp = null;
@@ -35,10 +35,12 @@ class VpcProvisioner {
                     type: "string",
                     cidrOctet3: "number",
                     az: "string"
-                }]
+                }],
+            "numNatGateways?": "number"
         })
             .ensure(t => t.subnets.distinct(u => u.name).length === t.subnets.length, "subnet name must be unique")
-            .ensure(t => t.subnets.distinct(u => u.cidrOctet3).length === t.subnets.length, "subnet cidrOctet3 must be unique");
+            .ensure(t => t.subnets.distinct(u => u.cidrOctet3).length === t.subnets.length, "subnet cidrOctet3 must be unique")
+            .ensure(t => t.numNatGateways == null || (t.numNatGateways >= 1 && t.numNatGateways <= 3), "numNatGateways must be between 1 and 3");
         const { cidr16Bits } = config;
         (0, n_defensive_1.given)(cidr16Bits, "config.cidr16Bits")
             .ensure(t => t.split(".").length === 2, "provide only the first 2 octets")
@@ -49,13 +51,14 @@ class VpcProvisioner {
             return secondOctet != null && secondOctet > 0 && secondOctet <= 250;
         }, "second octet must be a valid number between 1 and 250 inclusive");
         (_a = config.enableVpcFlowLogs) !== null && _a !== void 0 ? _a : (config.enableVpcFlowLogs = false);
+        (_b = config.numNatGateways) !== null && _b !== void 0 ? _b : (config.numNatGateways = nfra_config_1.NfraConfig.env === env_type_1.EnvType.prod ? 3 : 1);
         this._config = config;
     }
     provision() {
         this._vpc = new awsx.ec2.Vpc(this._name, {
             cidrBlock: `${this._config.cidr16Bits}.0.0/16`,
             numberOfAvailabilityZones: 3,
-            numberOfNatGateways: nfra_config_1.NfraConfig.env === env_type_1.EnvType.prod ? 3 : 1,
+            numberOfNatGateways: this._config.numNatGateways,
             enableDnsHostnames: true,
             enableDnsSupport: true,
             subnets: this._config.subnets.map(t => this._createSubnet(t.name, t.type, t.cidrOctet3, t.az)),

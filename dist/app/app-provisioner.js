@@ -18,6 +18,7 @@ class AppProvisioner {
     get version() { return this._version; }
     get hasDatadog() { return this._config.datadogConfig != null; }
     constructor(name, config) {
+        var _a, _b;
         (0, n_defensive_1.given)(name, "serviceName").ensureHasValue().ensureIsString();
         this._name = name;
         const defaultConfig = {
@@ -40,25 +41,32 @@ class AppProvisioner {
             "policies?": "array",
             isOn: "boolean",
             "datadogConfig?": "object",
+            "enableXray?": "boolean",
+            "enableContainerInsights?": "boolean",
             "cluster?": "object"
         })
             .ensure(t => t.image.contains(":v"), "config.image does not have a valid tag")
-            .ensureWhen(config.policies != null && config.policies.isNotEmpty && config.policies.some(t => typeof t === "string"), (t) => t.policies.where(u => typeof u === "string").every(u => u.startsWith("arn:aws:iam::aws:policy/")), "policy string values must be aws managed policies");
+            .ensureWhen(config.policies != null && config.policies.isNotEmpty && config.policies.some(t => typeof t === "string"), (t) => t.policies.where(u => typeof u === "string").every(u => u.startsWith("arn:aws:iam::aws:policy/")), "policy string values must be aws managed policies")
+            .ensureWhen(config.datadogConfig != null, (t) => !t.enableXray, "only one of datadogConfig or enableXray can be used");
         if ((config.command == null || config.command.isEmpty) && (config.entryPoint == null || config.entryPoint.isEmpty))
             throw new n_exception_1.ArgumentException("config", "one of either command or entryPoint must be provided");
         if (config.command != null && config.entryPoint != null)
             throw new n_exception_1.ArgumentException("config", "only one of either command or entryPoint must be provided");
+        (_a = config.enableXray) !== null && _a !== void 0 ? _a : (config.enableXray = false);
+        (_b = config.enableContainerInsights) !== null && _b !== void 0 ? _b : (config.enableContainerInsights = false);
         this._config = config;
         this._version = config.image.split(":").takeLast().substring(1);
     }
-    static provisionAppCluster(name) {
+    static provisionAppCluster(name, enableContainerInsights) {
+        (0, n_defensive_1.given)(name, "name").ensureHasValue().ensureIsString();
+        (0, n_defensive_1.given)(enableContainerInsights, "enableContainerInsights").ensureIsBoolean();
         const clusterName = `${name}-cluster`;
         const cluster = new aws.ecs.Cluster(clusterName, {
             capacityProviders: ["FARGATE"],
             settings: [
                 {
                     name: "containerInsights",
-                    value: "enabled"
+                    value: enableContainerInsights ? "enabled" : "disabled"
                 }
             ],
             tags: Object.assign(Object.assign({}, nfra_config_1.NfraConfig.tags), { Name: clusterName })
@@ -70,7 +78,7 @@ class AppProvisioner {
     }
     createAppCluster() {
         var _a;
-        return (_a = this._config.cluster) !== null && _a !== void 0 ? _a : AppProvisioner.provisionAppCluster(this._name);
+        return (_a = this._config.cluster) !== null && _a !== void 0 ? _a : AppProvisioner.provisionAppCluster(this._name, this._config.enableContainerInsights);
     }
     createExecutionRole() {
         const secrets = new Array();
@@ -115,7 +123,7 @@ class AppProvisioner {
                 // aws.iam.ManagedPolicy.CloudWatchFullAccess,
                 "arn:aws:iam::aws:policy/CloudWatchFullAccessV2",
                 "arn:aws:iam::aws:policy/AWSAppMeshEnvoyAccess",
-                ...!this.hasDatadog ? [aws.iam.ManagedPolicy.AWSXRayDaemonWriteAccess] : []
+                ...this._config.enableXray ? [aws.iam.ManagedPolicy.AWSXRayDaemonWriteAccess] : []
             ]));
         const policies = policyDocs.map((policyDoc, index) => {
             const policyName = `${this.name}-tp-${index}`;
@@ -131,7 +139,7 @@ class AppProvisioner {
             // aws.iam.ManagedPolicy.CloudWatchFullAccess,
             "arn:aws:iam::aws:policy/CloudWatchFullAccessV2",
             "arn:aws:iam::aws:policy/AWSAppMeshEnvoyAccess",
-            ...!this.hasDatadog ? [aws.iam.ManagedPolicy.AWSXRayDaemonWriteAccess] : [],
+            ...this._config.enableXray ? [aws.iam.ManagedPolicy.AWSXRayDaemonWriteAccess] : [],
             ...resolvedArns
         ], { dependsOn: policies }));
     }
@@ -162,7 +170,7 @@ class AppProvisioner {
             stopTimeout: 45,
             logConfiguration: this._createLogConfiguration(),
             dockerLabels: this.hasDatadog
-                ? Object.assign({}, this._createInstrumentationLabels()) : undefined,
+                ? Object.assign({}, this._createDatadogInstrumentationLabels()) : undefined,
             mountPoints: [],
             volumesFrom: [],
             dependsOn: [
@@ -271,11 +279,11 @@ class AppProvisioner {
         ];
         if (this.hasDatadog)
             result.push({ name: "DD_ENV", value: nfra_config_1.NfraConfig.env }, { name: "DD_SERVICE", value: this._name }, { name: "DD_VERSION", value: this._version });
-        else
+        else if (this._config.enableXray)
             result.push({ name: "enableXrayTracing", value: "true" });
         return result;
     }
-    _createInstrumentationLabels() {
+    _createDatadogInstrumentationLabels() {
         return {
             "com.datadoghq.tags.env": nfra_config_1.NfraConfig.env,
             "com.datadoghq.tags.service": this._name,
@@ -289,7 +297,7 @@ class AppProvisioner {
         };
         if (this.hasDatadog)
             containers["datadog-agent"] = this._createDatadogAgentContainer();
-        else
+        else if (this._config.enableXray)
             containers["xray"] = this._createAwsOtelCollectorContainer(); // this._createAwsXrayDaemonContainer();
         return containers;
     }
@@ -344,9 +352,9 @@ class AppProvisioner {
                             // { name: "DATADOG_TRACER_PORT", value: "8126" },
                             // { name: "DATADOG_TRACER_ADDRESS", value: "127.0.0.1" }, // <- service discovery for the datadog agent
                         ]
-                        : [
-                            { name: "ENABLE_ENVOY_XRAY_TRACING", value: "1" }
-                        ],
+                        : this._config.enableXray
+                            ? [{ name: "ENABLE_ENVOY_XRAY_TRACING", value: "1" }]
+                            : [],
                     { name: "ENABLE_ENVOY_STATS_TAGS", value: "1" },
                     { name: "ENABLE_ENVOY_DOG_STATSD", value: "1" },
                     // { name: "ENVOY_LOG_LEVEL", value: "debug" }
@@ -366,13 +374,19 @@ class AppProvisioner {
                 : undefined,
             // logConfiguration: this._createLogConfiguration(`${service}-envoy`),
             logConfiguration: this._createAwsLogsConfiguration("envoy"),
-            dependsOn: [
-                {
-                    containerName: this.hasDatadog ? "datadog-agent" : "xray",
-                    // condition: "START"
-                    condition: "HEALTHY"
-                }
-            ],
+            dependsOn: this.hasDatadog
+                ? [{
+                        containerName: "datadog-agent",
+                        // condition: "START"
+                        condition: "HEALTHY"
+                    }]
+                : this._config.enableXray
+                    ? [{
+                            containerName: "xray",
+                            // condition: "START"
+                            condition: "HEALTHY"
+                        }]
+                    : undefined,
             mountPoints: [],
             // mountPoints: [
             //     {
@@ -423,7 +437,7 @@ class AppProvisioner {
         };
     }
     _createDatadogAgentContainer() {
-        (0, n_defensive_1.given)(this, "this").ensure(t => t.hasDatadog, "no datadog config provided");
+        (0, n_defensive_1.given)(this, "this").ensure(t => t.hasDatadog, "datadog config must be provided");
         return {
             image: "public.ecr.aws/datadog/agent:7.41.0",
             essential: true,
@@ -485,38 +499,39 @@ class AppProvisioner {
             }
         };
     }
-    // @ts-expect-error: not used atm
-    _createAwsXrayDaemonContainer() {
-        (0, n_defensive_1.given)(this, "this").ensure(t => !t.hasDatadog, "cannot use Xray when datadog config is provided");
-        return {
-            image: "public.ecr.aws/xray/aws-xray-daemon:3.3.5",
-            essential: true,
-            readonlyRootFilesystem: false,
-            cpu: 30,
-            memoryReservation: 256,
-            portMappings: [{
-                    hostPort: 2000,
-                    containerPort: 2000,
-                    protocol: "udp"
-                }],
-            environment: [],
-            logConfiguration: this._createAwsLogsConfiguration("xray"),
-            mountPoints: [],
-            volumesFrom: [],
-            healthCheck: {
-                "command": [
-                    "CMD-SHELL",
-                    "timeout 1 /bin/bash -c \"</dev/udp/localhost/2000\""
-                ],
-                "retries": 3,
-                "timeout": 10,
-                "interval": 30,
-                "startPeriod": 15
-            }
-        };
-    }
+    // // @ts-expect-error: not used atm
+    // private _createAwsXrayDaemonContainer(): Container
+    // {
+    //     given(this, "this").ensure(t => !t.hasDatadog, "cannot use Xray when datadog config is provided");
+    //     return {
+    //         image: "public.ecr.aws/xray/aws-xray-daemon:3.3.5",
+    //         essential: true,
+    //         readonlyRootFilesystem: false,
+    //         cpu: 30,
+    //         memoryReservation: 256,
+    //         portMappings: [{
+    //             hostPort: 2000,
+    //             containerPort: 2000,
+    //             protocol: "udp"
+    //         }],
+    //         environment: [],
+    //         logConfiguration: this._createAwsLogsConfiguration("xray"),
+    //         mountPoints: [],
+    //         volumesFrom: [],
+    //         healthCheck: {
+    //             "command": [
+    //                 "CMD-SHELL",
+    //                 "timeout 1 /bin/bash -c \"</dev/udp/localhost/2000\""
+    //             ],
+    //             "retries": 3,
+    //             "timeout": 10,
+    //             "interval": 30,
+    //             "startPeriod": 15
+    //         }
+    //     };
+    // }
     _createAwsOtelCollectorContainer() {
-        (0, n_defensive_1.given)(this, "this").ensure(t => !t.hasDatadog, "cannot use Xray when datadog config is provided");
+        (0, n_defensive_1.given)(this, "this").ensure(t => t._config.enableXray, "xray must be enabled");
         return {
             image: "public.ecr.aws/aws-observability/aws-otel-collector:v0.25.0",
             essential: true,
