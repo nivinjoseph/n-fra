@@ -26,30 +26,8 @@
             "runtimeArgs": [
                 "--nolazy"
             ],
-            "console": "internalConsole",
-            "sourceMaps": true
-        },
-        {
-            "type": "node",
-            "request": "attach",
-            "name": "Debug running App",
-            "address": "localhost",
-            "port": 5858,
-            "sourceMaps": true,
-            "restart": true
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Debug launch app",
-            "program": "${workspaceRoot}/src/index.js",
-            "stopOnEntry": false,
-            "cwd": "${workspaceRoot}",
-            "preLaunchTask": "ts-build",
-            "runtimeArgs": [
-                "--nolazy"
-            ],
-            "console": "internalConsole",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
             "sourceMaps": true
         }
     ]
