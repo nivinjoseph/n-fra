@@ -1,0 +1,44 @@
+import * as Pulumi from "@pulumi/pulumi";
+import type { VpcDetails } from "../vpc/vpc-details.js";
+import type { AppClusterConfig, AppConfig } from "./app-config.js";
+import * as aws from "@pulumi/aws";
+import type { PolicyDocument } from "../security/policy/policy-document.js";
+import type { AppClusterDetails } from "./app-cluster-details.js";
+import type { AppDetails } from "./app-details.js";
+export declare abstract class AppProvisioner<T extends AppConfig, U extends AppDetails> {
+    private readonly _name;
+    private readonly _config;
+    private readonly _version;
+    private readonly _appEnv;
+    protected get name(): string;
+    protected get vpcDetails(): VpcDetails;
+    protected get config(): T;
+    protected get version(): string;
+    protected get hasDatadog(): boolean;
+    protected get hasSidecar(): boolean;
+    protected constructor(name: string, config: T);
+    static provisionAppCluster(name: string, config: AppClusterConfig, vpcDetails: VpcDetails): AppClusterDetails;
+    provision(): Promise<U>;
+    protected abstract provisionApp(): U;
+    protected createAppCluster(): AppClusterDetails;
+    protected createExecutionRole(policies?: ReadonlyArray<PolicyDocument | string>): Pulumi.Output<aws.iam.Role>;
+    protected createTaskRole(isEc2?: boolean, policies?: ReadonlyArray<PolicyDocument | string>): Pulumi.Output<aws.iam.Role>;
+    protected createAppContainer(): aws.ecs.ContainerDefinition;
+    protected createContainerDefinitions(appContainerOverrides?: Partial<aws.ecs.ContainerDefinition>, isEc2?: boolean): Pulumi.Output<string>;
+    protected createTaskVolumeConfiguration(isEc2?: boolean, additionalVolumes?: ReadonlyArray<aws.types.input.ecs.TaskDefinitionVolume>): Array<aws.types.input.ecs.TaskDefinitionVolume>;
+    protected supportsAutoScaling(): boolean;
+    protected configureAutoScaling(cluster: AppClusterDetails, service: aws.ecs.Service): void;
+    private _verifyImageExists;
+    private _stringifyContainerDefinitions;
+    private _interpolatify;
+    private _createLogConfiguration;
+    private _createAwsLogsConfiguration;
+    private _createInstrumentationEnvironmentVariables;
+    private _createDatadogInstrumentationLabels;
+    private _createInstrumentationContainers;
+    private _createLogRouterContainer;
+    private _createDatadogAgentContainer;
+    private _createAwsOtelCollectorContainer;
+    private _createInfraSidecarContainer;
+}
+//# sourceMappingURL=app-provisioner.d.ts.map

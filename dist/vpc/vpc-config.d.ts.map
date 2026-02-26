@@ -1,0 +1,1 @@
+{"version":3,"file":"vpc-config.d.ts","sourceRoot":"","sources":["../../src/vpc/vpc-config.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,eAAe,EAAE,MAAM,wBAAwB,CAAC;AAG9D,MAAM,WAAW,SAAS;IAEtB,SAAS,EAAE,MAAM,CAAC;IAClB,iBAAiB,CAAC,EAAE,OAAO,CAAC;IAC5B,OAAO,EAAE,aAAa,CAAC,eAAe,CAAC,CAAC;IACxC,cAAc,CAAC,EAAE,CAAC,GAAG,CAAC,CAAC;CAC1B"}

@@ -1,0 +1,1 @@
+{"version":3,"file":"mongo-documentdb-details.d.ts","sourceRoot":"","sources":["../../../src/database/mongo-documentdb/mongo-documentdb-details.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,MAAM,MAAM,gBAAgB,CAAC;AAGzC,MAAM,WAAW,sBAAsB;IAEnC,IAAI,EAAE,MAAM,CAAC,MAAM,CAAC,MAAM,CAAC,CAAC;IAC5B,IAAI,EAAE,MAAM,CAAC;IACb,QAAQ,EAAE,MAAM,CAAC;IACjB,QAAQ,EAAE,MAAM,CAAC;CACpB"}

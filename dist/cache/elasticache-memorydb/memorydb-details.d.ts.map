@@ -1,0 +1,1 @@
+{"version":3,"file":"memorydb-details.d.ts","sourceRoot":"","sources":["../../../src/cache/elasticache-memorydb/memorydb-details.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,MAAM,MAAM,gBAAgB,CAAC;AAGzC,MAAM,WAAW,eAAe;IAE5B,SAAS,EAAE,MAAM,CAAC,MAAM,CAAC,MAAM,CAAC,CAAC;CACpC"}

@@ -1,0 +1,1 @@
+{"version":3,"file":"vpc-subnet-config.d.ts","sourceRoot":"","sources":["../../src/vpc/vpc-subnet-config.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,KAAK,EAAE,MAAM,aAAa,CAAC;AACpC,OAAO,EAAE,aAAa,EAAE,MAAM,sBAAsB,CAAC;AAGrD,MAAM,WAAW,eAAe;IAE5B,IAAI,EAAE,MAAM,CAAC;IACb,IAAI,EAAE,aAAa,CAAC;IACpB,SAAS,EAAE,MAAM,CAAC;IAClB,EAAE,EAAE,KAAK,CAAC;IACV,MAAM,EAAE,MAAM,CAAC;CAClB"}

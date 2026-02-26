@@ -1,0 +1,1 @@
+{"version":3,"file":"s3bucket-access-config.d.ts","sourceRoot":"","sources":["../../../src/storage/s3/s3bucket-access-config.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,MAAM,MAAM,gBAAgB,CAAC;AAGzC,MAAM,WAAW,oBAAoB;IAEjC,aAAa,CAAC,EAAE,MAAM,CAAC,MAAM,CAAC,MAAM,CAAC,CAAC;IACtC,UAAU,CAAC,EAAE,MAAM,CAAC;IACpB,cAAc,EAAE,aAAa,CAAC,KAAK,GAAG,KAAK,CAAC,CAAC;CAChD"}

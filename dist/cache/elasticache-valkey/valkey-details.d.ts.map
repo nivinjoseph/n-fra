@@ -1,0 +1,1 @@
+{"version":3,"file":"valkey-details.d.ts","sourceRoot":"","sources":["../../../src/cache/elasticache-valkey/valkey-details.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,MAAM,MAAM,gBAAgB,CAAC;AAGzC,MAAM,WAAW,aAAa;IAE1B,IAAI,EAAE,MAAM,CAAC,MAAM,CAAC,MAAM,CAAC,CAAC;IAC5B,IAAI,EAAE,MAAM,CAAC;CAChB"}

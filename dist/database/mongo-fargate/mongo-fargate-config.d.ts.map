@@ -1,0 +1,1 @@
+{"version":3,"file":"mongo-fargate-config.d.ts","sourceRoot":"","sources":["../../../src/database/mongo-fargate/mongo-fargate-config.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,SAAS,EAAE,MAAM,yBAAyB,CAAC;AAGpD,MAAM,WAAW,kBAAmB,SAAQ,SAAS;IAEjD,yBAAyB,EAAE,aAAa,CAAC,MAAM,CAAC,CAAC;IACjD,QAAQ,EAAE,MAAM,CAAC;IACjB,QAAQ,EAAE,MAAM,CAAC;IACjB,MAAM,CAAC,EAAE,OAAO,CAAC;CACpB"}

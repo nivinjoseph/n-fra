@@ -1,0 +1,1 @@
+{"version":3,"file":"app-cluster-details.d.ts","sourceRoot":"","sources":["../../src/app/app-cluster-details.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,MAAM,MAAM,gBAAgB,CAAC;AAGzC,MAAM,WAAW,iBAAiB;IAE9B,WAAW,EAAE,MAAM,CAAC,MAAM,CAAC,MAAM,CAAC,CAAC;IACnC,UAAU,EAAE,MAAM,CAAC,MAAM,CAAC,MAAM,CAAC,CAAC;IAClC,iBAAiB,EAAE,OAAO,CAAC;CAC9B"}

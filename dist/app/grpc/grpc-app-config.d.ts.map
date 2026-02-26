@@ -1,0 +1,1 @@
+{"version":3,"file":"grpc-app-config.d.ts","sourceRoot":"","sources":["../../../src/app/grpc/grpc-app-config.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,SAAS,EAAE,MAAM,kBAAkB,CAAC;AAGlD,MAAM,WAAW,aAAc,SAAQ,SAAS;IAE5C,yBAAyB,EAAE,aAAa,CAAC,MAAM,CAAC,CAAC;CAEpD"}

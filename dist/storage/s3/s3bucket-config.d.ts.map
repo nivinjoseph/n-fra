@@ -1,0 +1,1 @@
+{"version":3,"file":"s3bucket-config.d.ts","sourceRoot":"","sources":["../../../src/storage/s3/s3bucket-config.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,oBAAoB,EAAE,MAAM,6BAA6B,CAAC;AAGxE,MAAM,WAAW,cAAc;IAE3B,UAAU,EAAE,MAAM,CAAC;IACnB,QAAQ,EAAE,OAAO,CAAC;IAClB,0BAA0B,CAAC,EAAE,OAAO,CAAC;IACrC,YAAY,CAAC,EAAE,aAAa,CAAC,oBAAoB,CAAC,CAAC;IACnD,gBAAgB,CAAC,EAAE,MAAM,CAAC;CAC7B"}

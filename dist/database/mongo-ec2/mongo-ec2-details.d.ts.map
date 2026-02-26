@@ -1,0 +1,1 @@
+{"version":3,"file":"mongo-ec2-details.d.ts","sourceRoot":"","sources":["../../../src/database/mongo-ec2/mongo-ec2-details.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,iBAAiB,EAAE,MAAM,0CAA0C,CAAC;AAG7E,MAAM,WAAW,eAAgB,SAAQ,iBAAiB;IAEtD,QAAQ,EAAE,MAAM,CAAC;IACjB,QAAQ,EAAE,MAAM,CAAC;CACpB"}
