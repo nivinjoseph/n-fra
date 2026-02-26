@@ -50,9 +50,9 @@ export default defineConfig(
         files: ["**/*.ts"],
         languageOptions: {
             parserOptions: {
-                project: [
-                    "./tsconfig.json"
-                ],
+                // project: [
+                //     "./tsconfig.json"
+                // ],
                 tsconfigRootDir: import.meta.dirname,
                 projectService: true
             }
@@ -386,7 +386,11 @@ export default defineConfig(
             "no-unused-expressions": "off",
             "@typescript-eslint/no-unused-expressions": "error",
             "no-unused-vars": "off",
-            "@typescript-eslint/no-unused-vars": "off",
+            "@typescript-eslint/no-unused-vars": ["error", {
+                "argsIgnorePattern": "^_",
+                "varsIgnorePattern": "^_",
+                "caughtErrorsIgnorePattern": "^_"
+            }],
             "no-use-before-define": "off",
             "@typescript-eslint/no-use-before-define": "off",
             "no-useless-constructor": "off",

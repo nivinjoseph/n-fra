@@ -10,7 +10,7 @@
         "strictFunctionTypes": true,
         "noImplicitThis": true,
         "noImplicitReturns": true,
-        "noUnusedLocals": true,
+        "noUnusedLocals": false,
         "noUnusedParameters": true,
         "noFallthroughCasesInSwitch": true,
         "noEmitOnError": true,
