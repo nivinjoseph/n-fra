@@ -5,4 +5,5 @@ export interface AppClusterDetails
 {
     clusterName: Pulumi.Output<string>;
     clusterArn: Pulumi.Output<string>;
+    usesSpotInstances: boolean;
 }

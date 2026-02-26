@@ -1,10 +1,10 @@
-import { VpcSubnetConfig } from "./vpc-subnet-config";
+import type { VpcSubnetConfig } from "./vpc-subnet-config.js";
 
 
 export interface VpcConfig
 {
-    cidr16Bits: string;
+    cidrRange: string;
     enableVpcFlowLogs?: boolean;
     subnets: ReadonlyArray<VpcSubnetConfig>;
-    numNatGateways?: number;
+    numNatGateways?: 1 | 3;
 }

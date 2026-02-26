@@ -2,5 +2,6 @@ export enum VpcAz
 {
     a = "a",
     b = "b",
-    c = "c"
+    c = "c",
+    d = "d"
 }

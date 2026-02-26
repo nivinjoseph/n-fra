@@ -1,16 +1,13 @@
-import { given } from "@nivinjoseph/n-defensive";
-import { Aspv2Config } from "./aspv2-config";
-import { Aspv2Details } from "./aspv2-details";
+import { ensureExhaustiveCheck, given } from "@nivinjoseph/n-defensive";
+import { Aspv2Config } from "./aspv2-config.js";
+import { Aspv2Details } from "./aspv2-details.js";
 import * as Pulumi from "@pulumi/pulumi";
-// import { SecurityGroup } from "@pulumi/awsx/ec2";
-import * as awsx from "@pulumi/awsx";
-import { NfraConfig } from "../../nfra-config";
+import { NfraConfig } from "../../common/nfra-config.js";
 // import { Cluster, ClusterInstance, EngineMode, EngineType, SubnetGroup, Proxy as RdsProxy, ProxyDefaultTargetGroup, ProxyTarget, ProxyEndpoint } from "@pulumi/aws/rds";
 import * as aws from "@pulumi/aws";
 // import { RandomPassword } from "@pulumi/random";
-import * as random from "@pulumi/random";
-import { VpcAz } from "../../vpc/vpc-az";
-import { EnvType } from "../../env-type";
+import * as Random from "@pulumi/random";
+import { EnvType } from "../../common/env-type.js";
 // import { Secret, SecretPolicy, SecretVersion } from "@pulumi/aws/secretsmanager";
 // import { PolicyDocument, Role } from "@pulumi/aws/iam";
 
@@ -23,38 +20,74 @@ export class Aspv2Provisioner
 
     public constructor(name: string, config: Aspv2Config)
     {
+        // this._name = CommonHelper.prefixName(name);
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
 
-        given(config, "config").ensureHasValue().ensureIsObject().ensureHasStructure({
-            vpcDetails: "object",
-            subnetNamePrefix: "string",
-            ingressSubnetNamePrefixes: ["string"],
-            databaseName: "string",
-            minCapacity: "number",
-            maxCapacity: "number",
-            deletionProtection: "boolean",
-            skipFinalSnapshot: "boolean"
-        });
+        given(config, "config").ensureHasValue().ensureIsObject()
+            .ensureHasStructure({
+                vpcDetails: "object",
+                subnetNamePrefix: "string",
+                ingressSubnetNamePrefixes: ["string"],
+                "engineVersion?": "number",
+                "databaseName?": "string",
+                "restoreSnapshotId?": "string",
+                "username?": "string",
+                "password?": "string",
+                "numClusterInstances?": "number",
+                minCapacity: "number",
+                maxCapacity: "number",
+                deletionProtection: "boolean",
+                skipFinalSnapshot: "boolean"
+            })
+            .ensureWhen(
+                config.engineVersion != null,
+                (t) => [12, 13, 14, 15, 16, 17].contains(t.engineVersion!),
+                "engine version must be 12, 13, 14, 15, 16 or 17"
+            )
+            .ensure(
+                t => !(t.databaseName == null && t.restoreSnapshotId == null),
+                "must provide one of databaseName or restoreSnapshotId"
+            )
+            .ensure(
+                t => !(t.databaseName != null && t.restoreSnapshotId != null),
+                "must provide only one of databaseName or restoreSnapshotId"
+            )
+            .ensureWhen(
+                config.numClusterInstances != null,
+                (t) => [1, 2, 3].contains(t.numClusterInstances!),
+                "num cluster instances must be 1, 2 or 3"
+            )
+            ;
+
+        config.engineVersion ??= 17;
+
+        config.numClusterInstances ??= NfraConfig.env === EnvType.prod ? 3 : 1;
+
         this._config = config;
     }
-    
-    
+
+
     public provision(): Aspv2Details
     {
         const postgresDbPort = 5432;
 
-        const dbSubnets = Pulumi.output(this._config.vpcDetails.vpc.getSubnets("isolated"))
-            .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this._config.subnetNamePrefix)));
-            
+        const dbSubnets = this._config.vpcDetails
+            .resolveSubnets([this._config.subnetNamePrefix]);
+
         const subnetGroupName = `${this._name}-subnet-grp`;
         const subnetGroup = new aws.rds.SubnetGroup(subnetGroupName, {
-            subnetIds: dbSubnets.apply((subnets) => subnets.map(t => t.id)),
+            subnetIds: dbSubnets.map(t => t.id),
             tags: {
                 ...NfraConfig.tags,
                 Name: subnetGroupName
             }
         });
+
+        const ingressCidrBlocks = this._config.vpcDetails
+            .resolveSubnets(this._config.ingressSubnetNamePrefixes)
+            .map(u => u.cidrBlock);
+        // .apply(subnets => subnets.map(u => u.cidrBlock));
 
         const proxySecGroupName = `${this._name}-proxy-sg`;
         const dbProxySecGroup = new aws.ec2.SecurityGroup(proxySecGroupName, {
@@ -64,73 +97,156 @@ export class Aspv2Provisioner
                 protocol: "tcp",
                 fromPort: postgresDbPort,
                 toPort: postgresDbPort,
-                cidrBlocks: Pulumi.output(this._config.vpcDetails.vpc.getSubnets("private"))
-                    .apply((subnets) =>
-                        subnets.where(subnet =>
-                            this._config.ingressSubnetNamePrefixes.some(prefix =>
-                                subnet.subnetName.startsWith(prefix)))
-                            .map(t => t.subnet.cidrBlock as Pulumi.Output<string>))
+                cidrBlocks: ingressCidrBlocks
             }],
             egress: [{
                 protocol: "tcp",
                 fromPort: postgresDbPort,
                 toPort: postgresDbPort,
-                cidrBlocks: dbSubnets.apply((subnets) => subnets.map(t => t.subnet.cidrBlock as Pulumi.Output<string>))
+                cidrBlocks: dbSubnets.map(t => t.cidrBlock)
             }],
             tags: {
                 ...NfraConfig.tags,
                 Name: proxySecGroupName
             }
         }, {
-            replaceOnChanges: ["*"]
+            // replaceOnChanges: ["*"]
         });
 
         const dbSecGroupName = `${this._name}-db-sg`;
-        const dbSecGroup = new awsx.ec2.SecurityGroup(dbSecGroupName, {
-            vpc: this._config.vpcDetails.vpc,
+        const dbSecGroup = new aws.ec2.SecurityGroup(dbSecGroupName, {
+            // vpc: this._config.vpcDetails.vpc,
+            vpcId: this._config.vpcDetails.vpc.id,
+            revokeRulesOnDelete: true,
             ingress: [{
                 protocol: "tcp",
                 fromPort: postgresDbPort,
                 toPort: postgresDbPort,
-                sourceSecurityGroupId: dbProxySecGroup.id
+                securityGroups: [dbProxySecGroup.id]
+                // sourceSecurityGroupId: dbProxySecGroup.id
             }],
             tags: {
                 ...NfraConfig.tags,
                 Name: dbSecGroupName
             }
         });
-        
-        const dbPassword = new random.RandomPassword(`${this._name}-rpass`, {
-            length: 16,
-            special: true,
-            overrideSpecial: `_`
-        });
+
+        const username = this._config.username ?? "appuser";
+        const password = this._config.password
+            ?? this._createPassword();
+
+        let engineVersion = "";
+        let clusterParameterGroupName: Pulumi.Input<string> = "";
+        let clusterParameterGroup: aws.rds.ClusterParameterGroup | undefined;
+        switch (this._config.engineVersion!)
+        {
+            case 12:
+                engineVersion = "12.22";
+                clusterParameterGroupName = "default.aurora-postgresql12";
+                break;
+            case 13:
+                engineVersion = "13.20";
+                clusterParameterGroupName = "default.aurora-postgresql13";
+                break;
+            case 14:
+                engineVersion = "14.17";
+                clusterParameterGroupName = "default.aurora-postgresql14";
+                break;
+            case 15:
+                {
+                    engineVersion = "15.12";
+
+                    const clusterParamGroupName = `${this._name}-postgres15-cls-param-grp`;
+                    clusterParameterGroup = new aws.rds.ClusterParameterGroup(clusterParamGroupName, {
+                        family: "aurora-postgresql15",
+                        parameters: [{
+                            name: "rds.force_ssl",
+                            value: "0",
+                            applyMethod: "immediate"
+                        }],
+                        tags: {
+                            ...NfraConfig.tags,
+                            Name: clusterParamGroupName
+                        }
+                    });
+                    clusterParameterGroupName = clusterParameterGroup.name;
+
+                    break;
+                }
+            case 16:
+                {
+                    engineVersion = "16.8";
+
+                    const clusterParamGroupName = `${this._name}-postgres16-cls-param-grp`;
+                    clusterParameterGroup = new aws.rds.ClusterParameterGroup(clusterParamGroupName, {
+                        family: "aurora-postgresql16",
+                        parameters: [{
+                            name: "rds.force_ssl",
+                            value: "0",
+                            applyMethod: "immediate"
+                        }],
+                        tags: {
+                            ...NfraConfig.tags,
+                            Name: clusterParamGroupName
+                        }
+                    });
+                    clusterParameterGroupName = clusterParameterGroup.name;
+
+                    break;
+                }
+            case 17:
+                {
+                    engineVersion = "17.4";
+
+                    const clusterParamGroupName = `${this._name}-postgres17-cls-param-grp`;
+                    clusterParameterGroup = new aws.rds.ClusterParameterGroup(clusterParamGroupName, {
+                        family: "aurora-postgresql17",
+                        parameters: [{
+                            name: "rds.force_ssl",
+                            value: "0",
+                            applyMethod: "immediate"
+                        }],
+                        tags: {
+                            ...NfraConfig.tags,
+                            Name: clusterParamGroupName
+                        }
+                    });
+                    clusterParameterGroupName = clusterParameterGroup.name;
+
+                    break;
+                }
+            default:
+                ensureExhaustiveCheck(this._config.engineVersion! as never);
+        }
 
         const isProd = NfraConfig.env === EnvType.prod;
-        
+
         const clusterName = `${this._name}-cluster`;
         const postgresDbCluster = new aws.rds.Cluster(clusterName, {
-            availabilityZones: [
-                NfraConfig.awsRegion + VpcAz.a,
-                NfraConfig.awsRegion + VpcAz.b,
-                NfraConfig.awsRegion + VpcAz.c
-            ],
+            availabilityZones: NfraConfig.awsRegionAvailabilityZones,
             engine: aws.rds.EngineType.AuroraPostgresql,
             engineMode: aws.rds.EngineMode.Provisioned,
-            engineVersion: "13.7",
+            engineVersion,
+            dbClusterParameterGroupName: clusterParameterGroupName,
+            dbInstanceParameterGroupName: clusterParameterGroupName,
             dbSubnetGroupName: subnetGroup.name,
             vpcSecurityGroupIds: [dbSecGroup.id],
-            databaseName: this._config.databaseName,
-            masterUsername: "appuser",
-            masterPassword: Pulumi.secret(dbPassword.result),
+            databaseName: this._config.databaseName ?? undefined,
+            snapshotIdentifier: this._config.restoreSnapshotId ?? undefined,
+            masterUsername: username,
+            masterPassword: Pulumi.secret(password),
             port: postgresDbPort,
             storageEncrypted: true,
+            allowMajorVersionUpgrade: true,
             // enabledCloudwatchLogsExports: ["postgresql"], // not supported by aurora serverless
             serverlessv2ScalingConfiguration: {
                 minCapacity: this._config.minCapacity,
                 maxCapacity: this._config.maxCapacity
             },
             enableHttpEndpoint: false,
+            databaseInsightsMode: "standard", // advanced requires at least 465 days retention period
+            performanceInsightsEnabled: true,
+            performanceInsightsRetentionPeriod: 7,
             // preferredBackupWindow: "05:00-09:00", // You can't set the preferred backup window for an Aurora Serverless v1 DB cluster.
             backupRetentionPeriod: isProd ? 5 : 1,
             deletionProtection: this._config.deletionProtection, // to facilitate delete
@@ -140,9 +256,11 @@ export class Aspv2Provisioner
                 ...NfraConfig.tags,
                 Name: clusterName
             }
+        }, {
+            dependsOn: clusterParameterGroup != null ? clusterParameterGroup : undefined
         });
 
-        const numInstances = 3;
+        const numInstances = this._config.numClusterInstances!;
         const clusterInstances = new Array<aws.rds.ClusterInstance>();
         for (let i = 1; i <= numInstances; i++)
         {
@@ -152,13 +270,17 @@ export class Aspv2Provisioner
                 instanceClass: "db.serverless",
                 engine: aws.rds.EngineType.AuroraPostgresql,
                 engineVersion: postgresDbCluster.engineVersion,
+                // dbParameterGroupName: clusterParameterGroupName,
                 publiclyAccessible: false,
                 performanceInsightsEnabled: true,
+                performanceInsightsRetentionPeriod: 7,
                 applyImmediately: true,
                 tags: {
                     ...NfraConfig.tags,
                     Name: clusterInstanceName
                 }
+            }, {
+                parent: postgresDbCluster
             }));
         }
 
@@ -173,7 +295,7 @@ export class Aspv2Provisioner
 
         new aws.secretsmanager.SecretVersion(`${dbCredsSecretName}-version`, {
             secretId: dbCredsSecret.id,
-            secretString: Pulumi.interpolate`{"username": "${postgresDbCluster.masterUsername}", "password": "${postgresDbCluster.masterPassword}"}`
+            secretString: Pulumi.interpolate`{"username": "${username}", "password": "${password}"}`
         });
 
         const assumeRolePolicyDocument: aws.iam.PolicyDocument = {
@@ -219,6 +341,8 @@ export class Aspv2Provisioner
             })
         });
 
+        // TODO: DB proxy must be optional
+
         const dbProxyName = `${this._name}-dbp`;
         const dbProxy = new aws.rds.Proxy(dbProxyName, {
             debugLogging: false,
@@ -227,7 +351,7 @@ export class Aspv2Provisioner
             requireTls: false,
             roleArn: dbProxyRole.arn,
             vpcSecurityGroupIds: [dbProxySecGroup.id],
-            vpcSubnetIds: dbSubnets.apply((subnets) => subnets.map(t => t.id)),
+            vpcSubnetIds: dbSubnets.map(t => t.id),
             auths: [{
                 authScheme: "SECRETS",
                 iamAuth: "DISABLED",
@@ -260,7 +384,7 @@ export class Aspv2Provisioner
             dbProxyEndpointName: dbProxyReadonlyEndpointName,
             targetRole: "READ_ONLY",
             vpcSecurityGroupIds: [dbProxySecGroup.id],
-            vpcSubnetIds: dbSubnets.apply((subnets) => subnets.map(t => t.id)),
+            vpcSubnetIds: dbSubnets.map(t => t.id),
             tags: {
                 ...NfraConfig.tags,
                 Name: dbProxyReadonlyEndpointName
@@ -275,5 +399,16 @@ export class Aspv2Provisioner
             password: postgresDbCluster.masterPassword as Pulumi.Output<string>,
             readerHost: dbProxyReadonlyEndpoint.endpoint
         };
+    }
+
+    private _createPassword(): Pulumi.Output<string>
+    {
+        const password = new Random.RandomPassword(`${this._name}-rpass`, {
+            length: 16,
+            special: true,
+            overrideSpecial: `_`
+        });
+
+        return password.result;
     }
 }

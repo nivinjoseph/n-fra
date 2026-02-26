@@ -1,29 +1,32 @@
-// import { SecurityGroup } from "@pulumi/awsx/ec2";
-import { AppProvisioner } from "../app-provisioner";
-import * as Pulumi from "@pulumi/pulumi";
-import { NfraConfig } from "../../nfra-config";
+// import * as Pulumi from "@pulumi/pulumi";
+import { NfraConfig } from "../../common/nfra-config.js";
+import { AppProvisioner } from "../app-provisioner.js";
 // import { Instance as SdInstance, Service as SdService } from "@pulumi/aws/servicediscovery";
 // import { Service as SdService } from "@pulumi/aws/servicediscovery";
 import * as aws from "@pulumi/aws";
 // import { VirtualNode, VirtualService } from "@pulumi/aws/appmesh";
 // import { TaskDefinition } from "@pulumi/aws/ecs/taskDefinition";
 // import { Cluster, Service } from "@pulumi/aws/ecs";
-import { WorkerAppConfig } from "./worker-app-config";
-import { WorkerAppDetails } from "./worker-app-details";
+// import { VirtualNode, VirtualService } from "@pulumi/aws/appmesh";
+// import { TaskDefinition } from "@pulumi/aws/ecs/taskDefinition";
+// import { Cluster, Service } from "@pulumi/aws/ecs";
+import type { WorkerAppConfig } from "./worker-app-config.js";
+import type { WorkerAppDetails } from "./worker-app-details.js";
+import { resolveAppCompute } from "../app-compute-profile.js";
 // import { AppDetails } from "../app-details";
 
 
-export class WorkerAppProvisioner extends AppProvisioner<WorkerAppConfig>
+export class WorkerAppProvisioner extends AppProvisioner<WorkerAppConfig, WorkerAppDetails>
 {
     public constructor(name: string, config: WorkerAppConfig)
     {
         super(name, config);
     }
 
-    
-    public provision(): WorkerAppDetails
+
+    protected override provisionApp(): WorkerAppDetails
     {
-        const secGroupName = `${this.name}-sg`;
+        const secGroupName = `${this.name}-app-sg`;
         const secGroup = new aws.ec2.SecurityGroup(secGroupName, {
             vpcId: this.vpcDetails.vpc.id,
             revokeRulesOnDelete: true,
@@ -39,123 +42,165 @@ export class WorkerAppProvisioner extends AppProvisioner<WorkerAppConfig>
                 Name: secGroupName
             }
         }, {
-            replaceOnChanges: ["*"]
+            // replaceOnChanges: ["*"]
         });
 
-        const sdServiceName = `${this.name}-sd-svc`;
-        const sdService = new aws.servicediscovery.Service(sdServiceName, {
-            name: this.name,
-            dnsConfig: {
-                namespaceId: this.vpcDetails.privateDnsNamespace.id,
-                dnsRecords: [{
-                    type: "A",
-                    ttl: 300
-                }],
-                routingPolicy: "MULTIVALUE"
-            },
-            healthCheckCustomConfig: {
-                failureThreshold: 1
-            },
-            forceDestroy: true,
-            tags: {
-                ...NfraConfig.tags,
-                Name: sdServiceName
-            }
-        }, { dependsOn: this.vpcDetails.privateDnsNamespace });
+        // const sdServiceName = `${this.name}-sd-svc`;
+        // const sdService = new aws.servicediscovery.Service(sdServiceName, {
+        //     name: this.name,
+        //     dnsConfig: {
+        //         namespaceId: this.vpcDetails.privateDnsNamespace.id,
+        //         dnsRecords: [{
+        //             type: "A",
+        //             ttl: 300
+        //         }],
+        //         routingPolicy: "MULTIVALUE"
+        //     },
+        //     healthCheckCustomConfig: {
+        //         failureThreshold: 1
+        //     },
+        //     forceDestroy: true,
+        //     tags: {
+        //         ...NfraConfig.tags,
+        //         Name: sdServiceName,
+        //         ...this.config.tags ?? {}
+        //     }
+        // }, { dependsOn: this.vpcDetails.privateDnsNamespace });
 
-        const ecsTaskDefFam = `${NfraConfig.env}-${this.name}-tdf`;
+        const ecsTaskDefFam = `${this.name}-tsk-def-fam`;
 
-        const virtualNodeName = `${this.name}-vnode`;
-        const virtualNode = new aws.appmesh.VirtualNode(virtualNodeName, {
-            name: virtualNodeName,
-            meshName: this.vpcDetails.serviceMesh.name,
-            spec: {
-                listener: {
-                    portMapping: {
-                        port: 8080, // arbitrary
-                        protocol: "tcp"
-                    }
-                },
-                // logging: { // TODO: turn off access log
-                //     accessLog: {
-                //         file: {
-                //             path: "/dev/stdout",
-                //         }
-                //     }
-                // },
-                serviceDiscovery: {
-                    awsCloudMap: {
-                        namespaceName: this.vpcDetails.privateDnsNamespace.name,
-                        serviceName: sdService.name,
-                        attributes: {
-                            "ECS_TASK_DEFINITION_FAMILY": ecsTaskDefFam
-                        }
-                    }
-                }
-            },
-            tags: {
-                ...NfraConfig.tags,
-                Name: virtualNodeName
-            }
-        }, { dependsOn: [this.vpcDetails.serviceMesh, this.vpcDetails.privateDnsNamespace, sdService] });
+        // const virtualNodeName = `${this.name}-vnode`;
+        // const virtualNode = new aws.appmesh.VirtualNode(virtualNodeName, {
+        //     name: virtualNodeName,
+        //     meshName: this.vpcDetails.serviceMesh.name,
+        //     spec: {
+        //         listeners: [{
+        //             portMapping: {
+        //                 port: 8080, // arbitrary
+        //                 protocol: "tcp"
+        //             }
+        //         }],
+        //         // listener: {
+        //         //     portMapping: {
+        //         //         port: 8080, // arbitrary
+        //         //         protocol: "tcp"
+        //         //     }
+        //         // },
+        //         // logging: { // TODO: turn off access log
+        //         //     accessLog: {
+        //         //         file: {
+        //         //             path: "/dev/stdout",
+        //         //         }
+        //         //     }
+        //         // },
+        //         serviceDiscovery: {
+        //             awsCloudMap: {
+        //                 namespaceName: this.vpcDetails.privateDnsNamespace.name,
+        //                 serviceName: sdService.name,
+        //                 attributes: {
+        //                     "ECS_TASK_DEFINITION_FAMILY": ecsTaskDefFam
+        //                 }
+        //             }
+        //         }
+        //     },
+        //     tags: {
+        //         ...NfraConfig.tags,
+        //         Name: virtualNodeName,
+        //         ...this.config.tags ?? {}
+        //     }
+        // }, { dependsOn: [this.vpcDetails.serviceMesh, this.vpcDetails.privateDnsNamespace, sdService] });
 
-        const virtualServiceName = `${this.name}-vsvc`;
-        new aws.appmesh.VirtualService(virtualServiceName, {
-            name: Pulumi.interpolate`${this.name}.${this.vpcDetails.privateDnsNamespace.name}`,
-            meshName: this.vpcDetails.serviceMesh.name,
-            spec: {
-                provider: {
-                    virtualNode: {
-                        virtualNodeName: virtualNode.name
-                    }
-                }
-            },
-            tags: {
-                ...NfraConfig.tags,
-                Name: virtualServiceName
-            }
-        }, { dependsOn: [this.vpcDetails.serviceMesh, this.vpcDetails.privateDnsNamespace, virtualNode] });
+        // const virtualServiceName = `${this.name}-vsvc`;
+        // new aws.appmesh.VirtualService(virtualServiceName, {
+        //     name: Pulumi.interpolate`${this.name}.${this.vpcDetails.privateDnsNamespace.name}`,
+        //     meshName: this.vpcDetails.serviceMesh.name,
+        //     spec: {
+        //         provider: {
+        //             virtualNode: {
+        //                 virtualNodeName: virtualNode.name
+        //             }
+        //         }
+        //     },
+        //     tags: {
+        //         ...NfraConfig.tags,
+        //         Name: virtualServiceName,
+        //         ...this.config.tags ?? {}
+        //     }
+        // }, { dependsOn: [this.vpcDetails.serviceMesh, this.vpcDetails.privateDnsNamespace, virtualNode] });
 
-        const taskRoleArn = this.createTaskRole().arn;
+        const { cpu, memory } = this.config.customCompute != null
+            ? this.config.customCompute
+            : resolveAppCompute(this.config.computeProfile!);
         
-        const taskDefinitionName = `${this.name}-task-def`;
+        const healthCheckPort = 8080;
+        const portName = `${this.name}-healthcheck-${healthCheckPort}`;
+        
+        const taskDefinitionName = `${this.name}-tsk-def`;
         const taskDefinition = new aws.ecs.TaskDefinition(taskDefinitionName, {
-            cpu: this.config.cpu!.toString(), // https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-cpu-memory-error.html
-            memory: this.config.memory!.toString(),
+            cpu: cpu.toString(),
+            memory: memory.toString(),
             executionRoleArn: this.createExecutionRole().arn,
-            taskRoleArn,
+            taskRoleArn: this.createTaskRole().arn,
             requiresCompatibilities: ["FARGATE"],
             runtimePlatform: {
                 operatingSystemFamily: "LINUX",
-                cpuArchitecture: "X86_64"
+                cpuArchitecture: this.config.cpuArchitecture
             },
             networkMode: "awsvpc",
             family: ecsTaskDefFam,
-            proxyConfiguration: {
-                type: "APPMESH",
-                containerName: "envoy",
-                properties: {
-                    "IgnoredUID": "1337",
-                    "ProxyIngressPort": "15000",
-                    "ProxyEgressPort": "15001",
-                    "AppPorts": `8080`,
-                    "EgressIgnoredIPs": "169.254.170.2,169.254.169.254"
+            // proxyConfiguration: {
+            //     type: "APPMESH",
+            //     containerName: "envoy",
+            //     properties: {
+            //         "IgnoredUID": "1337",
+            //         "ProxyIngressPort": "15000",
+            //         "ProxyEgressPort": "15001",
+            //         "AppPorts": `8080`,
+            //         "EgressIgnoredIPs": "169.254.170.2,169.254.169.254"
+            //     }
+            // },
+            volumes: this.createTaskVolumeConfiguration(),
+            containerDefinitions: this.createContainerDefinitions(
+                // virtualNode
+                {
+                    portMappings: [{
+                        name: portName,
+                        hostPort: healthCheckPort,
+                        containerPort: healthCheckPort,
+                        protocol: "tcp",
+                        appProtocol: "http"
+                    }],
+                    healthCheck: {
+                        "command": [
+                            "CMD-SHELL",
+                            `curl -f http://localhost:${healthCheckPort}/healthCheck || exit 1`
+                        ],
+                        "interval": 30,
+                        "timeout": 30,
+                        "retries": 5,
+                        "startPeriod": 30
+                    }
                 }
-            },
-            volumes: this.hasDatadog
-                ? [{ "name": "etc-datadog_agent" }]
-                : [],
-            containerDefinitions: this.createContainerDefinitions(virtualNode),
+            ),
             tags: {
                 ...NfraConfig.tags,
-                Name: taskDefinitionName
+                Name: taskDefinitionName,
+                ...this.config.tags ?? {}
             }
-        }, { deleteBeforeReplace: true, dependsOn: virtualNode });
+        }, {
+            deleteBeforeReplace: true
+            // dependsOn: virtualNode
+        });
 
         const cluster = this.createAppCluster();
 
-        const serviceName = `${this.name}-service`;
-        new aws.ecs.Service(serviceName, {
+        const serviceSubnets = this.vpcDetails
+            .resolveSubnets([this.config.subnetNamePrefix])
+            .map(u => u.id);
+            // .apply(t => t.map(u => u.id));
+        
+        const serviceName = `${this.name}-svc`;
+        const service = new aws.ecs.Service(serviceName, {
             deploymentMinimumHealthyPercent: 0,
             deploymentMaximumPercent: 100,
             // os: "linux",
@@ -163,22 +208,40 @@ export class WorkerAppProvisioner extends AppProvisioner<WorkerAppConfig>
             cluster: cluster.clusterArn,
             taskDefinition: taskDefinition.arn,
             networkConfiguration: {
-                subnets: Pulumi.output(this.vpcDetails.vpc.getSubnets("private"))
-                    .apply((subnets) => subnets.where(t => t.subnetName.startsWith(this.config.subnetNamePrefix))
-                        .map(t => t.id)),
+                subnets: serviceSubnets,
                 assignPublicIp: false,
                 securityGroups: [secGroup.id]
             },
-            serviceRegistries: {
-                registryArn: sdService.arn
+            serviceConnectConfiguration: {
+                enabled: true,
+                namespace: this.vpcDetails.privateDnsNamespace.arn,
+                services: [{
+                    portName,
+                    discoveryName: this.name,
+                    clientAlias: [{
+                        port: healthCheckPort,
+                        dnsName: this.name
+                    }],
+                    timeout: {
+                        idleTimeoutSeconds: 10 * 60,
+                        perRequestTimeoutSeconds: 0
+                    }
+                }]
             },
-            desiredCount: 1,
+            // serviceRegistries: {
+            //     registryArn: sdService.arn
+            // },
+            
+            desiredCount: this.config.minCapacity,
             tags: {
                 ...NfraConfig.tags,
-                Name: serviceName
+                Name: serviceName,
+                ...this.config.tags ?? {}
             }
         });
         
+        this.configureAutoScaling(cluster, service);
+
         return {
             // taskRoleArn
         };

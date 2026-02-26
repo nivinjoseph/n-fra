@@ -4,9 +4,10 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "ts-build",
+            "label": "pretest",
             "type": "npm",
-            "script": "ts-build"
+            "script": "pretest",
+            "problemMatcher": []
         }
-    ]
+    ],
 }
