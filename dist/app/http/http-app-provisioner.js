@@ -22,8 +22,7 @@ export class HttpAppProvisioner extends AppProvisioner {
         });
     }
     provisionApp() {
-        var _a, _b, _c;
-        const httpPort = (_a = this.config.defaultAppPortOverride) !== null && _a !== void 0 ? _a : 80;
+        const httpPort = this.config.defaultAppPortOverride ?? 80;
         const ingressCidrBlocks = this.vpcDetails
             .resolveSubnets(this.config.ingressSubnetNamePrefixes)
             .map(u => u.cidrBlock);
@@ -47,7 +46,10 @@ export class HttpAppProvisioner extends AppProvisioner {
                     cidrBlocks: ["0.0.0.0/0"],
                     ipv6CidrBlocks: ["::/0"]
                 }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: secGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: secGroupName
+            }
         }, {
         // replaceOnChanges: ["*"]
         });
@@ -224,7 +226,11 @@ export class HttpAppProvisioner extends AppProvisioner {
                     "startPeriod": 30
                 }
             }),
-            tags: Object.assign(Object.assign(Object.assign({}, NfraConfig.tags), { Name: taskDefinitionName }), (_b = this.config.tags) !== null && _b !== void 0 ? _b : {})
+            tags: {
+                ...NfraConfig.tags,
+                Name: taskDefinitionName,
+                ...this.config.tags ?? {}
+            }
         }
         // { dependsOn: virtualNode }
         );
@@ -275,7 +281,11 @@ export class HttpAppProvisioner extends AppProvisioner {
                     }]
                 : undefined,
             desiredCount: this.config.minCapacity,
-            tags: Object.assign(Object.assign(Object.assign({}, NfraConfig.tags), { Name: serviceName }), (_c = this.config.tags) !== null && _c !== void 0 ? _c : {})
+            tags: {
+                ...NfraConfig.tags,
+                Name: serviceName,
+                ...this.config.tags ?? {}
+            }
         });
         this.configureAutoScaling(cluster, service);
         return {

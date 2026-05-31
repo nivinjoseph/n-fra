@@ -3,6 +3,8 @@ import { EfsDetails } from "./efs-details.js";
 import * as aws from "@pulumi/aws";
 import { NfraConfig } from "../../common/nfra-config.js";
 export class EfsProvisioner {
+    _name;
+    _config;
     constructor(name, config) {
         // this._name = CommonHelper.prefixName(name);
         given(name, "name").ensureHasValue().ensureIsString();
@@ -22,7 +24,10 @@ export class EfsProvisioner {
         const fileSystem = new aws.efs.FileSystem(fileSystemName, {
             performanceMode: this._config.useMaxIoPerformanceMode ? "maxIO" : "generalPurpose",
             encrypted: true,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: fileSystemName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: fileSystemName
+            }
         });
         const ingressCidrBlocks = this._config.vpcDetails
             .resolveSubnets(this._config.ingressSubnetNamePrefixes)
@@ -39,7 +44,10 @@ export class EfsProvisioner {
                     cidrBlocks: ingressCidrBlocks
                 }
             ],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: securityGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: securityGroupName
+            }
         });
         const _mountTargets = efsSubnets.map((subnet, index) => {
             const mountTargetName = `${this._name}-efs-mt${index}`;

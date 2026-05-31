@@ -1,5 +1,6 @@
 import { given } from "@nivinjoseph/n-defensive";
 export class SecretsCache {
+    static _map = new Map();
     /**
      * @static
      */
@@ -20,5 +21,4 @@ export class SecretsCache {
         return this._map.get(name);
     }
 }
-SecretsCache._map = new Map();
 //# sourceMappingURL=secrets-cache.js.map

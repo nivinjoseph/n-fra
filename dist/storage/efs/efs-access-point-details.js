@@ -1,6 +1,9 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { EfsDetails } from "./efs-details.js";
 export class EfsAccessPointDetails {
+    _accessPointId;
+    _accessPointArn;
+    _efsDetails;
     constructor(accessPointId, accessPointArn, efsDetails) {
         given(accessPointId, "accessPointId").ensureHasValue().ensureIsObject();
         this._accessPointId = accessPointId;

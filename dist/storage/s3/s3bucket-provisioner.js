@@ -6,8 +6,9 @@ import * as Pulumi from "@pulumi/pulumi";
 import { NfraConfig } from "../../common/nfra-config.js";
 import { S3bucketDetails } from "./s3bucket-details.js";
 export class S3bucketProvisioner {
+    _name;
+    _config;
     constructor(name, config) {
-        var _a;
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
         given(config, "config").ensureHasValue()
@@ -28,7 +29,7 @@ export class S3bucketProvisioner {
             .ensureWhen(config.accessConfig != null, t => t.accessConfig.every(u => u.accessControls.isNotEmpty), "accessControls cannot be empty in accessConfig")
             .ensureWhen(config.accessConfig != null, t => t.accessConfig.every(u => u.accessControls.every(v => ["GET", "PUT"].contains(v))), "only GET and PUT are allowed in accessControls within accessConfig")
             .ensureWhen(config.objectExpiryDays != null, t => t.objectExpiryDays > 0, "objectExpiryDays must be > 0");
-        (_a = config.enableTransferAcceleration) !== null && _a !== void 0 ? _a : (config.enableTransferAcceleration = false);
+        config.enableTransferAcceleration ??= false;
         this._config = config;
     }
     // public static provisionAccess(name: string, config: S3bucketAccessConfig): void
@@ -134,7 +135,10 @@ export class S3bucketProvisioner {
                 }
             ],
             forceDestroy: true,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: bucketName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: bucketName
+            }
         });
         if (this._config.objectExpiryDays != null) {
             new aws.s3.BucketLifecycleConfiguration(`${this._name}-bucket-lc`, {

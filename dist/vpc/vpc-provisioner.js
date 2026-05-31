@@ -14,15 +14,16 @@ import { SubnetHelper } from "./subnet-helper.js";
 import { VpcSubnetType } from "./vpc-subnet-type.js";
 import { VpcAz } from "./vpc-az.js";
 export class VpcProvisioner {
+    _name;
+    _config;
+    _vpcName = null;
+    _vpc = null;
+    _igw = null;
+    _subnets = new Array();
+    _ngws = new Map();
+    _pvtDnsName = null;
+    _pvtDnsNsp = null;
     constructor(name, config) {
-        var _a, _b;
-        this._vpcName = null;
-        this._vpc = null;
-        this._igw = null;
-        this._subnets = new Array();
-        this._ngws = new Map();
-        this._pvtDnsName = null;
-        this._pvtDnsNsp = null;
         // TODO: name prefixing must be parameterized
         // name = CommonHelper.prefixName(name);   
         given(name, "name").ensure(t => t.length <= 20, "name is too long");
@@ -47,8 +48,8 @@ export class VpcProvisioner {
             .ensure(t => t.subnets.every(u => u.name.startsWith(u.prefix)), "subnet names must start with the subnet's prefix")
             // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
             .ensure(t => t.numNatGateways == null || t.numNatGateways === 1 || t.numNatGateways === 3, "numNatGateways must be 1 or 3");
-        (_a = config.enableVpcFlowLogs) !== null && _a !== void 0 ? _a : (config.enableVpcFlowLogs = false);
-        (_b = config.numNatGateways) !== null && _b !== void 0 ? _b : (config.numNatGateways = NfraConfig.env === EnvType.prod ? 3 : 1);
+        config.enableVpcFlowLogs ??= false;
+        config.numNatGateways ??= NfraConfig.env === EnvType.prod ? 3 : 1;
         this._config = config;
     }
     provision() {
@@ -61,12 +62,18 @@ export class VpcProvisioner {
             cidrBlock: this._config.cidrRange,
             enableDnsHostnames: true,
             enableDnsSupport: true,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: vpcName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: vpcName
+            }
         });
         const igwName = `${vpcName}-igw`;
         this._igw = new aws.ec2.InternetGateway(igwName, {
             vpcId: this._vpc.id,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: igwName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: igwName
+            }
         }, { parent: this._vpc, dependsOn: [this._vpc] });
         this._subnets.push(...this._config.subnets
             .where(t => t.type === VpcSubnetType.public)
@@ -99,12 +106,21 @@ export class VpcProvisioner {
             availabilityZone: NfraConfig.awsRegion + az,
             mapPublicIpOnLaunch: type === VpcSubnetType.public,
             assignIpv6AddressOnCreation: false,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: name, Prefix: prefix, SubnetType: type })
+            tags: {
+                ...NfraConfig.tags,
+                Name: name,
+                Prefix: prefix,
+                SubnetType: type
+            }
         });
         const routeTableName = `${name}-rt`;
         const routeTable = new aws.ec2.RouteTable(routeTableName, {
             vpcId: this._vpc.id,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: routeTableName, SubnetType: type }),
+            tags: {
+                ...NfraConfig.tags,
+                Name: routeTableName,
+                SubnetType: type,
+            },
         }, { parent: subnet, dependsOn: [subnet] });
         new aws.ec2.RouteTableAssociation(`${name}-rta`, {
             routeTableId: routeTable.id,
@@ -135,18 +151,29 @@ export class VpcProvisioner {
                 destinationCidrBlock: "0.0.0.0/0",
             }, { parent: routeTable, dependsOn: [routeTable] });
         }
-        return Object.assign({ id: subnet.id, arn: subnet.arn, routeTableId: routeTable.id }, subnetConfig);
+        return {
+            id: subnet.id,
+            arn: subnet.arn,
+            routeTableId: routeTable.id,
+            ...subnetConfig
+        };
     }
     _createNatGateway(subnet, az) {
         const eipName = `${this._vpcName}-eip-${az}`;
         const eip = new aws.ec2.Eip(eipName, {
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: eipName }),
+            tags: {
+                ...NfraConfig.tags,
+                Name: eipName,
+            },
         }, { parent: subnet, dependsOn: [subnet] });
         const ngwName = `${this._vpcName}-ngw-${az}`;
         const ngw = new aws.ec2.NatGateway(ngwName, {
             subnetId: subnet.id,
             allocationId: eip.allocationId,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: ngwName }),
+            tags: {
+                ...NfraConfig.tags,
+                Name: ngwName,
+            },
         }, { parent: subnet, dependsOn: [subnet] });
         this._ngws.set(az, ngw);
     }
@@ -155,7 +182,10 @@ export class VpcProvisioner {
         const defaultSgName = `${this._name}-default-sg`;
         new aws.ec2.DefaultSecurityGroup(defaultSgName, {
             vpcId: this._vpc.id,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: defaultSgName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: defaultSgName
+            }
         });
     }
     _provisionVpcFlowLogs(vpcName) {
@@ -174,7 +204,10 @@ export class VpcProvisioner {
                     }
                 ]
             },
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: logRoleName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: logRoleName
+            }
         });
         const logRolePolicyName = `${vpcName}-lrp`;
         new aws.iam.RolePolicy(logRolePolicyName, {
@@ -198,7 +231,10 @@ export class VpcProvisioner {
         });
         const logGroupName = `${vpcName}-lg`;
         const logGroup = new aws.cloudwatch.LogGroup(logGroupName, {
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: logGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: logGroupName
+            }
         });
         const flowLogName = `${vpcName}-fl`;
         new aws.ec2.FlowLog(flowLogName, {
@@ -206,7 +242,10 @@ export class VpcProvisioner {
             logDestination: logGroup.arn,
             trafficType: "ALL",
             vpcId: this._vpc.id,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: flowLogName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: flowLogName
+            }
         });
     }
     _createPrivateDnsNamespace() {
@@ -216,7 +255,10 @@ export class VpcProvisioner {
         this._pvtDnsNsp = new aws.servicediscovery.PrivateDnsNamespace(pvtDnsNspName, {
             name: this._pvtDnsName,
             vpc: this._vpc.id,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: pvtDnsNspName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: pvtDnsNspName
+            }
         });
     }
     _createVpcS3GatewayEndpoint() {
@@ -227,7 +269,10 @@ export class VpcProvisioner {
             routeTableIds: this._subnets.map(t => t.routeTableId),
             vpcEndpointType: "Gateway",
             autoAccept: true,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: gatewayEndpointName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: gatewayEndpointName
+            }
         });
     }
 }

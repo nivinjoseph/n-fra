@@ -9,8 +9,9 @@ import { EnvType } from "../../common/env-type.js";
 // import { Secret, SecretPolicy, SecretVersion } from "@pulumi/aws/secretsmanager";
 // import { PolicyDocument, Role } from "@pulumi/aws/iam";
 export class Aspv2Provisioner {
+    _name;
+    _config;
     constructor(name, config) {
-        var _a, _b;
         // this._name = CommonHelper.prefixName(name);
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
@@ -34,19 +35,21 @@ export class Aspv2Provisioner {
             .ensure(t => !(t.databaseName == null && t.restoreSnapshotId == null), "must provide one of databaseName or restoreSnapshotId")
             .ensure(t => !(t.databaseName != null && t.restoreSnapshotId != null), "must provide only one of databaseName or restoreSnapshotId")
             .ensureWhen(config.numClusterInstances != null, (t) => [1, 2, 3].contains(t.numClusterInstances), "num cluster instances must be 1, 2 or 3");
-        (_a = config.engineVersion) !== null && _a !== void 0 ? _a : (config.engineVersion = 17);
-        (_b = config.numClusterInstances) !== null && _b !== void 0 ? _b : (config.numClusterInstances = NfraConfig.env === EnvType.prod ? 3 : 1);
+        config.engineVersion ??= 17;
+        config.numClusterInstances ??= NfraConfig.env === EnvType.prod ? 3 : 1;
         this._config = config;
     }
     provision() {
-        var _a, _b, _c, _d;
         const postgresDbPort = 5432;
         const dbSubnets = this._config.vpcDetails
             .resolveSubnets([this._config.subnetNamePrefix]);
         const subnetGroupName = `${this._name}-subnet-grp`;
         const subnetGroup = new aws.rds.SubnetGroup(subnetGroupName, {
             subnetIds: dbSubnets.map(t => t.id),
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: subnetGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: subnetGroupName
+            }
         });
         const ingressCidrBlocks = this._config.vpcDetails
             .resolveSubnets(this._config.ingressSubnetNamePrefixes)
@@ -68,7 +71,10 @@ export class Aspv2Provisioner {
                     toPort: postgresDbPort,
                     cidrBlocks: dbSubnets.map(t => t.cidrBlock)
                 }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: proxySecGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: proxySecGroupName
+            }
         }, {
         // replaceOnChanges: ["*"]
         });
@@ -84,10 +90,14 @@ export class Aspv2Provisioner {
                     securityGroups: [dbProxySecGroup.id]
                     // sourceSecurityGroupId: dbProxySecGroup.id
                 }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: dbSecGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: dbSecGroupName
+            }
         });
-        const username = (_a = this._config.username) !== null && _a !== void 0 ? _a : "appuser";
-        const password = (_b = this._config.password) !== null && _b !== void 0 ? _b : this._createPassword();
+        const username = this._config.username ?? "appuser";
+        const password = this._config.password
+            ?? this._createPassword();
         let engineVersion = "";
         let clusterParameterGroupName = "";
         let clusterParameterGroup;
@@ -115,7 +125,10 @@ export class Aspv2Provisioner {
                                 value: "0",
                                 applyMethod: "immediate"
                             }],
-                        tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: clusterParamGroupName })
+                        tags: {
+                            ...NfraConfig.tags,
+                            Name: clusterParamGroupName
+                        }
                     });
                     clusterParameterGroupName = clusterParameterGroup.name;
                     break;
@@ -131,7 +144,10 @@ export class Aspv2Provisioner {
                                 value: "0",
                                 applyMethod: "immediate"
                             }],
-                        tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: clusterParamGroupName })
+                        tags: {
+                            ...NfraConfig.tags,
+                            Name: clusterParamGroupName
+                        }
                     });
                     clusterParameterGroupName = clusterParameterGroup.name;
                     break;
@@ -147,7 +163,10 @@ export class Aspv2Provisioner {
                                 value: "0",
                                 applyMethod: "immediate"
                             }],
-                        tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: clusterParamGroupName })
+                        tags: {
+                            ...NfraConfig.tags,
+                            Name: clusterParamGroupName
+                        }
                     });
                     clusterParameterGroupName = clusterParameterGroup.name;
                     break;
@@ -166,8 +185,8 @@ export class Aspv2Provisioner {
             dbInstanceParameterGroupName: clusterParameterGroupName,
             dbSubnetGroupName: subnetGroup.name,
             vpcSecurityGroupIds: [dbSecGroup.id],
-            databaseName: (_c = this._config.databaseName) !== null && _c !== void 0 ? _c : undefined,
-            snapshotIdentifier: (_d = this._config.restoreSnapshotId) !== null && _d !== void 0 ? _d : undefined,
+            databaseName: this._config.databaseName ?? undefined,
+            snapshotIdentifier: this._config.restoreSnapshotId ?? undefined,
             masterUsername: username,
             masterPassword: Pulumi.secret(password),
             port: postgresDbPort,
@@ -187,7 +206,10 @@ export class Aspv2Provisioner {
             deletionProtection: this._config.deletionProtection, // to facilitate delete
             skipFinalSnapshot: this._config.skipFinalSnapshot, // to facilitate delete
             applyImmediately: true,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: clusterName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: clusterName
+            }
         }, {
             dependsOn: clusterParameterGroup != null ? clusterParameterGroup : undefined
         });
@@ -205,7 +227,10 @@ export class Aspv2Provisioner {
                 performanceInsightsEnabled: true,
                 performanceInsightsRetentionPeriod: 7,
                 applyImmediately: true,
-                tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: clusterInstanceName })
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: clusterInstanceName
+                }
             }, {
                 parent: postgresDbCluster
             }));
@@ -213,7 +238,10 @@ export class Aspv2Provisioner {
         const dbCredsSecretName = `${this._name}-dbc-secret`;
         const dbCredsSecret = new aws.secretsmanager.Secret(dbCredsSecretName, {
             forceOverwriteReplicaSecret: true,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: dbCredsSecretName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: dbCredsSecretName
+            }
         });
         new aws.secretsmanager.SecretVersion(`${dbCredsSecretName}-version`, {
             secretId: dbCredsSecret.id,
@@ -234,7 +262,10 @@ export class Aspv2Provisioner {
         const dbProxyRoleName = `${this._name}-dbp-role`;
         const dbProxyRole = new aws.iam.Role(dbProxyRoleName, {
             assumeRolePolicy: assumeRolePolicyDocument,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: dbProxyRoleName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: dbProxyRoleName
+            }
         });
         new aws.secretsmanager.SecretPolicy(`${this._name}-dbc-secret-policy`, {
             secretArn: dbCredsSecret.arn,
@@ -270,7 +301,10 @@ export class Aspv2Provisioner {
                     iamAuth: "DISABLED",
                     secretArn: dbCredsSecret.arn
                 }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: dbProxyName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: dbProxyName
+            }
         }, { dependsOn: clusterInstances });
         const dbProxyDefaultTargetGroup = new aws.rds.ProxyDefaultTargetGroup(`${this._name}-dbp-dft-tgrp`, {
             dbProxyName: dbProxy.name,
@@ -292,7 +326,10 @@ export class Aspv2Provisioner {
             targetRole: "READ_ONLY",
             vpcSecurityGroupIds: [dbProxySecGroup.id],
             vpcSubnetIds: dbSubnets.map(t => t.id),
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: dbProxyReadonlyEndpointName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: dbProxyReadonlyEndpointName
+            }
         });
         return {
             host: dbProxy.endpoint,

@@ -1,6 +1,10 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { NfraConfig } from "../common/nfra-config.js";
 export class VpcDetails {
+    _vpc;
+    _privateDnsDomain;
+    _privateDnsNamespace;
+    _subnets;
     get vpc() { return this._vpc; }
     get privateDnsDomain() { return this._privateDnsDomain; }
     get privateDnsNamespace() { return this._privateDnsNamespace; }
@@ -14,7 +18,7 @@ export class VpcDetails {
         given(filterSubnetPrefixes, "filterSubnetPrefixes").ensureIsArray().ensureIsNotEmpty();
         // we need ids sometimes and we need cidrs sometimes
         // we need to filter by name prefix and type
-        filterSubnetPrefixes !== null && filterSubnetPrefixes !== void 0 ? filterSubnetPrefixes : (filterSubnetPrefixes = this._subnets.map(t => t.prefix));
+        filterSubnetPrefixes ??= this._subnets.map(t => t.prefix);
         // const result = this._vpc.subnets
         //     .apply((subnets) =>
         //     {

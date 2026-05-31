@@ -11,6 +11,10 @@ import { DescribeImagesCommand, ECRClient } from "@aws-sdk/client-ecr";
 import { Logger } from "../index.js";
 import * as crypto from "node:crypto";
 export class AppProvisioner {
+    _name;
+    _config;
+    _version;
+    _appEnv;
     get name() { return this._name; }
     get vpcDetails() { return this._config.vpcDetails; }
     get config() { return this._config; }
@@ -18,8 +22,6 @@ export class AppProvisioner {
     get hasDatadog() { return this._config.datadogConfig != null; }
     get hasSidecar() { return this._config.sidecarConfig != null; }
     constructor(name, config) {
-        var _a, _b;
-        var _c;
         given(name, "name").ensureHasValue().ensureIsString();
         // this._name = CommonHelper.prefixName(name);
         this._name = name;
@@ -66,7 +68,7 @@ export class AppProvisioner {
             .ensure(t => t.maxCapacity != null && t.maxCapacity >= 0 && t.maxCapacity <= 50, "maxCapacity must be between 0 and 50")
             .ensure(t => t.minCapacity <= t.maxCapacity, "minCapacity must be <= maxCapacity")
             .ensureWhen(config.cpuArchitecture != null, t => ["X86_64", "ARM64"].contains(t.cpuArchitecture), "cpuArchitecture must be one of X86_64 or ARM64");
-        (_a = config.enableXray) !== null && _a !== void 0 ? _a : (config.enableXray = false);
+        config.enableXray ??= false;
         this._config = config;
         if (this._config.isOn === false)
             this._config.minCapacity = this._config.maxCapacity = 0;
@@ -80,7 +82,7 @@ export class AppProvisioner {
                 this._version = "UNKNOWN";
         }
         // defaulting cpu architecture to ARM64
-        (_b = (_c = this._config).cpuArchitecture) !== null && _b !== void 0 ? _b : (_c.cpuArchitecture = "ARM64");
+        this._config.cpuArchitecture ??= "ARM64";
         this._appEnv = NfraConfig.appEnv;
     }
     static provisionAppCluster(name, config, vpcDetails) {
@@ -105,7 +107,10 @@ export class AppProvisioner {
                     value: config.enableContainerInsights ? "enabled" : "disabled"
                 }
             ],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: clusterName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: clusterName
+            }
         });
         let capacityProviders = [CapacityProvider.fargate];
         let capacityProviderStrategies = [{
@@ -156,8 +161,7 @@ export class AppProvisioner {
         return this.provisionApp();
     }
     createAppCluster() {
-        var _a;
-        return (_a = this._config.cluster) !== null && _a !== void 0 ? _a : AppProvisioner.provisionAppCluster(this._name, this._config.clusterConfig, this.vpcDetails);
+        return this._config.cluster ?? AppProvisioner.provisionAppCluster(this._name, this._config.clusterConfig, this.vpcDetails);
     }
     createExecutionRole(policies) {
         // given(isEc2, "isEc2").ensureHasValue().ensureIsBoolean();
@@ -195,7 +199,10 @@ export class AppProvisioner {
                         }
                     ]
                 },
-                tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: secretPolicyName })
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: secretPolicyName
+                }
             });
             resolvedPolicyArns.push(secretPolicy.arn);
         }
@@ -203,7 +210,10 @@ export class AppProvisioner {
             const policyName = `${this._name}-tep-${index}`;
             const policy = new aws.iam.Policy(policyName, {
                 policy: policyDoc,
-                tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: policyName })
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: policyName
+                }
             });
             resolvedPolicyArns.push(policy.arn);
             return policy;
@@ -248,7 +258,10 @@ export class AppProvisioner {
             const policyName = `${this._name}-tp-${index}`;
             const policy = new aws.iam.Policy(policyName, {
                 policy: policyDoc,
-                tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: policyName })
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: policyName
+                }
             });
             resolvedPolicyArns.push(policy.arn);
             return policy;
@@ -304,7 +317,10 @@ export class AppProvisioner {
             stopTimeout: 45,
             logConfiguration: this._createLogConfiguration(),
             dockerLabels: this.hasDatadog
-                ? Object.assign({}, this._createDatadogInstrumentationLabels()) : undefined,
+                ? {
+                    ...this._createDatadogInstrumentationLabels()
+                }
+                : undefined,
             mountPoints: this.hasSidecar ? [{
                     "sourceVolume": "infra-sidecar",
                     "containerPath": "/infra_sidecar/temp" // FIXME: this needs to be aligned
@@ -331,10 +347,17 @@ export class AppProvisioner {
     appContainerOverrides, isEc2 = false) {
         // given(virtualNode, "virtualNode").ensureHasValue().ensureIsObject();
         given(appContainerOverrides, "appContainerOverrides").ensureIsObject();
-        return this._stringifyContainerDefinitions(Object.assign({ [this._name]: appContainerOverrides != null
-                ? Object.assign(Object.assign({}, this.createAppContainer()), appContainerOverrides) : this.createAppContainer() }, this._createInstrumentationContainers(
-        // virtualNode,
-        isEc2)));
+        return this._stringifyContainerDefinitions({
+            [this._name]: appContainerOverrides != null
+                ? {
+                    ...this.createAppContainer(),
+                    ...appContainerOverrides
+                }
+                : this.createAppContainer(),
+            ...this._createInstrumentationContainers(
+            // virtualNode,
+            isEc2)
+        });
     }
     createTaskVolumeConfiguration(isEc2 = false, additionalVolumes) {
         given(isEc2, "isEc2").ensureHasValue().ensureIsBoolean();
@@ -424,14 +447,17 @@ export class AppProvisioner {
                 await Logger.logError(error);
             }
             // eslint-disable-next-line no-empty
-            catch (_a) { }
+            catch { }
             throw new ArgumentException("image", message);
         }
     }
     _stringifyContainerDefinitions(containerDefinitions) {
         return Object.entries(containerDefinitions)
             .map(entry => {
-            return Object.assign(Object.assign({}, entry[1]), { name: entry[0] });
+            return {
+                ...entry[1],
+                name: entry[0]
+            };
         })
             .map(container => {
             return Object.entries(container)
@@ -587,8 +613,12 @@ export class AppProvisioner {
         return result;
     }
     _createDatadogInstrumentationLabels() {
-        var _a;
-        const labels = Object.assign({ "com.datadoghq.tags.env": this._appEnv, "com.datadoghq.tags.service": this._name, "com.datadoghq.tags.version": this._version }, (_a = this._config.datadogConfig.additionalInstrumentationLabels) !== null && _a !== void 0 ? _a : {});
+        const labels = {
+            "com.datadoghq.tags.env": this._appEnv,
+            "com.datadoghq.tags.service": this._name,
+            "com.datadoghq.tags.version": this._version,
+            ...this._config.datadogConfig.additionalInstrumentationLabels ?? {}
+        };
         return labels;
     }
     _createInstrumentationContainers(
@@ -748,7 +778,6 @@ export class AppProvisioner {
     //     };
     // }
     _createDatadogAgentContainer(isEc2 = false) {
-        var _a, _b, _c;
         given(isEc2, "isEc2").ensureHasValue().ensureIsBoolean();
         given(this, "this").ensure(t => t.hasDatadog, "datadog config must be provided");
         const environment = [
@@ -769,10 +798,10 @@ export class AppProvisioner {
                 containerPath: "/etc/datadog-agent",
                 readOnly: false
             },
-            ...(_c = (_b = (_a = this.config.datadogConfig) === null || _a === void 0 ? void 0 : _a.containerMountPoints) === null || _b === void 0 ? void 0 : _b.map(t => {
+            ...this.config.datadogConfig?.containerMountPoints?.map(t => {
                 t.readOnly = true;
                 return t;
-            })) !== null && _c !== void 0 ? _c : []
+            }) ?? []
         ];
         if (isEc2) {
             environment.push({ name: "DD_ECS_COLLECT_RESOURCE_TAGS_EC2", value: "true" });

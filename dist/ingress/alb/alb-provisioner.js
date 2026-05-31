@@ -5,8 +5,12 @@ import * as aws from "@pulumi/aws";
 // import { WebAcl, WebAclAssociation } from "@pulumi/aws/wafv2";
 // import { Distribution } from "@pulumi/aws/cloudfront";
 export class AlbProvisioner {
+    _name;
+    _config;
+    _useTls;
+    _onlyDefault;
+    _defaultPathPattern;
     constructor(name, config) {
-        var _a, _b, _c, _d, _e;
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name.trim();
         given(config, "config").ensureHasValue().ensureIsObject()
@@ -38,23 +42,22 @@ export class AlbProvisioner {
                 .ensure(t => t.host.length <= 128, "host length cannot be over 128 characters");
             target.host = target.host.trim().toLowerCase();
         });
-        (_a = config.enableWaf) !== null && _a !== void 0 ? _a : (config.enableWaf = false);
-        (_b = config.enableWafCloudWatchMetrics) !== null && _b !== void 0 ? _b : (config.enableWafCloudWatchMetrics = false);
-        (_c = config.enableCloudfront) !== null && _c !== void 0 ? _c : (config.enableCloudfront = false);
-        (_d = config.justAlb) !== null && _d !== void 0 ? _d : (config.justAlb = false);
+        config.enableWaf ??= false;
+        config.enableWafCloudWatchMetrics ??= false;
+        config.enableCloudfront ??= false;
+        config.justAlb ??= false;
         this._config = config;
         this._useTls = this._config.certificateArn != null;
         this._onlyDefault = this._config.targets.some(t => t.host === "default");
-        const defaultPathPattern = this._onlyDefault ? (_e = this._config.targets
-            .find(t => t.host === "default").pathPattern) === null || _e === void 0 ? void 0 : _e.trim() : null;
+        const defaultPathPattern = this._onlyDefault ? this._config.targets
+            .find(t => t.host === "default").pathPattern?.trim() : null;
         given(defaultPathPattern, "defaultPathPattern").ensureIsString()
             .ensure(t => t.trim().startsWith("/"), "must start with /");
-        this._defaultPathPattern = (defaultPathPattern === null || defaultPathPattern === void 0 ? void 0 : defaultPathPattern.isNotEmptyOrWhiteSpace()) ? defaultPathPattern : null;
+        this._defaultPathPattern = defaultPathPattern?.isNotEmptyOrWhiteSpace() ? defaultPathPattern : null;
     }
     provision() {
-        var _a, _b, _c;
         const egressPorts = this._config.targets
-            .map(t => { var _a; return (_a = t.defaultAppPortOverride) !== null && _a !== void 0 ? _a : 80; })
+            .map(t => t.defaultAppPortOverride ?? 80)
             .distinct();
         const ingressCidrBlocks = this._config.ingressSubnetNamePrefixes == null
             ? ["0.0.0.0/0"]
@@ -91,7 +94,10 @@ export class AlbProvisioner {
                 cidrBlocks: egressCidrBlocks
             })),
             // egress: [{cidrBlocks: }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: albSecGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: albSecGroupName
+            }
         }, {
         // replaceOnChanges: ["*"]
         });
@@ -109,7 +115,11 @@ export class AlbProvisioner {
             // .apply(subnets => subnets.map(t => t.id)),
             idleTimeout: 4000,
             securityGroups: [appAlbSecGroup.id],
-            tags: Object.assign(Object.assign(Object.assign({}, NfraConfig.tags), { Name: albName }), (_a = this._config.tags) !== null && _a !== void 0 ? _a : {})
+            tags: {
+                ...NfraConfig.tags,
+                Name: albName,
+                ...this._config.tags ?? {}
+            }
         });
         const result = {
             dnsName: alb.dnsName,
@@ -131,17 +141,20 @@ export class AlbProvisioner {
                             statusCode: "HTTP_301"
                         }
                     }],
-                tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: httpListenerName })
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: httpListenerName
+                }
             }, {
                 parent: alb
             });
         }
         if (this._onlyDefault) {
             const defaultTargetGroupName = `${this._name}-tg-d`;
-            const healthCheckTimeout = Math.min(Math.max((_b = this._config.targets[0].healthCheckTimeout) !== null && _b !== void 0 ? _b : 5, 5), 60);
+            const healthCheckTimeout = Math.min(Math.max(this._config.targets[0].healthCheckTimeout ?? 5, 5), 60);
             const defaultTargetGroup = new aws.lb.TargetGroup(defaultTargetGroupName, {
                 protocol: "HTTP",
-                port: (_c = this._config.targets[0].defaultAppPortOverride) !== null && _c !== void 0 ? _c : 80,
+                port: this._config.targets[0].defaultAppPortOverride ?? 80,
                 targetType: "ip",
                 vpcId: this._config.vpcDetails.vpc.id,
                 slowStart: this._config.targets[0].slowStart,
@@ -156,7 +169,10 @@ export class AlbProvisioner {
                     timeout: healthCheckTimeout,
                     interval: healthCheckTimeout * 2
                 },
-                tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: defaultTargetGroupName })
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: defaultTargetGroupName
+                }
             });
             // const defaultTargetGroupArn = defaultTargetGroup.arn;
             result.hostTargets[this._config.targets[0].host] = {
@@ -184,7 +200,10 @@ export class AlbProvisioner {
                                 statusCode: "404"
                             }
                         }],
-                tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: listenerName })
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: listenerName
+                }
             }, {
                 parent: alb
             });
@@ -201,7 +220,10 @@ export class AlbProvisioner {
                                 values: [this._defaultPathPattern]
                             }
                         }],
-                    tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: listenerRuleName })
+                    tags: {
+                        ...NfraConfig.tags,
+                        Name: listenerRuleName
+                    }
                 }, {
                     dependsOn: [listener, defaultTargetGroup]
                 });
@@ -225,17 +247,19 @@ export class AlbProvisioner {
                             statusCode: "404"
                         }
                     }],
-                tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: listenerName })
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: listenerName
+                }
             }, {
                 parent: alb
             });
             this._config.targets.forEach((target, index) => {
-                var _a, _b;
                 const targetGroupName = `${this._name}-tg-${index}`;
-                const healthCheckTimeout = Math.min(Math.max((_a = target.healthCheckTimeout) !== null && _a !== void 0 ? _a : 5, 5), 60);
+                const healthCheckTimeout = Math.min(Math.max(target.healthCheckTimeout ?? 5, 5), 60);
                 const targetGroup = new aws.lb.TargetGroup(targetGroupName, {
                     protocol: "HTTP",
-                    port: (_b = target.defaultAppPortOverride) !== null && _b !== void 0 ? _b : 80,
+                    port: target.defaultAppPortOverride ?? 80,
                     targetType: "ip",
                     vpcId: this._config.vpcDetails.vpc.id,
                     slowStart: target.slowStart,
@@ -251,7 +275,10 @@ export class AlbProvisioner {
                         interval: healthCheckTimeout * 2
                         // unhealthyThreshold: 10 // // FIXME: make this configurable,
                     },
-                    tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: targetGroupName })
+                    tags: {
+                        ...NfraConfig.tags,
+                        Name: targetGroupName
+                    }
                 });
                 const listenerRuleName = `${this._name}-lrl-${index}`;
                 new aws.lb.ListenerRule(listenerRuleName, {
@@ -266,7 +293,10 @@ export class AlbProvisioner {
                                 values: [target.host]
                             }
                         }],
-                    tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: listenerRuleName })
+                    tags: {
+                        ...NfraConfig.tags,
+                        Name: listenerRuleName
+                    }
                 }, {
                     dependsOn: [listener, targetGroup]
                 });
@@ -313,7 +343,10 @@ export class AlbProvisioner {
                 metricName: "app-web-acl-metric",
                 sampledRequestsEnabled: true
             },
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: webAclName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: webAclName
+            }
         }, {
             // FIXME: this is a workaround for https://github.com/pulumi/pulumi-aws/issues/1423
             // Be cognizant of this when updating the rules
@@ -391,7 +424,10 @@ export class AlbProvisioner {
             },
             httpVersion: "http2",
             isIpv6Enabled: true,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: distroName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: distroName
+            }
         });
     }
 }

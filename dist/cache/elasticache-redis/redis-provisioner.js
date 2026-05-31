@@ -4,6 +4,8 @@ import * as aws from "@pulumi/aws";
 import { NfraConfig } from "../../common/nfra-config.js";
 // import { CommonHelper } from "../../common/common-helper.js";
 export class RedisProvisioner {
+    _name;
+    _config;
     constructor(name, config) {
         this._name = name;
         given(config, "config").ensureHasValue().ensureIsObject().ensureHasStructure({
@@ -22,7 +24,10 @@ export class RedisProvisioner {
         const subnetGroupName = `${this._name}-re-sgrp`;
         const subnetGroup = new aws.elasticache.SubnetGroup(subnetGroupName, {
             subnetIds: cacheSubnets.map(t => t.id),
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: subnetGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: subnetGroupName
+            }
         });
         const ingressCidrBlocks = this._config.vpcDetails
             .resolveSubnets(this._config.ingressSubnetNamePrefixes)
@@ -38,7 +43,10 @@ export class RedisProvisioner {
                     toPort: redisPort,
                     cidrBlocks: ingressCidrBlocks
                 }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: secGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: secGroupName
+            }
         }, {
         // replaceOnChanges: ["*"]
         });
@@ -49,7 +57,10 @@ export class RedisProvisioner {
                     name: "maxmemory-policy",
                     value: "allkeys-lru"
                 }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: paramGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: paramGroupName
+            }
         });
         const isHA = this._config.isHA;
         const replicationGroupName = `${this._name}-re-rgrp`;
@@ -81,7 +92,10 @@ export class RedisProvisioner {
             subnetGroupName: subnetGroup.name,
             securityGroupIds: [secGroup.id],
             applyImmediately: true,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: replicationGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: replicationGroupName
+            }
         });
         return {
             host: replicationGroup.primaryEndpointAddress,

@@ -3,6 +3,9 @@ import * as aws from "@pulumi/aws";
 import { NfraConfig } from "../../common/nfra-config.js";
 import * as tls from "@pulumi/tls";
 export class WindowsBastionProvisioner {
+    _name;
+    _config;
+    _instanceType;
     constructor(name, config) {
         // this._name = CommonHelper.prefixName(name);
         given(name, "name").ensureHasValue().ensureIsString();
@@ -62,7 +65,10 @@ export class WindowsBastionProvisioner {
                     cidrBlocks: ["0.0.0.0/0"],
                     ipv6CidrBlocks: ["::/0"]
                 }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: secGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: secGroupName
+            }
         }, {
         // replaceOnChanges: ["*"]
         });
@@ -90,7 +96,10 @@ export class WindowsBastionProvisioner {
         const keyPairName = `${this._name}-key-pair`;
         const keyPair = new aws.ec2.KeyPair(keyPairName, {
             publicKey: privateKey.publicKeyOpenssh,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: keyPairName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: keyPairName
+            }
         });
         const bastionName = `${this._name}-ins`;
         const bastion = new aws.ec2.Instance(bastionName, {
@@ -110,7 +119,10 @@ export class WindowsBastionProvisioner {
                 volumeSize: this._config.volumeSize,
                 volumeType: "gp2"
             },
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: bastionName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: bastionName
+            }
         }, {
             ignoreChanges: ["ami"]
         });
@@ -143,7 +155,10 @@ export class WindowsBastionProvisioner {
             const policyName = `${this._name}-rp-${index}`;
             const policy = new aws.iam.Policy(policyName, {
                 policy: policyDoc,
-                tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: policyName })
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: policyName
+                }
             });
             return policy;
         });
@@ -167,12 +182,18 @@ export class WindowsBastionProvisioner {
                 ...createdPolicies.map(t => t.arn)
             ],
             forceDetachPolicies: true,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: roleName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: roleName
+            }
         }, { dependsOn: createdPolicies });
         const instanceProfileName = `${this._name}-ipr`;
         const instanceProfile = new aws.iam.InstanceProfile(instanceProfileName, {
             role,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: instanceProfileName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: instanceProfileName
+            }
         });
         return instanceProfile;
     }

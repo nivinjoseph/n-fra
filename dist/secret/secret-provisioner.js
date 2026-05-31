@@ -13,7 +13,10 @@ export class SecretProvisioner {
             const secretName = `${name}-secret`;
             const secret = new aws.secretsmanager.Secret(secretName, {
                 forceOverwriteReplicaSecret: true,
-                tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: secretName })
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: secretName
+                }
             });
             new aws.secretsmanager.SecretVersion(`${secretName}-version`, {
                 secretId: secret.id,

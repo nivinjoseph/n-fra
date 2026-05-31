@@ -3,6 +3,11 @@ import * as Pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import { NfraConfig } from "../../common/nfra-config.js";
 export class S3bucketDetails {
+    _provisionerName;
+    _bucketId;
+    _bucketArn;
+    _glueRole = null;
+    _glueDb = null;
     get bucketId() { return this._bucketId; }
     get bucketArn() { return this._bucketArn; }
     get glueDbName() {
@@ -11,8 +16,6 @@ export class S3bucketDetails {
         return this._glueDb.name;
     }
     constructor(provisionerName, bucketId, bucketArn) {
-        this._glueRole = null;
-        this._glueDb = null;
         given(provisionerName, "provisionerName").ensureHasValue().ensureIsString();
         this._provisionerName = provisionerName;
         given(bucketId, "bucketId").ensureHasValue().ensureIsObject();
@@ -146,7 +149,10 @@ export class S3bucketDetails {
                     aws.iam.ManagedPolicy.AmazonS3FullAccess,
                     "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
                 ],
-                tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: roleName })
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: roleName
+                }
             });
         }
         return this._glueRole;
@@ -157,7 +163,10 @@ export class S3bucketDetails {
             this._glueDb = new aws.glue.CatalogDatabase(dbName, {
                 name: dbName,
                 // TODO: catalogId should be explicitly managed, otherwise we end up in AwsDataCatalog
-                tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: dbName })
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: dbName
+                }
             });
         }
         return this._glueDb;

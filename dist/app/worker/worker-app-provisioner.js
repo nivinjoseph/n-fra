@@ -11,7 +11,6 @@ export class WorkerAppProvisioner extends AppProvisioner {
         super(name, config);
     }
     provisionApp() {
-        var _a, _b;
         const secGroupName = `${this.name}-app-sg`;
         const secGroup = new aws.ec2.SecurityGroup(secGroupName, {
             vpcId: this.vpcDetails.vpc.id,
@@ -23,7 +22,10 @@ export class WorkerAppProvisioner extends AppProvisioner {
                     cidrBlocks: ["0.0.0.0/0"],
                     ipv6CidrBlocks: ["::/0"]
                 }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: secGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: secGroupName
+            }
         }, {
         // replaceOnChanges: ["*"]
         });
@@ -157,7 +159,11 @@ export class WorkerAppProvisioner extends AppProvisioner {
                     "startPeriod": 30
                 }
             }),
-            tags: Object.assign(Object.assign(Object.assign({}, NfraConfig.tags), { Name: taskDefinitionName }), (_a = this.config.tags) !== null && _a !== void 0 ? _a : {})
+            tags: {
+                ...NfraConfig.tags,
+                Name: taskDefinitionName,
+                ...this.config.tags ?? {}
+            }
         }, {
             deleteBeforeReplace: true
             // dependsOn: virtualNode
@@ -200,7 +206,11 @@ export class WorkerAppProvisioner extends AppProvisioner {
             //     registryArn: sdService.arn
             // },
             desiredCount: this.config.minCapacity,
-            tags: Object.assign(Object.assign(Object.assign({}, NfraConfig.tags), { Name: serviceName }), (_b = this.config.tags) !== null && _b !== void 0 ? _b : {})
+            tags: {
+                ...NfraConfig.tags,
+                Name: serviceName,
+                ...this.config.tags ?? {}
+            }
         });
         this.configureAutoScaling(cluster, service);
         return {

@@ -4,6 +4,8 @@ import * as aws from "@pulumi/aws";
 import * as Random from "@pulumi/random";
 import { SecurityGroupHelper } from "../../vpc/security-group-helper.js";
 export class MariaInstanceProvisioner {
+    _name;
+    _config;
     constructor(name, config) {
         // this._name = CommonHelper.prefixName(name);
         given(name, "name").ensureHasValue().ensureIsString();
@@ -34,7 +36,6 @@ export class MariaInstanceProvisioner {
         this._config = config;
     }
     provision() {
-        var _a, _b, _c, _d, _e, _f, _g, _h;
         const mariaDbPort = 3306;
         const serviceSubnets = this._config.vpcDetails
             .resolveSubnets([this._config.subnetNamePrefix])
@@ -43,7 +44,10 @@ export class MariaInstanceProvisioner {
         const subnetGroupName = `${this._name}-subnet-grp`;
         const subnetGroup = new aws.rds.SubnetGroup(subnetGroupName, {
             subnetIds: serviceSubnets,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: subnetGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: subnetGroupName
+            }
         });
         const ingressCidrBlocks = SecurityGroupHelper.resolveCidrBlocks(this._config.vpcDetails, this._config.ingressSubnetNamePrefixes);
         // const ingressCidrBlocks = this._config.vpcDetails
@@ -59,11 +63,14 @@ export class MariaInstanceProvisioner {
                     toPort: mariaDbPort,
                     cidrBlocks: ingressCidrBlocks
                 }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: secGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: secGroupName
+            }
         }, {
         // replaceOnChanges: ["*"]
         });
-        const username = (_a = this._config.username) !== null && _a !== void 0 ? _a : "appuser";
+        const username = this._config.username ?? "appuser";
         const monitoringAssumeRolePolicyDocument = {
             Version: "2012-10-17",
             Statement: [
@@ -81,7 +88,10 @@ export class MariaInstanceProvisioner {
             assumeRolePolicy: monitoringAssumeRolePolicyDocument,
             managedPolicyArns: ["arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"],
             forceDetachPolicies: true,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: monitoringRoleName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: monitoringRoleName
+            }
         });
         const paramGroupName = `${this._name}-maria-param-grp`;
         const paramGroup = new aws.rds.ParameterGroup(paramGroupName, {
@@ -91,16 +101,56 @@ export class MariaInstanceProvisioner {
                     value: "1024000000", // 1 GB
                     applyMethod: "immediate"
                 }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: paramGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: paramGroupName
+            }
         });
         const instanceName = `${this._name}-maria-db-ins`;
-        const dbInstance = new aws.rds.Instance(instanceName, Object.assign(Object.assign({ dbName: (_b = this._config.databaseName) !== null && _b !== void 0 ? _b : undefined, snapshotIdentifier: (_c = this._config.restoreSnapshotId) !== null && _c !== void 0 ? _c : undefined, username, password: (_d = this._config.password) !== null && _d !== void 0 ? _d : this._createPassword(), iamDatabaseAuthenticationEnabled: false, engine: "mariadb", engineVersion: "10.6", 
+        const dbInstance = new aws.rds.Instance(instanceName, {
+            dbName: this._config.databaseName ?? undefined,
+            snapshotIdentifier: this._config.restoreSnapshotId ?? undefined,
+            username,
+            password: this._config.password ?? this._createPassword(),
+            iamDatabaseAuthenticationEnabled: false,
+            engine: "mariadb",
+            engineVersion: "10.6",
             // parameterGroupName: "default.mariadb10.6",
-            parameterGroupName: paramGroup.name, optionGroupName: "default:mariadb-10-6", licenseModel: "general-public-license", instanceClass: this._config.instanceClass, storageType: this._config.provisionedIops != null ? "io2" : "gp2", iops: (_e = this._config.provisionedIops) !== null && _e !== void 0 ? _e : undefined, dedicatedLogVolume: this._config.provisionedIops != null
+            parameterGroupName: paramGroup.name,
+            optionGroupName: "default:mariadb-10-6",
+            licenseModel: "general-public-license",
+            instanceClass: this._config.instanceClass,
+            storageType: this._config.provisionedIops != null ? "io2" : "gp2",
+            iops: this._config.provisionedIops ?? undefined,
+            dedicatedLogVolume: this._config.provisionedIops != null
                 ? this._config.enableDedicatedLogVolumeForProvisionedIops
-                : undefined, allocatedStorage: this._config.storageGb, maxAllocatedStorage: this._config.maxStorageGb, storageEncrypted: (_f = this._config.storageEncrypted) !== null && _f !== void 0 ? _f : false, 
+                : undefined,
+            allocatedStorage: this._config.storageGb,
+            maxAllocatedStorage: this._config.maxStorageGb,
+            storageEncrypted: this._config.storageEncrypted ?? false,
             // storageEncrypted: true,
-            port: mariaDbPort, availabilityZone: this._config.isHA ? undefined : (_g = this._config.availabilityZone) !== null && _g !== void 0 ? _g : NfraConfig.awsRegionAvailabilityZones.takeFirst(), multiAz: this._config.isHA, dbSubnetGroupName: subnetGroup.name, vpcSecurityGroupIds: [secGroup.id], publiclyAccessible: false, backupRetentionPeriod: 7, deleteAutomatedBackups: true, deletionProtection: (_h = this._config.deletionProtection) !== null && _h !== void 0 ? _h : false, skipFinalSnapshot: true, allowMajorVersionUpgrade: false, autoMinorVersionUpgrade: true, enabledCloudwatchLogsExports: ["audit", "error", "general", "slowquery"] }, this._config.isHA ? { performanceInsightsEnabled: true, performanceInsightsRetentionPeriod: 7 } : {}), { monitoringInterval: 60, monitoringRoleArn: monitoringRole.arn, applyImmediately: true, tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: instanceName }) }), { dependsOn: monitoringRole, ignoreChanges: ["engineVersion"] });
+            port: mariaDbPort,
+            availabilityZone: this._config.isHA ? undefined : this._config.availabilityZone ?? NfraConfig.awsRegionAvailabilityZones.takeFirst(),
+            multiAz: this._config.isHA,
+            dbSubnetGroupName: subnetGroup.name,
+            vpcSecurityGroupIds: [secGroup.id],
+            publiclyAccessible: false,
+            backupRetentionPeriod: 7,
+            deleteAutomatedBackups: true,
+            deletionProtection: this._config.deletionProtection ?? false,
+            skipFinalSnapshot: true,
+            allowMajorVersionUpgrade: false,
+            autoMinorVersionUpgrade: true,
+            enabledCloudwatchLogsExports: ["audit", "error", "general", "slowquery"], // https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CreateDBInstance.html#:~:text=EnableCloudwatchLogsExports.member.N
+            ...this._config.isHA ? { performanceInsightsEnabled: true, performanceInsightsRetentionPeriod: 7 } : {},
+            monitoringInterval: 60,
+            monitoringRoleArn: monitoringRole.arn,
+            applyImmediately: true,
+            tags: {
+                ...NfraConfig.tags,
+                Name: instanceName
+            }
+        }, { dependsOn: monitoringRole, ignoreChanges: ["engineVersion"] });
         return {
             instanceIdentifier: dbInstance.identifier,
             host: dbInstance.endpoint.apply(t => t.split(":").takeFirst()),

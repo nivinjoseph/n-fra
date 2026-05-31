@@ -4,6 +4,8 @@ import { NfraConfig } from "../../common/nfra-config.js";
 import { Duration } from "@nivinjoseph/n-util";
 import { SecurityGroupHelper } from "../../vpc/security-group-helper.js";
 export class KafkaMskProvisionedProvisioner {
+    _name;
+    _config;
     constructor(name, config) {
         // this._name = CommonHelper.prefixName(name);
         given(name, "name").ensureHasValue().ensureIsString();
@@ -49,7 +51,10 @@ export class KafkaMskProvisionedProvisioner {
                 toPort: port,
                 cidrBlocks: ingressCidrBlocks
             })),
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: secGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: secGroupName
+            }
         });
         // https://docs.aws.amazon.com/msk/latest/developerguide/msk-configuration-properties.html
         // https://docs.aws.amazon.com/msk/latest/developerguide/msk-default-configuration.html
@@ -69,7 +74,10 @@ export class KafkaMskProvisionedProvisioner {
         const logGroup = new aws.cloudwatch.LogGroup(logGroupName, {
             name: logGroupName,
             skipDestroy: false,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: logGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: logGroupName
+            }
         });
         const kafkaSubnets = this._config.vpcDetails
             .resolveSubnets([this._config.subnetNamePrefix]);
@@ -147,7 +155,10 @@ export class KafkaMskProvisionedProvisioner {
                     }
                 }
             },
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: clusterName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: clusterName
+            }
         });
         return {
             clusterUuid: cluster.clusterUuid,

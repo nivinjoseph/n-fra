@@ -5,6 +5,8 @@ import { NfraConfig } from "../../common/nfra-config.js";
 import * as Pulumi from "@pulumi/pulumi";
 import { SecurityGroupHelper } from "../../vpc/security-group-helper.js";
 export class RdsProxyProvisioner {
+    _name;
+    _config;
     constructor(name, config) {
         // this._name = CommonHelper.prefixName(name);
         given(name, "name").ensureHasValue().ensureIsString();
@@ -16,7 +18,10 @@ export class RdsProxyProvisioner {
         const dbCredsSecretName = `${this._name}-dbc-secret`;
         const dbCredsSecret = new aws.secretsmanager.Secret(dbCredsSecretName, {
             forceOverwriteReplicaSecret: true,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: dbCredsSecretName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: dbCredsSecretName
+            }
         });
         new aws.secretsmanager.SecretVersion(`${dbCredsSecretName}-version`, {
             secretId: dbCredsSecret.id,
@@ -37,7 +42,10 @@ export class RdsProxyProvisioner {
         const dbProxyRoleName = `${this._name}-dbp-role`;
         const dbProxyRole = new aws.iam.Role(dbProxyRoleName, {
             assumeRolePolicy: assumeRolePolicyDocument,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: dbProxyRoleName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: dbProxyRoleName
+            }
         });
         new aws.secretsmanager.SecretPolicy(`${this._name}-dbc-secret-policy`, {
             secretArn: dbCredsSecret.arn,
@@ -92,7 +100,10 @@ export class RdsProxyProvisioner {
                     toPort: dbPort,
                     cidrBlocks: egressCidrBlocks
                 }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: proxySecGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: proxySecGroupName
+            }
         }, {
         // replaceOnChanges: ["*"]
         });
@@ -116,7 +127,10 @@ export class RdsProxyProvisioner {
                         ? "MYSQL_NATIVE_PASSWORD" : undefined,
                     secretArn: dbCredsSecret.arn
                 }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: dbProxyName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: dbProxyName
+            }
         });
         const dbProxyDefaultTargetGroup = new aws.rds.ProxyDefaultTargetGroup(`${this._name}-dbp-dft-tgp`, {
             dbProxyName: dbProxy.name,

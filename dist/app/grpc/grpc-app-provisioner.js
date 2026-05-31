@@ -16,7 +16,6 @@ export class GrpcAppProvisioner extends AppProvisioner {
         });
     }
     provisionApp() {
-        var _a, _b;
         const grpcPort = 50051;
         const ingressCidrBlocks = this.vpcDetails
             .resolveSubnets(this.config.ingressSubnetNamePrefixes)
@@ -41,7 +40,10 @@ export class GrpcAppProvisioner extends AppProvisioner {
                     cidrBlocks: ["0.0.0.0/0"],
                     ipv6CidrBlocks: ["::/0"]
                 }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: secGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: secGroupName
+            }
         }, {
         // replaceOnChanges: ["*"]
         });
@@ -218,7 +220,11 @@ export class GrpcAppProvisioner extends AppProvisioner {
                     "startPeriod": 30
                 }
             }),
-            tags: Object.assign(Object.assign(Object.assign({}, NfraConfig.tags), { Name: taskDefinitionName }), (_a = this.config.tags) !== null && _a !== void 0 ? _a : {})
+            tags: {
+                ...NfraConfig.tags,
+                Name: taskDefinitionName,
+                ...this.config.tags ?? {}
+            }
         }
         // { dependsOn: virtualNode }
         );
@@ -262,7 +268,11 @@ export class GrpcAppProvisioner extends AppProvisioner {
                     }]
             },
             desiredCount: this.config.minCapacity,
-            tags: Object.assign(Object.assign(Object.assign({}, NfraConfig.tags), { Name: serviceName }), (_b = this.config.tags) !== null && _b !== void 0 ? _b : {})
+            tags: {
+                ...NfraConfig.tags,
+                Name: serviceName,
+                ...this.config.tags ?? {}
+            }
         });
         this.configureAutoScaling(cluster, service);
         return {

@@ -2,6 +2,8 @@ import { given } from "@nivinjoseph/n-defensive";
 import * as aws from "@pulumi/aws";
 import { NfraConfig } from "../../common/nfra-config.js";
 export class MongoDocumentdbProvisioner {
+    _name;
+    _config;
     constructor(name, config) {
         // this._name = CommonHelper.prefixName(name);
         given(name, "name").ensureHasValue().ensureIsString();
@@ -18,7 +20,10 @@ export class MongoDocumentdbProvisioner {
         const subnetGroupName = `${this._name}-sng`;
         const subnetGroup = new aws.docdb.SubnetGroup(subnetGroupName, {
             subnetIds: serviceSubnets,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: subnetGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: subnetGroupName
+            }
         });
         const ingressCidrBlocks = this._config.vpcDetails
             .resolveSubnets(this._config.ingressSubnetNamePrefixes)
@@ -34,7 +39,10 @@ export class MongoDocumentdbProvisioner {
                     toPort: mongoPort,
                     cidrBlocks: ingressCidrBlocks
                 }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: secGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: secGroupName
+            }
         }, {
         // replaceOnChanges: ["*"]
         });
@@ -46,7 +54,10 @@ export class MongoDocumentdbProvisioner {
                     name: "tls",
                     value: "disabled"
                 }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: parameterGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: parameterGroupName
+            }
         });
         const clusterName = `${this._name}-cls`;
         const dbCluster = new aws.docdb.Cluster(clusterName, {
@@ -69,7 +80,10 @@ export class MongoDocumentdbProvisioner {
             dbClusterParameterGroupName: parameterGroup.name,
             allowMajorVersionUpgrade: false,
             storageType: "iopt1",
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: clusterName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: clusterName
+            }
         });
         const clusterInstanceName = `${this._name}-cls-ins`;
         const _clusterInstance = new aws.docdb.ClusterInstance(clusterInstanceName, {
@@ -80,7 +94,10 @@ export class MongoDocumentdbProvisioner {
             autoMinorVersionUpgrade: true,
             instanceClass: "db.t3.medium", // TODO: make this configurable
             enablePerformanceInsights: true,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: clusterInstanceName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: clusterInstanceName
+            }
         });
         return {
             host: dbCluster.endpoint,

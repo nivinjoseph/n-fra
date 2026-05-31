@@ -4,6 +4,8 @@ import { NlbDetails } from "./nlb-details.js";
 import { NfraConfig } from "../../common/nfra-config.js";
 import * as aws from "@pulumi/aws";
 export class NlbProvisioner {
+    _name;
+    _config;
     constructor(name, config) {
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name.trim();
@@ -28,7 +30,10 @@ export class NlbProvisioner {
             ipAddressType: "ipv4",
             loadBalancerType: "network",
             subnets: serviceSubnets,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: nlbName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: nlbName
+            }
         });
         const targetGroupName = `${this._name}-tgp`;
         const targetGroup = new aws.lb.TargetGroup(targetGroupName, {
@@ -44,7 +49,10 @@ export class NlbProvisioner {
                 port: this._config.port.toString()
             },
             deregistrationDelay: 60,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: targetGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: targetGroupName
+            }
         });
         new aws.lb.TargetGroupAttachment(`${this._name}-tga`, {
             targetGroupArn: targetGroup.arn,
@@ -62,7 +70,10 @@ export class NlbProvisioner {
                     type: "forward",
                     targetGroupArn: targetGroup.arn
                 }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: listenerName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: listenerName
+            }
         }, {
             parent: nlb,
             dependsOn: [targetGroup]

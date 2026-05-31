@@ -116,7 +116,7 @@ export class SubnetHelper {
                 && TypeHelper.parseNumber(t.split("/")[1]) <= 32);
             return true;
         }
-        catch (_a) {
+        catch {
             return false;
         }
     }

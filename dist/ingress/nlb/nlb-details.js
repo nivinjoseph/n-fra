@@ -2,6 +2,9 @@ import { given } from "@nivinjoseph/n-defensive";
 import * as aws from "@pulumi/aws";
 import { NfraConfig } from "../../common/nfra-config.js";
 export class NlbDetails {
+    _arn;
+    _host;
+    _port;
     get arn() { return this._arn; }
     get host() { return this._host; }
     get port() { return this._port; }
@@ -24,7 +27,10 @@ export class NlbDetails {
             networkLoadBalancerArns: [this._arn],
             supportedIpAddressTypes: ["ipv4"],
             allowedPrincipals: allowedAwsAccounts.map(accountId => `arn:aws:iam::${accountId}:root`),
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: vpceName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: vpceName
+            }
         });
         return {
             serviceName: vpce.serviceName

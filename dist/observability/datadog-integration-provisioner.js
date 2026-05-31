@@ -9,6 +9,8 @@ import { SecretProvisioner } from "../secret/secret-provisioner.js";
 import { client, v1 } from "@datadog/datadog-api-client";
 import * as Pulumi from "@pulumi/pulumi";
 export class DatadogIntegrationProvisioner {
+    _provider;
+    _config;
     /**
      * @description Only provision this once within a given AWS account
      */
@@ -133,7 +135,10 @@ export class DatadogIntegrationProvisioner {
                 path: "/",
                 description: "Datadog integration policy",
                 policy: datadogAwsAccessPolicyDocument,
-                tags: Object.assign({ Name: datadogPolicyName }, NfraConfig.tags)
+                tags: {
+                    Name: datadogPolicyName,
+                    ...NfraConfig.tags
+                }
             });
             const datadogAssumeRolePolicyDocument = {
                 Version: "2012-10-17",
@@ -162,7 +167,10 @@ export class DatadogIntegrationProvisioner {
             const datadogRole = new aws.iam.Role(roleName, {
                 name: roleName,
                 assumeRolePolicy: datadogAssumeRolePolicyDocument,
-                tags: Object.assign({ Name: roleName }, NfraConfig.tags)
+                tags: {
+                    Name: roleName,
+                    ...NfraConfig.tags
+                }
             });
             new aws.iam.RolePolicyAttachment("datadogPolicyAttachment", {
                 role: datadogRole,

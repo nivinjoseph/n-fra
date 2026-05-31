@@ -3,6 +3,8 @@ import * as aws from "@pulumi/aws";
 import { NfraConfig } from "../../common/nfra-config.js";
 import { SecurityGroupHelper } from "../../vpc/security-group-helper.js";
 export class KafkaMskServerlessProvisioner {
+    _name;
+    _config;
     constructor(name, config) {
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name.trim();
@@ -29,7 +31,10 @@ export class KafkaMskServerlessProvisioner {
                 toPort: port,
                 cidrBlocks: ingressCidrBlocks
             })),
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: secGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: secGroupName
+            }
         });
         const kafkaSubnets = this._config.vpcDetails
             .resolveSubnets([this._config.subnetNamePrefix]);
@@ -48,7 +53,10 @@ export class KafkaMskServerlessProvisioner {
                     securityGroupIds: [secGroup.id]
                 }],
             clusterName,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: clusterName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: clusterName
+            }
         });
         const bootstrapBrokers = aws.msk.getBootstrapBrokersOutput({
             clusterArn: cluster.arn

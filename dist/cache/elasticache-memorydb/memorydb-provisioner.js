@@ -4,8 +4,9 @@ import * as aws from "@pulumi/aws";
 import { NfraConfig } from "../../common/nfra-config.js";
 import { EnvType } from "../../common/env-type.js";
 export class MemorydbProvisioner {
+    _name;
+    _config;
     constructor(name, config) {
-        var _a;
         // this._name = CommonHelper.prefixName(name);
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
@@ -16,7 +17,7 @@ export class MemorydbProvisioner {
             nodeType: "string",
             "numShards?": "number"
         });
-        (_a = config.numShards) !== null && _a !== void 0 ? _a : (config.numShards = 1);
+        config.numShards ??= 1;
         this._config = config;
     }
     provision() {
@@ -26,7 +27,10 @@ export class MemorydbProvisioner {
         const subnetGroupName = `${this._name}-memdb-subnet-grp`;
         const subnetGroup = new aws.memorydb.SubnetGroup(subnetGroupName, {
             subnetIds: cacheSubnets.map(t => t.id),
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: subnetGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: subnetGroupName
+            }
         });
         const ingressCidrBlocks = this._config.vpcDetails
             .resolveSubnets(this._config.ingressSubnetNamePrefixes)
@@ -42,7 +46,10 @@ export class MemorydbProvisioner {
                     toPort: memorydbPort,
                     cidrBlocks: ingressCidrBlocks
                 }],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: secGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: secGroupName
+            }
         }, {
         // replaceOnChanges: ["*"]
         });
@@ -58,7 +65,10 @@ export class MemorydbProvisioner {
                     value: "volatile-ttl"
                 }
             ],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: paramGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: paramGroupName
+            }
         });
         const isProd = NfraConfig.env === EnvType.prod;
         const clusterName = `${this._name}-memdb-cluster`;
@@ -77,7 +87,10 @@ export class MemorydbProvisioner {
             autoMinorVersionUpgrade: true,
             numReplicasPerShard: isProd ? 1 : 0,
             parameterGroupName: paramGroup.name,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: clusterName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: clusterName
+            }
         });
         return {
             endpoints: memdbCluster.clusterEndpoints

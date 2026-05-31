@@ -3,6 +3,7 @@ import { given } from "@nivinjoseph/n-defensive";
 import * as aws from "@pulumi/aws";
 import { NfraConfig } from "../../common/nfra-config.js";
 export class AccessUserProvisioner {
+    _name;
     constructor(name) {
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
@@ -11,7 +12,10 @@ export class AccessUserProvisioner {
         const userName = `${this._name}-auser`;
         const user = new aws.iam.User(userName, {
             path: "/system/auser/",
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: userName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: userName
+            }
         });
         const accessKey = new aws.iam.AccessKey(`${this._name}-akey`, {
             user: user.name

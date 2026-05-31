@@ -2,6 +2,7 @@ import { NfraConfig } from "../common/nfra-config.js";
 import * as Path from "node:path";
 import { given } from "@nivinjoseph/n-defensive";
 export class CustomerProvisioner {
+    _customer;
     constructor() {
         const customer = NfraConfig.project;
         given(customer, "customer").ensureHasValue().ensureIsString();

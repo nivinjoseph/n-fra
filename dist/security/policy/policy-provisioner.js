@@ -2,6 +2,8 @@ import { given } from "@nivinjoseph/n-defensive";
 import * as aws from "@pulumi/aws";
 import { NfraConfig } from "../../common/nfra-config.js";
 export class PolicyProvisioner {
+    _name;
+    _config;
     constructor(name, config) {
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
@@ -17,7 +19,10 @@ export class PolicyProvisioner {
         const policy = new aws.iam.Policy(policyName, {
             path: "/",
             policy: this._config.document,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: policyName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: policyName
+            }
         });
         if (this._config.userName != null) {
             new aws.iam.UserPolicyAttachment(`${this._name}-upa`, {

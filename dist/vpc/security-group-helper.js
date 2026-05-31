@@ -47,7 +47,10 @@ export class SecurityGroupHelper {
                 toPort: t.toPort,
                 cidrBlocks: SecurityGroupHelper.resolveCidrBlocks(vpcDetails, t.subnetNamePrefixesOrCidrs)
             })),
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: name })
+            tags: {
+                ...NfraConfig.tags,
+                Name: name
+            }
         }, {
         // replaceOnChanges: ["*"]
         });

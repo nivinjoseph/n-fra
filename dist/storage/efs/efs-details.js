@@ -3,6 +3,9 @@ import { EfsAccessPointDetails } from "./efs-access-point-details.js";
 import * as aws from "@pulumi/aws";
 import { NfraConfig } from "../../common/nfra-config.js";
 export class EfsDetails {
+    _efsName;
+    _fileSystemId;
+    _fileSystemArn;
     get fileSystemId() { return this._fileSystemId; }
     get fileSystemArn() { return this._fileSystemArn; }
     constructor(efsName, fileSystemId, fileSystemArn) {
@@ -14,7 +17,6 @@ export class EfsDetails {
         this._fileSystemArn = fileSystemArn;
     }
     provisionAccessPoint(path, posixUser) {
-        var _a, _b, _c;
         given(path, "path").ensureHasValue().ensureIsString();
         path = path.trim();
         const splitted = path.split("/").where(t => t.isNotEmptyOrWhiteSpace());
@@ -27,9 +29,9 @@ export class EfsDetails {
             permissions: "number"
         });
         path = "/" + splitted.join("/");
-        const uid = (_a = posixUser === null || posixUser === void 0 ? void 0 : posixUser.uid) !== null && _a !== void 0 ? _a : 0; // 0 is superuser?
-        const gid = (_b = posixUser === null || posixUser === void 0 ? void 0 : posixUser.gid) !== null && _b !== void 0 ? _b : 0;
-        const permissions = (_c = posixUser === null || posixUser === void 0 ? void 0 : posixUser.permissions) !== null && _c !== void 0 ? _c : 755;
+        const uid = posixUser?.uid ?? 0; // 0 is superuser?
+        const gid = posixUser?.gid ?? 0;
+        const permissions = posixUser?.permissions ?? 755;
         const accessPointName = `${this._efsName}-efs-ap`;
         const accessPoint = new aws.efs.AccessPoint(accessPointName, {
             fileSystemId: this._fileSystemId,
@@ -42,7 +44,10 @@ export class EfsDetails {
                     permissions: permissions.toString() // "755"
                 }
             },
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: accessPointName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: accessPointName
+            }
         });
         return new EfsAccessPointDetails(accessPoint.id, accessPoint.arn, this);
     }

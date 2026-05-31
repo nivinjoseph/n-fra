@@ -3,6 +3,12 @@ import * as Pulumi from "@pulumi/pulumi";
 import { given } from "@nivinjoseph/n-defensive";
 import { VpcAz } from "../vpc/vpc-az.js";
 export class NfraConfig {
+    static _pulumiAwsConfig = new Pulumi.Config("aws");
+    static _pulumiAppConfig = new Pulumi.Config("nfra");
+    static _userTags = {};
+    static _appEnvOverride = null;
+    static _ecrAwsAccountIdOverride = null;
+    static _ecrAwsRegionOverride = null;
     static get awsAccount() {
         const ids = this._pulumiAwsConfig.require("allowedAccountIds").toString();
         const numbers = "0123456789".split("");
@@ -28,7 +34,11 @@ export class NfraConfig {
         return this._appEnvOverride != null ? this._appEnvOverride() : this.env;
     }
     static get tags() {
-        return Object.assign({ provisioner: "n-fra", env: this.appEnv }, this._userTags);
+        return {
+            provisioner: "n-fra",
+            env: this.appEnv,
+            ...this._userTags
+        };
     }
     static get ecrBase() {
         return `${this.ecrAwsAccountId}.dkr.ecr.${this.ecrAwsRegion}.amazonaws.com`;
@@ -45,8 +55,7 @@ export class NfraConfig {
         this._userTags = tags;
     }
     static getConfig(key) {
-        var _a, _b;
-        return (_b = (_a = this._pulumiAppConfig.get(key)) === null || _a === void 0 ? void 0 : _a.toString()) !== null && _b !== void 0 ? _b : null;
+        return this._pulumiAppConfig.get(key)?.toString() ?? null;
     }
     static requireConfig(key) {
         return this._pulumiAppConfig.require(key).toString();
@@ -64,10 +73,4 @@ export class NfraConfig {
         this._ecrAwsRegionOverride = func;
     }
 }
-NfraConfig._pulumiAwsConfig = new Pulumi.Config("aws");
-NfraConfig._pulumiAppConfig = new Pulumi.Config("nfra");
-NfraConfig._userTags = {};
-NfraConfig._appEnvOverride = null;
-NfraConfig._ecrAwsAccountIdOverride = null;
-NfraConfig._ecrAwsRegionOverride = null;
 //# sourceMappingURL=nfra-config.js.map

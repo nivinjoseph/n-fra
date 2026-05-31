@@ -4,11 +4,13 @@ import { VpcSubnetType } from "./vpc-subnet-type.js";
 import { ArgumentException } from "@nivinjoseph/n-exception";
 import { NfraConfig } from "../common/nfra-config.js";
 export class SubnetPool {
+    _cidrRange;
+    _numSubnets;
+    _availabilityZones = NfraConfig.awsRegionAzs;
+    _allSubnets = new Array();
+    _availableSubnets = new Array();
+    _reservedSubnets = new Array();
     constructor(vpcCidrRange, numSubnets) {
-        this._availabilityZones = NfraConfig.awsRegionAzs;
-        this._allSubnets = new Array();
-        this._availableSubnets = new Array();
-        this._reservedSubnets = new Array();
         given(vpcCidrRange, "vpcCidrRange").ensureHasValue().ensureIsString()
             .ensure(t => SubnetHelper.validateCidrRange(t));
         this._cidrRange = vpcCidrRange.trim();

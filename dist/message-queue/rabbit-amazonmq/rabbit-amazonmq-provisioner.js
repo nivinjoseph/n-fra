@@ -4,6 +4,8 @@ import { NfraConfig } from "../../common/nfra-config.js";
 import * as Random from "@pulumi/random";
 import * as Pulumi from "@pulumi/pulumi";
 export class RabbitAmazonmqProvisioner {
+    _name;
+    _config;
     constructor(name, config) {
         // this._name = CommonHelper.prefixName(name);
         given(name, "name").ensureHasValue().ensureIsString();
@@ -21,7 +23,6 @@ export class RabbitAmazonmqProvisioner {
         this._config = config;
     }
     provision() {
-        var _a, _b;
         const engineVersion = "3.13"; // Valid values: [3.13, 3.12.13, 3.11.28, 3.11.20, 3.11.16, 3.10.25, 3.10.20, 3.10.10, 3.9.27, 3.9.24, 3.9.16, 3.9.13, 3.8.34, 3.8.30, 3.8.27, 3.8.26, 3.8.23, 3.8.22, 3.8.11, 3.8.6]
         const rabbitPort = 5671;
         const ingressCidrBlocks = this._config.vpcDetails
@@ -45,12 +46,15 @@ export class RabbitAmazonmqProvisioner {
                     cidrBlocks: ingressCidrBlocks
                 }
             ],
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: secGroupName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: secGroupName
+            }
         }, {
         // replaceOnChanges: ["*"]
         });
-        const username = (_a = this._config.username) !== null && _a !== void 0 ? _a : "appuser";
-        const password = (_b = this._config.password) !== null && _b !== void 0 ? _b : this._createPassword();
+        const username = this._config.username ?? "appuser";
+        const password = this._config.password ?? this._createPassword();
         const mqSubnets = this._config.vpcDetails
             .resolveSubnets([this._config.subnetNamePrefix]);
         const rabbitBrokerName = `${this._name}-rab-amq`;
@@ -79,7 +83,10 @@ export class RabbitAmazonmqProvisioner {
                     password
                 }],
             // configuration: rabbitConfiguration,
-            tags: Object.assign(Object.assign({}, NfraConfig.tags), { Name: rabbitBrokerName })
+            tags: {
+                ...NfraConfig.tags,
+                Name: rabbitBrokerName
+            }
         }, { ignoreChanges: ["engineVersion"] });
         const rabbitEndpoint = rabbitBroker.instances[0].endpoints[0]
             .apply(t => t.replace("amqps://", "").split(":")[0]);
