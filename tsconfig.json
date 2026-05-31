@@ -1,9 +1,12 @@
 {
     "compilerOptions": {
         "module": "NodeNext",
-        "target": "ES2017",
+        "target": "ES2023",
         "lib": [
             "ES2023"
+        ],
+        "types": [
+            "node"
         ],
         "strict": true,
         "strictNullChecks": true,
@@ -23,7 +26,7 @@
         "noEmitHelpers": true,
         "noImplicitOverride": true,
         "pretty": true,
-        "esModuleInterop": false,
+        "esModuleInterop": true,
         "allowSyntheticDefaultImports": true
     }
 }

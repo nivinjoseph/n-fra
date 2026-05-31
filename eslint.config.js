@@ -11,7 +11,7 @@ export default defineConfig(
     tsEslint.configs.recommended,
     importPlugin.flatConfigs.recommended,
     {
-        ignores: ["dist/**", "node_modules/**", "**/*.js", "**/*.map", "**/*d.ts"]
+        ignores: ["dist/**", "node_modules/**", "**/*.js", "**/*.map", "**/*.d.ts"]
     },
     {
         files: ["**/*.ts"],
@@ -155,7 +155,7 @@ export default defineConfig(
             ],
             "default-param-last": "off",
             "@typescript-eslint/default-param-last": "error",
-            "@typescript-eslint/explicit-function-return-type": "error",
+            "@typescript-eslint/explicit-function-return-type": ["error", { "allowExpressions": true }],
             "@typescript-eslint/explicit-member-accessibility": "error",
             "@typescript-eslint/explicit-module-boundary-types": "error",
             "func-call-spacing": "off",
