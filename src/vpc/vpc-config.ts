@@ -6,5 +6,5 @@ export interface VpcConfig
     cidrRange: string;
     enableVpcFlowLogs?: boolean;
     subnets: ReadonlyArray<VpcSubnetConfig>;
-    numNatGateways?: 1 | 3;
+    numNatGateways?: 0 | 1 | 3;
 }
