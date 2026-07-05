@@ -1,4 +1,4 @@
-import { ensureExhaustiveCheck, given } from "@nivinjoseph/n-defensive";
+import { given } from "@nivinjoseph/n-defensive";
 // import { Mesh } from "@pulumi/aws/appmesh";
 import * as aws from "@pulumi/aws";
 // import { LogGroup } from "@pulumi/aws/cloudwatch";
