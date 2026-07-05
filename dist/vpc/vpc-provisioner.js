@@ -47,7 +47,7 @@ export class VpcProvisioner {
             .ensure(t => t.subnets.every(u => ["public", "private", "isolated"].some(v => u.prefix.contains(v))), "subnet prefixes must have words public, private or isolated in them")
             .ensure(t => t.subnets.every(u => u.name.startsWith(u.prefix)), "subnet names must start with the subnet's prefix")
             // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-            .ensure(t => t.numNatGateways == null || t.numNatGateways === 1 || t.numNatGateways === 3, "numNatGateways must be 1 or 3");
+            .ensure(t => t.numNatGateways == null || t.numNatGateways === 0 || t.numNatGateways === 1 || t.numNatGateways === 3, "numNatGateways must be 0 or 1 or 3");
         config.enableVpcFlowLogs ??= false;
         config.numNatGateways ??= NfraConfig.env === EnvType.prod ? 3 : 1;
         this._config = config;
@@ -132,17 +132,24 @@ export class VpcProvisioner {
                 gatewayId: this._igw.id,
                 destinationCidrBlock: "0.0.0.0/0",
             }, { parent: routeTable, dependsOn: [routeTable] });
-            if (this._config.numNatGateways === 1) {
-                if (this._ngws.size === 0)
-                    this._createNatGateway(subnet, az);
-            }
-            else // numNatGateways === 3
-             {
-                if (this._ngws.size !== 3 && !this._ngws.has(az))
-                    this._createNatGateway(subnet, az);
+            switch (this._config.numNatGateways) {
+                case 0:
+                    break; // do nothing
+                case 1:
+                    {
+                        if (this._ngws.size === 0)
+                            this._createNatGateway(subnet, az);
+                        break;
+                    }
+                case 3:
+                    {
+                        if (this._ngws.size !== 3 && !this._ngws.has(az))
+                            this._createNatGateway(subnet, az);
+                        break;
+                    }
             }
         }
-        if (type === VpcSubnetType.private) {
+        if (type === VpcSubnetType.private && this._config.numNatGateways !== 0) {
             const natGateway = this._config.numNatGateways === 1
                 ? [...this._ngws.values()][0] : this._ngws.get(az);
             new aws.ec2.Route(`${name}-rtr-ngw`, {
