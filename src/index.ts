@@ -51,6 +51,9 @@ export { RedisProvisioner } from "./cache/elasticache-redis/redis-provisioner.js
 
 export { ValkeyConfig } from "./cache/elasticache-valkey/valkey-config.js";
 export { ValkeyDetails } from "./cache/elasticache-valkey/valkey-details.js";
+export { ValkeyDurability } from "./cache/elasticache-valkey/valkey-durability.js";
+export { ValkeyEvictionPolicy } from "./cache/elasticache-valkey/valkey-eviction-policy.js";
+export { ValkeyHaConfig } from "./cache/elasticache-valkey/valkey-ha-config.js";
 export { ValkeyProvisioner } from "./cache/elasticache-valkey/valkey-provisioner.js";
 
 export { MemorydbConfig } from "./cache/elasticache-memorydb/memorydb-config.js";
