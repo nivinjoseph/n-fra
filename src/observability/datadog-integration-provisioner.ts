@@ -7,8 +7,6 @@ import * as datadog from "@pulumi/datadog";
 import { NfraConfig } from "../common/nfra-config.js";
 import { SecretProvisioner } from "../secret/secret-provisioner.js";
 import { DatadogIntegrationConfig } from "./datadog-integration-config.js";
-import { client, v1 } from "@datadog/datadog-api-client";
-import * as Pulumi from "@pulumi/pulumi";
 
 
 export class DatadogIntegrationProvisioner
@@ -53,11 +51,9 @@ export class DatadogIntegrationProvisioner
 
             const roleName = "DatadogIntegrationRole";
 
-            // Create a new Datadog - Amazon Web Services integration
-            const datadogIntegration = new datadog.aws.Integration("datadog-integration", {
-                accountId: NfraConfig.awsAccount,
-                roleName
-            }, {
+            // The external id has to exist before the role, since the role's trust policy references it,
+            // and before the integration account, which is created against it at the end of this method.
+            const datadogExternalId = new datadog.aws.IntegrationExternalId("datadog-external-id", {}, {
                 provider: this._provider
             });
 
@@ -171,7 +167,7 @@ export class DatadogIntegrationProvisioner
                         //         "sts:ExternalId": config.getValue("datadogExternalId")
                         //     }
                         // },
-                        Condition: datadogIntegration.externalId.apply(externalId =>
+                        Condition: datadogExternalId.id.apply(externalId =>
                         {
                             return {
                                 "StringEquals": {
@@ -193,12 +189,12 @@ export class DatadogIntegrationProvisioner
                 }
             });
 
-            new aws.iam.RolePolicyAttachment("datadogPolicyAttachment", {
+            const datadogPolicyAttachment = new aws.iam.RolePolicyAttachment("datadogPolicyAttachment", {
                 role: datadogRole,
                 policyArn: datadogPolicy.arn
             });
 
-            new aws.iam.RolePolicyAttachment("datadogCloudSecurityPolicyAttachment", {
+            const datadogCloudSecurityPolicyAttachment = new aws.iam.RolePolicyAttachment("datadogCloudSecurityPolicyAttachment", {
                 role: datadogRole,
                 // policyArn: "arn:aws:iam::aws:policy/SecurityAudit"
                 policyArn: aws.iam.ManagedPolicy.SecurityAudit
@@ -219,56 +215,56 @@ export class DatadogIntegrationProvisioner
 
             const forwarderLambdaArn = datadogForwarderStack.outputs.apply(t => t["DatadogForwarderArn"]);
 
-            const integrationLambdaArn = new datadog.aws.IntegrationLambdaArn("datadogLambdaCollector", {
-                accountId: NfraConfig.awsAccount,
-                lambdaArn: forwarderLambdaArn
-            }, {
-                provider: this._provider,
-                dependsOn: datadogForwarderStack
+            // Deliberately not guarded. If this fails we cannot know the correct set of sources, and
+            // letting it throw aborts the program before any resource below is registered, leaving an
+            // existing integration untouched. Catching it here would write sources: [] to the live
+            // integration, disabling log collection.
+            const logReadyServices = await datadog.aws.getIntegrationAvailableLogsServices({
+                provider: this._provider
             });
 
-            try
-            {
-                // const logReadyServices = await datadog.aws.getIntegrationLogsServices({ provider: this._provider });
-                // const logServices = logReadyServices.awsLogsServices;
-
-                const logServices = await this._fetchLogReadyService();
-
-                new datadog.aws.IntegrationLogCollection("datadogLogCollection", {
-                    accountId: NfraConfig.awsAccount,
-                    services: logServices.map(t => t.id)
-                }, {
-                    provider: this._provider,
-                    dependsOn: integrationLambdaArn
-                });
-
-                await Pulumi.log.info("Successfully created datadog.aws.IntegrationLogCollection");
-            }
-            catch (e)
-            {
-                await Pulumi.log.warn("Failed to create datadog.aws.IntegrationLogCollection");
-                const error = e as Error;
-                await Pulumi.log.error(error.message);
-            }
-
+            // Metrics, log collection and the lambda forwarder are all configured on this single resource.
+            // It is created last because Datadog validates that it can assume the role at creation time;
+            // because IAM propagation is eventually consistent, a first-time provision can fail transiently
+            // here even though the ordering below is correct. Re-running the deployment resolves it.
+            new datadog.aws.IntegrationAccount("datadog-integration", {
+                awsAccountId: NfraConfig.awsAccount,
+                awsPartition: "aws", // FIXME: The aws_partition property in the Datadog AWS integration (datadog_integration_aws_account or datadog.aws.IntegrationAccount) defines the specific AWS partition your account resides in. Acceptable values are aws for commercial regions, aws-cn for China, and aws-us-gov for GovCloud
+                authConfig: {
+                    awsAuthConfigRole: {
+                        roleName,
+                        externalId: datadogExternalId.id
+                    }
+                },
+                awsRegions: { includeAll: true },
+                logsConfig: {
+                    lambdaForwarder: {
+                        lambdas: [forwarderLambdaArn],
+                        sources: logReadyServices.awsLogsServices
+                    }
+                },
+                // An empty namespaceFilters block applies Datadog's default exclusions of AWS/SQS,
+                // AWS/ElasticMapReduce and AWS/Usage, which keeps CloudWatch GetMetricData costs down.
+                // These namespaces were collected under @pulumi/datadog v4. Set excludeOnlies: [] to go
+                // back to collecting everything.
+                metricsConfig: { namespaceFilters: {} },
+                resourcesConfig: {
+                    extendedCollection: true,
+                    cloudSecurityPostureManagementCollection: true
+                },
+                tracesConfig: { xrayServices: {} }
+            }, {
+                provider: this._provider,
+                dependsOn: [
+                    datadogRole,
+                    datadogPolicyAttachment,
+                    datadogCloudSecurityPolicyAttachment,
+                    datadogForwarderStack
+                ]
+            });
         }
 
         this._configureSlackIntegration();
-    }
-
-    private async _fetchLogReadyService(): Promise<Array<{ id: string; label: string; }>>
-    {
-        const configuration = client.createConfiguration({
-            authMethods: {
-                apiKeyAuth: this._config.apiKey,
-                appKeyAuth: this._config.appKey
-            }
-        });
-        const apiInstance = new v1.AWSLogsIntegrationApi(configuration);
-
-        const result = await apiInstance.listAWSLogsServices();
-
-        return result.map(t => ({ id: t.id!, label: t.label! }));
     }
 
     private _configureSlackIntegration(): void
