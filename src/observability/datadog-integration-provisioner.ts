@@ -7,6 +7,7 @@ import * as datadog from "@pulumi/datadog";
 import { NfraConfig } from "../common/nfra-config.js";
 import { SecretProvisioner } from "../secret/secret-provisioner.js";
 import { DatadogIntegrationConfig } from "./datadog-integration-config.js";
+import type * as Pulumi from "@pulumi/pulumi";
 
 
 export class DatadogIntegrationProvisioner
@@ -25,11 +26,14 @@ export class DatadogIntegrationProvisioner
                 apiKey: "string",
                 appKey: "string",
                 "skipCoreIntegration?": "boolean",
+                "enableFastCrashDetection?": "boolean",
                 "slackConfig?": {
                     slackAccountName: "string",
                     slackChannelName: "string"
                 }
-            });
+            })
+            .ensureWhen(config.enableFastCrashDetection === true, t => t.skipCoreIntegration !== true,
+                "enableFastCrashDetection requires the core integration, which provisions the forwarder lambda");
 
         const dataDogProvider = new datadog.Provider("datadogProvider", {
             apiKey: config.apiKey,
@@ -262,60 +266,210 @@ export class DatadogIntegrationProvisioner
                     datadogForwarderStack
                 ]
             });
+
+            // Depends on the forwarder lambda above, which is why the constructor rejects this flag
+            // being combined with skipCoreIntegration.
+            if (this._config.enableFastCrashDetection === true)
+                this._configureFastCrashDetection(forwarderLambdaArn);
         }
 
         this._configureSlackIntegration();
     }
 
-    private _configureSlackIntegration(): void
+    /**
+     * @description Both monitors need the notification handle, and the channel resource needs the
+     * account and channel names, so the "#" normalization lives here rather than being duplicated.
+     */
+    private _resolveSlackTarget(): { accountName: string; channelName: string; handle: string; } | null
     {
         if (this._config.slackConfig == null)
+            return null;
+
+        const accountName = this._config.slackConfig.slackAccountName.trim();
+
+        let channelName = this._config.slackConfig.slackChannelName.trim();
+        if (!channelName.startsWith("#"))
+            channelName = `#${channelName}`;
+
+        return {
+            accountName,
+            channelName,
+            handle: `@slack-${accountName}-${channelName.substring(1)}`
+        };
+    }
+
+    private _configureSlackIntegration(): void
+    {
+        const slackTarget = this._resolveSlackTarget();
+        if (slackTarget == null)
             return;
 
-        let slackChannelName = this._config.slackConfig.slackChannelName.trim();
-        if (!slackChannelName.startsWith("#"))
-            slackChannelName = `#${slackChannelName}`;
+        const { accountName: slackAccountName, channelName: slackChannelName } = slackTarget;
 
-        // new datadog.slack.Channel("datadogAlertsChannel", {
-        //     accountName: slackChannelName,
-        //     display: {
-        //         message: true,
-        //         snapshot: true,
-        //         tags: true,
-        //         notified: true
-        //     }
-        // }, {
-        //     provider: this._provider
-        // }); this._config.slackConfig.slackAccountName.trim(),
-        //     channelName:
+        // Registers the channel against an already connected Slack account. Connecting the Slack
+        // workspace to Datadog is an OAuth flow that cannot be automated, so it has to be done by
+        // hand in the Datadog UI. Without it the @ handle below resolves to nothing and Datadog
+        // drops the notification silently rather than reporting an error.
+        new datadog.slack.Channel("datadogAlertsChannel", {
+            accountName: slackAccountName,
+            channelName: slackChannelName, // Datadog expects the leading "#"
+            display: {
+                message: true,
+                snapshot: true,
+                tags: true,
+                notified: true
+            }
+        }, {
+            provider: this._provider
+        });
 
-        const notificationSlackChannel = `@slack-${this._config.slackConfig.slackAccountName.trim()}-${slackChannelName.substring(1)}`;
+        const notificationSlackChannel = slackTarget.handle;
+
+        // The env tag comes from NfraConfig.tags, which uses appEnv rather than the stack name.
+        const appEnv = NfraConfig.appEnv;
+
+        // aws.ecs.service.* is tagged by servicename, not service. The service tag only exists on
+        // agent emitted telemetry, so filtering on it here would silently match nothing.
+        const serviceFilter = `!servicename:*tableau*, env:${appEnv}`;
+
+        // A crash looping container gets replaced by ECS, so watching for a drop in running tasks
+        // detects deployments and autoscaling rather than failures. Comparing running against
+        // desired isolates the actual failure: tasks that cannot stay up. An intentional scale down
+        // moves desired too, so it cancels out.
+        // The -0.5 threshold tolerates brief dips; a plain < 0 would fire on a single task being
+        // absent for one minute out of fifteen. It has to match options.thresholds.critical below.
+        const query = `avg(last_15m):( sum:aws.ecs.service.running{${serviceFilter}} by {servicename,env}`
+            + ` - sum:aws.ecs.service.desired{${serviceFilter}} by {servicename,env} ) < -0.5`;
 
         new datadog.MonitorJson("ecs-service-restart-monitor", {
             monitor: JSON.stringify({
-                "name": `${NfraConfig.project} [${NfraConfig.env}] {{servicename.name}} has been restarting frequently`,
+                "name": `${NfraConfig.project} [${appEnv}] {{servicename.name}} has fewer running tasks than desired`,
                 "type": "query alert",
-                "query": `change(avg(last_1h),last_15m):sum:aws.ecs.service.running{!service:*tableau* , env:${NfraConfig.env}} by {servicename,env} < 0`,
-                "message": `Action required.\n \n ${notificationSlackChannel}`,
+                "query": query,
+                "message": `Action required. Tasks are failing to stay running.\n \n ${notificationSlackChannel}`,
                 "tags": [],
                 "options": {
                     "notify_audit": true,
                     "renotify_statuses": [
-                        "alert",
-                        "no data"
+                        "alert"
                     ],
-                    "silenced": {},
                     "include_tags": false,
                     "thresholds": {
-                        "critical": 0
+                        "critical": -0.5
                     },
                     "require_full_window": false,
-                    "notify_no_data": true,
+                    // The query spans two metrics, so a gap in either one reads as no data. Alerting
+                    // on that would re-notify forever for every decommissioned service; whether the
+                    // AWS integration is still reporting is a separate concern from crash detection.
+                    "notify_no_data": false,
                     "renotify_interval": 20,
+                    // Datadog crawls the ECS API roughly every 10 minutes, so evaluating anything
+                    // more recent than this reads a partial window.
                     "evaluation_delay": 1200,
                     "new_group_delay": 300,
-                    "no_data_timeframe": 60,
-                    "escalation_message": `{{env}} {{servicename.name}} is still restarting frequently. Somebody do something.\n \n ${notificationSlackChannel}`
+                    "escalation_message": `{{env.name}} {{servicename.name}} still has fewer running tasks than desired. Somebody do something.\n \n ${notificationSlackChannel}`
+                },
+                "priority": 1,
+                "restricted_roles": null
+            })
+        }, {
+            provider: this._provider
+        });
+    }
+
+    /**
+     * @description The metric based monitor above cannot react faster than Datadog's ~10 minute ECS
+     * crawl. ECS publishes task state changes to EventBridge within seconds, so routing those through
+     * the forwarder lambda gets the detection latency down to a couple of minutes. The agent cannot be
+     * used for this: on Fargate it is a sidecar that dies along with the task it would report on.
+     */
+    private _configureFastCrashDetection(forwarderLambdaArn: Pulumi.Output<string>): void
+    {
+        const appEnv = NfraConfig.appEnv;
+        const ruleName = "ecs-task-crash";
+
+        // Matching on stoppedReason rather than on a non-zero exitCode is deliberate. Apps are
+        // deployed with deploymentMinimumHealthyPercent 0, so every task is stopped on every deploy,
+        // and any container that does not handle SIGTERM within the stop timeout is SIGKILLed and
+        // exits 137 - indistinguishable from a crash. stoppedReason carries the intent: ECS reports
+        // "Essential container in task exited" when the container died on its own, versus
+        // "Scaling activity initiated by (deployment ...)" for a deliberate stop.
+        const crashRule = new aws.cloudwatch.EventRule(ruleName, {
+            description: "Forwards crashed ECS tasks to Datadog",
+            eventPattern: JSON.stringify({
+                "source": ["aws.ecs"],
+                "detail-type": ["ECS Task State Change"],
+                "detail": {
+                    "lastStatus": ["STOPPED"],
+                    "stoppedReason": [
+                        { "prefix": "Essential container in task exited" },
+                        { "prefix": "OutOfMemoryError" }
+                    ]
+                }
+            }),
+            tags: {
+                Name: ruleName,
+                ...NfraConfig.tags
+            }
+        });
+
+        // The forwarder honours ddsource, ddtags and service when they are present in the payload, so
+        // the event is reshaped here instead of relying on how it tags a directly invoked lambda.
+        // Note this is EventBridge template syntax rather than JSON: <var> substitutes the value
+        // along with its quotes, so the placeholders must not be quoted here.
+        const inputTemplate = `{"ddsource":"${ruleName}","service":"ecs","ddtags":"env:${appEnv}",`
+            + `"group":<group>,"clusterArn":<cluster>,"stoppedReason":<reason>,"taskArn":<taskArn>}`;
+
+        new aws.cloudwatch.EventTarget(`${ruleName}-target`, {
+            rule: crashRule.name,
+            arn: forwarderLambdaArn,
+            inputTransformer: {
+                inputPaths: {
+                    cluster: "$.detail.clusterArn",
+                    group: "$.detail.group",
+                    reason: "$.detail.stoppedReason",
+                    taskArn: "$.detail.taskArn"
+                },
+                inputTemplate
+            }
+        });
+
+        // Without this EventBridge silently fails to invoke the forwarder.
+        new aws.lambda.Permission(`${ruleName}-permission`, {
+            action: "lambda:InvokeFunction",
+            function: forwarderLambdaArn,
+            principal: "events.amazonaws.com",
+            sourceArn: crashRule.arn
+        });
+
+        const slackTarget = this._resolveSlackTarget();
+        const notification = slackTarget != null ? `\n \n ${slackTarget.handle}` : "";
+
+        // detail.group is of the form "service:<name>", so grouping by it gives per service alerting.
+        // Three crashes inside 10 minutes is a crash loop rather than a one off failure.
+        const query = `logs("source:${ruleName} env:${appEnv}").index("*").rollup("count").by("@group").last("10m") >= 3`;
+
+        new datadog.MonitorJson(`${ruleName}-monitor`, {
+            monitor: JSON.stringify({
+                "name": `${NfraConfig.project} [${appEnv}] {{@group}} is crash looping`,
+                "type": "log alert",
+                "query": query,
+                "message": `Action required. Containers are exiting repeatedly.${notification}`,
+                "tags": [],
+                "options": {
+                    "notify_audit": true,
+                    "renotify_statuses": [
+                        "alert"
+                    ],
+                    "include_tags": false,
+                    "thresholds": {
+                        "critical": 3
+                    },
+                    "enable_logs_sample": true,
+                    "groupby_simple_monitor": false,
+                    "notify_no_data": false,
+                    "renotify_interval": 20,
+                    "escalation_message": `{{@group}} is still crash looping. Somebody do something.${notification}`
                 },
                 "priority": 1,
                 "restricted_roles": null
