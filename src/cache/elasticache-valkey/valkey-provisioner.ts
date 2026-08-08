@@ -5,7 +5,6 @@ import { ValkeyConfig } from "./valkey-config.js";
 import { NfraConfig } from "../../common/nfra-config.js";
 import { EnvType } from "../../common/env-type.js";
 import { ValkeyDetails } from "./valkey-details.js";
-import { ValkeyDurability } from "./valkey-durability.js";
 import { ValkeyEvictionPolicy } from "./valkey-eviction-policy.js";
 
 
@@ -13,6 +12,12 @@ export class ValkeyProvisioner
 {
     private static readonly _engineVersion = "9.1";
     private static readonly _paramGroupFamily = "valkey9";
+
+    /**
+     * @description A replication group is capped at 6 cache clusters (1 primary plus 5 replicas),
+     * and replicas per node group is capped at 5.
+     */
+    private static readonly _maxReplicasPerShard = 5;
 
     /**
      * @description Node type families that support durability.
@@ -35,36 +40,48 @@ export class ValkeyProvisioner
             ingressSubnetNamePrefixes: ["string"],
             nodeType: "string",
             "evictionPolicy?": "string",
+            "isTlsEnabled?": "boolean",
             "haConfig?": {
-                "durability?": "string",
-                "numShards?": "number",
-                "numReplicasPerShard?": "number"
+                "numReplicasPerShard?": "number",
+                "reliabilityConfig?": {
+                    "numShards?": "number"
+                }
             }
         });
 
         const haConfig = config.haConfig;
+        const reliabilityConfig = haConfig?.reliabilityConfig;
 
-        config.evictionPolicy ??= haConfig != null
-            ? ValkeyEvictionPolicy.volatileTtl
+        config.isTlsEnabled ??= haConfig != null;
+        config.evictionPolicy ??= reliabilityConfig != null
+            ? ValkeyEvictionPolicy.noeviction
             : ValkeyEvictionPolicy.allkeysLru;
         given(config.evictionPolicy as string, "config.evictionPolicy").ensureIsEnum(ValkeyEvictionPolicy);
 
         if (haConfig != null)
         {
-            haConfig.durability ??= ValkeyDurability.sync;
-            haConfig.numShards ??= 1;
             haConfig.numReplicasPerShard ??= 1;
 
-            given(haConfig.durability as string, "config.haConfig.durability").ensureIsEnum(ValkeyDurability);
+            given(haConfig, "config.haConfig").ensure(
+                t => t.numReplicasPerShard! >= 1 && t.numReplicasPerShard! <= ValkeyProvisioner._maxReplicasPerShard,
+                `numReplicasPerShard must be between 1 and ${ValkeyProvisioner._maxReplicasPerShard}`);
+        }
 
-            given(haConfig, "config.haConfig")
-                .ensure(t => t.numShards! >= 1, "numShards must be at least 1")
-                .ensure(t => t.numReplicasPerShard! >= 1, "durability requires at least 1 replica per shard");
+        if (reliabilityConfig != null)
+        {
+            reliabilityConfig.numShards ??= 1;
 
-            given(config, "config").ensure(
-                t => t.nodeType.split(".").length === 3
-                    && ValkeyProvisioner._durableNodeTypeFamilies.contains(t.nodeType.split(".")[1]),
-                `haConfig requires a node type from one of the following families: ${ValkeyProvisioner._durableNodeTypeFamilies.join(", ")}`);
+            given(reliabilityConfig, "config.haConfig.reliabilityConfig").ensure(
+                t => t.numShards! >= 1, "numShards must be at least 1");
+
+            given(config, "config")
+                .ensure(
+                    t => t.isTlsEnabled === true,
+                    "reliabilityConfig requires in transit encryption; isTlsEnabled cannot be false")
+                .ensure(
+                    t => t.nodeType.split(".").length === 3
+                        && ValkeyProvisioner._durableNodeTypeFamilies.contains(t.nodeType.split(".")[1]),
+                    `reliabilityConfig requires a node type from one of the following families: ${ValkeyProvisioner._durableNodeTypeFamilies.join(", ")}`);
         }
 
         this._config = config;
@@ -76,11 +93,14 @@ export class ValkeyProvisioner
         const valkeyPort = 6379;
 
         const haConfig = this._config.haConfig;
+        const reliabilityConfig = haConfig?.reliabilityConfig;
+
         const isHA = haConfig != null;
-        // durability mandates in transit encryption at cluster creation,
-        // and is only supported on cluster mode enabled clusters
-        const isTls = isHA;
-        const isClusterMode = isHA;
+        const isTls = this._config.isTlsEnabled!;
+        // durability is only supported on cluster mode enabled clusters
+        const isClusterMode = reliabilityConfig != null;
+        // cluster mode disabled node count, the primary included
+        const numCacheClusters = isHA ? 1 + haConfig.numReplicasPerShard! : 1;
 
         const cacheSubnets = this._config.vpcDetails
             .resolveSubnets([this._config.subnetNamePrefix]);
@@ -90,6 +110,11 @@ export class ValkeyProvisioner
         given(cacheSubnetAzs, "cacheSubnetAzs").ensure(
             t => t.length >= (isHA ? 2 : 1),
             `the cache subnets resolved from subnetNamePrefix '${this._config.subnetNamePrefix}' must span at least ${isHA ? 2 : 1} availability zones`);
+
+        // the az list handed to preferredCacheClusterAzs must be exactly as long as
+        // numCacheClusters, so cycle through the available azs when there are more nodes than azs
+        const resolveAzs = (count: number): Array<string> =>
+            Array.from({ length: count }, (_, i) => cacheSubnetAzs[i % cacheSubnetAzs.length]);
 
         const subnetGroupName = `${this._name}-vk-sgrp`;
         const subnetGroup = new aws.elasticache.SubnetGroup(subnetGroupName, {
@@ -144,28 +169,28 @@ export class ValkeyProvisioner
         // annotated so that every key is checked against the resource args;
         // spreading an unannotated object literal would silently drop a mistyped key.
         //
-        // note the two apis count differently: numCacheClusters is the total node count with
-        // the primary included, whereas replicasPerNodeGroup excludes the primary, so the
-        // durable node count is numShards * (1 + numReplicasPerShard)
-        const topologyArgs: Partial<aws.elasticache.ReplicationGroupArgs> = haConfig != null
+        // note the two apis count differently: numCacheClusters is the total node count with the
+        // primary included, whereas replicasPerNodeGroup excludes the primary, so the cluster mode
+        // enabled node count is numShards * (1 + numReplicasPerShard)
+        const topologyArgs: Partial<aws.elasticache.ReplicationGroupArgs> = reliabilityConfig != null
             ? {
                 // durability requires cluster mode enabled, multi AZ with at least one replica
                 // per shard, and in transit encryption enabled at creation
-                durability: haConfig.durability,
-                numNodeGroups: haConfig.numShards,
-                replicasPerNodeGroup: haConfig.numReplicasPerShard,
+                durability: "sync",
+                numNodeGroups: reliabilityConfig.numShards,
+                replicasPerNodeGroup: haConfig!.numReplicasPerShard,
                 multiAzEnabled: true,
-                automaticFailoverEnabled: true,
-                transitEncryptionEnabled: true,
-                transitEncryptionMode: "required"
+                automaticFailoverEnabled: true
+                // preferredCacheClusterAzs is ignored past one node group, so it is left unset
+                // and elasticache distributes the nodes across the subnet group itself
             }
             : {
-                numCacheClusters: 1,
-                // must be covered by the subnet group, and must match numCacheClusters in length
-                preferredCacheClusterAzs: cacheSubnetAzs.take(1),
-                multiAzEnabled: false,
-                automaticFailoverEnabled: false,
-                transitEncryptionEnabled: false
+                numCacheClusters,
+                // must be covered by the subnet group, and must match numCacheClusters in length.
+                // the first entry becomes the primary
+                preferredCacheClusterAzs: resolveAzs(numCacheClusters),
+                multiAzEnabled: isHA,
+                automaticFailoverEnabled: isHA
             };
 
         const isProd = NfraConfig.env === EnvType.prod;
@@ -180,6 +205,8 @@ export class ValkeyProvisioner
             parameterGroupName: paramGroup.name,
             nodeType: this._config.nodeType,
             port: valkeyPort,
+            transitEncryptionEnabled: isTls,
+            ...isTls ? { transitEncryptionMode: "required" } : {},
             atRestEncryptionEnabled: true,
             snapshotWindow: "05:00-09:00",
             snapshotRetentionLimit: isProd ? 5 : 1,
