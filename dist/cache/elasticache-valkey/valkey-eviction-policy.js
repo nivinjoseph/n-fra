@@ -16,5 +16,11 @@ export var ValkeyEvictionPolicy;
      * data. Appropriate for a data store.
      */
     ValkeyEvictionPolicy["volatileTtl"] = "volatile-ttl";
+    /**
+     * @description Never evict. Once memory fills, writes fail with an out of memory error
+     * instead of discarding data. Appropriate for a store and forward workload, where losing
+     * any record is unacceptable.
+     */
+    ValkeyEvictionPolicy["noeviction"] = "noeviction";
 })(ValkeyEvictionPolicy || (ValkeyEvictionPolicy = {}));
 //# sourceMappingURL=valkey-eviction-policy.js.map

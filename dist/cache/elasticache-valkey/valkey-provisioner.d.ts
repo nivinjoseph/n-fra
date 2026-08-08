@@ -4,6 +4,11 @@ export declare class ValkeyProvisioner {
     private static readonly _engineVersion;
     private static readonly _paramGroupFamily;
     /**
+     * @description A replication group is capped at 6 cache clusters (1 primary plus 5 replicas),
+     * and replicas per node group is capped at 5.
+     */
+    private static readonly _maxReplicasPerShard;
+    /**
      * @description Node type families that support durability.
      * https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/Durability.Limitations.html
      */

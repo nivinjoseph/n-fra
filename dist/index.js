@@ -21,7 +21,6 @@ export { KafkaMskProvisionedProvisioner } from "./message-queue/kafka-msk-provis
 export { RabbitAmazonmqInstanceType } from "./message-queue/rabbit-amazonmq/rabbit-amazonmq-config.js";
 export { RabbitAmazonmqProvisioner } from "./message-queue/rabbit-amazonmq/rabbit-amazonmq-provisioner.js";
 export { RedisProvisioner } from "./cache/elasticache-redis/redis-provisioner.js";
-export { ValkeyDurability } from "./cache/elasticache-valkey/valkey-durability.js";
 export { ValkeyEvictionPolicy } from "./cache/elasticache-valkey/valkey-eviction-policy.js";
 export { ValkeyProvisioner } from "./cache/elasticache-valkey/valkey-provisioner.js";
 export { MemorydbProvisioner } from "./cache/elasticache-memorydb/memorydb-provisioner.js";
