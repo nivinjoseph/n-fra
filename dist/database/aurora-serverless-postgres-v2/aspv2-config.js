@@ -6,5 +6,6 @@ export var Aspv2DbEngineVersion;
     Aspv2DbEngineVersion[Aspv2DbEngineVersion["v15"] = 15] = "v15";
     Aspv2DbEngineVersion[Aspv2DbEngineVersion["v16"] = 16] = "v16";
     Aspv2DbEngineVersion[Aspv2DbEngineVersion["v17"] = 17] = "v17";
+    Aspv2DbEngineVersion[Aspv2DbEngineVersion["v18"] = 18] = "v18";
 })(Aspv2DbEngineVersion || (Aspv2DbEngineVersion = {}));
 //# sourceMappingURL=aspv2-config.js.map
