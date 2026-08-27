@@ -16,6 +16,13 @@ export interface Aspv2Config
     maxCapacity: number;
     deletionProtection: boolean;
     skipFinalSnapshot: boolean;
+    /**
+     * @description Defaults to false. When false, an RDS Proxy is provisioned and
+     * Aspv2Details host/readerHost point at the proxy's writer and read-only endpoints.
+     * When true, the proxy and its supporting IAM role and security group are skipped,
+     * and host/readerHost point directly at the cluster's writer and reader endpoints.
+     */
+    disableProxy?: boolean;
 }
 
 export enum Aspv2DbEngineVersion

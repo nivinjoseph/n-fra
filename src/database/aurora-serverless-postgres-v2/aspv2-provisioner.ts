@@ -38,7 +38,8 @@ export class Aspv2Provisioner
                 minCapacity: "number",
                 maxCapacity: "number",
                 deletionProtection: "boolean",
-                skipFinalSnapshot: "boolean"
+                skipFinalSnapshot: "boolean",
+                "disableProxy?": "boolean"
             })
             .ensureWhen(
                 config.engineVersion != null,
@@ -63,6 +64,8 @@ export class Aspv2Provisioner
         config.engineVersion ??= 17;
 
         config.numClusterInstances ??= NfraConfig.env === EnvType.prod ? 3 : 1;
+
+        config.disableProxy ??= false;
 
         this._config = config;
     }
@@ -89,29 +92,41 @@ export class Aspv2Provisioner
             .map(u => u.cidrBlock);
         // .apply(subnets => subnets.map(u => u.cidrBlock));
 
-        const proxySecGroupName = `${this._name}-proxy-sg`;
-        const dbProxySecGroup = new aws.ec2.SecurityGroup(proxySecGroupName, {
-            vpcId: this._config.vpcDetails.vpc.id,
-            revokeRulesOnDelete: true,
-            ingress: [{
-                protocol: "tcp",
-                fromPort: postgresDbPort,
-                toPort: postgresDbPort,
-                cidrBlocks: ingressCidrBlocks
-            }],
-            egress: [{
-                protocol: "tcp",
-                fromPort: postgresDbPort,
-                toPort: postgresDbPort,
-                cidrBlocks: dbSubnets.map(t => t.cidrBlock)
-            }],
-            tags: {
-                ...NfraConfig.tags,
-                Name: proxySecGroupName
-            }
-        }, {
-            // replaceOnChanges: ["*"]
-        });
+        const enableProxy = !this._config.disableProxy!;
+
+        let dbProxySecGroup: aws.ec2.SecurityGroup | undefined;
+        if (enableProxy)
+        {
+            const proxySecGroupName = `${this._name}-proxy-sg`;
+            dbProxySecGroup = new aws.ec2.SecurityGroup(proxySecGroupName, {
+                vpcId: this._config.vpcDetails.vpc.id,
+                revokeRulesOnDelete: true,
+                ingress: [{
+                    protocol: "tcp",
+                    fromPort: postgresDbPort,
+                    toPort: postgresDbPort,
+                    cidrBlocks: ingressCidrBlocks
+                }],
+                egress: [{
+                    protocol: "tcp",
+                    fromPort: postgresDbPort,
+                    toPort: postgresDbPort,
+                    cidrBlocks: dbSubnets.map(t => t.cidrBlock)
+                }],
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: proxySecGroupName
+                }
+            }, {
+                // replaceOnChanges: ["*"]
+            });
+        }
+
+        // with a proxy, traffic arrives from the proxy; without one, clients connect directly
+        const dbSecGroupIngressSource: Pick<aws.types.input.ec2.SecurityGroupIngress, "securityGroups" | "cidrBlocks">
+            = dbProxySecGroup != null
+                ? { securityGroups: [dbProxySecGroup.id] }
+                : { cidrBlocks: ingressCidrBlocks };
 
         const dbSecGroupName = `${this._name}-db-sg`;
         const dbSecGroup = new aws.ec2.SecurityGroup(dbSecGroupName, {
@@ -122,7 +137,7 @@ export class Aspv2Provisioner
                 protocol: "tcp",
                 fromPort: postgresDbPort,
                 toPort: postgresDbPort,
-                securityGroups: [dbProxySecGroup.id]
+                ...dbSecGroupIngressSource
                 // sourceSecurityGroupId: dbProxySecGroup.id
             }],
             tags: {
@@ -298,106 +313,115 @@ export class Aspv2Provisioner
             secretString: Pulumi.interpolate`{"username": "${username}", "password": "${password}"}`
         });
 
-        const assumeRolePolicyDocument: aws.iam.PolicyDocument = {
-            Version: "2012-10-17",
-            Statement: [
-                {
-                    Action: "sts:AssumeRole",
-                    Effect: "Allow",
-                    "Principal": {
-                        "Service": "rds.amazonaws.com"
-                    }
-                }
-            ]
-        };
+        let host: Pulumi.Output<string> = postgresDbCluster.endpoint;
+        let readerHost: Pulumi.Output<string> = postgresDbCluster.readerEndpoint;
 
-        const dbProxyRoleName = `${this._name}-dbp-role`;
-        const dbProxyRole = new aws.iam.Role(dbProxyRoleName, {
-            assumeRolePolicy: assumeRolePolicyDocument,
-            tags: {
-                ...NfraConfig.tags,
-                Name: dbProxyRoleName
-            }
-        });
+        if (enableProxy)
+        {
+            const proxySecGroupId = dbProxySecGroup!.id;
 
-        new aws.secretsmanager.SecretPolicy(`${this._name}-dbc-secret-policy`, {
-            secretArn: dbCredsSecret.arn,
-            policy: Pulumi.all([dbProxyRole.arn, dbCredsSecret.arn]).apply(([roleArn, secretArn]) =>
-            {
-                return JSON.stringify(<aws.iam.PolicyDocument>{
-                    "Version": "2012-10-17",
-                    "Statement": [
-                        {
-                            "Sid": "EnableRdsProxyToReadTheSecret",
-                            "Effect": "Allow",
-                            "Principal": {
-                                "AWS": roleArn
-                            },
-                            "Action": "secretsmanager:GetSecretValue",
-                            "Resource": secretArn
+            const assumeRolePolicyDocument: aws.iam.PolicyDocument = {
+                Version: "2012-10-17",
+                Statement: [
+                    {
+                        Action: "sts:AssumeRole",
+                        Effect: "Allow",
+                        "Principal": {
+                            "Service": "rds.amazonaws.com"
                         }
-                    ]
-                });
-            })
-        });
+                    }
+                ]
+            };
 
-        // TODO: DB proxy must be optional
+            const dbProxyRoleName = `${this._name}-dbp-role`;
+            const dbProxyRole = new aws.iam.Role(dbProxyRoleName, {
+                assumeRolePolicy: assumeRolePolicyDocument,
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: dbProxyRoleName
+                }
+            });
 
-        const dbProxyName = `${this._name}-dbp`;
-        const dbProxy = new aws.rds.Proxy(dbProxyName, {
-            debugLogging: false,
-            engineFamily: "POSTGRESQL",
-            idleClientTimeout: 1800,
-            requireTls: false,
-            roleArn: dbProxyRole.arn,
-            vpcSecurityGroupIds: [dbProxySecGroup.id],
-            vpcSubnetIds: dbSubnets.map(t => t.id),
-            auths: [{
-                authScheme: "SECRETS",
-                iamAuth: "DISABLED",
-                secretArn: dbCredsSecret.arn
-            }],
-            tags: {
-                ...NfraConfig.tags,
-                Name: dbProxyName
-            }
-        }, { dependsOn: clusterInstances });
+            new aws.secretsmanager.SecretPolicy(`${this._name}-dbc-secret-policy`, {
+                secretArn: dbCredsSecret.arn,
+                policy: Pulumi.all([dbProxyRole.arn, dbCredsSecret.arn]).apply(([roleArn, secretArn]) =>
+                {
+                    return JSON.stringify(<aws.iam.PolicyDocument>{
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Sid": "EnableRdsProxyToReadTheSecret",
+                                "Effect": "Allow",
+                                "Principal": {
+                                    "AWS": roleArn
+                                },
+                                "Action": "secretsmanager:GetSecretValue",
+                                "Resource": secretArn
+                            }
+                        ]
+                    });
+                })
+            });
 
-        const dbProxyDefaultTargetGroup = new aws.rds.ProxyDefaultTargetGroup(`${this._name}-dbp-dft-tgrp`, {
-            dbProxyName: dbProxy.name,
-            connectionPoolConfig: {
-                connectionBorrowTimeout: 120,
-                maxConnectionsPercent: 100,
-                maxIdleConnectionsPercent: 50
-            }
-        });
+            const dbProxyName = `${this._name}-dbp`;
+            const dbProxy = new aws.rds.Proxy(dbProxyName, {
+                debugLogging: false,
+                engineFamily: "POSTGRESQL",
+                idleClientTimeout: 1800,
+                requireTls: false,
+                roleArn: dbProxyRole.arn,
+                vpcSecurityGroupIds: [proxySecGroupId],
+                vpcSubnetIds: dbSubnets.map(t => t.id),
+                auths: [{
+                    authScheme: "SECRETS",
+                    iamAuth: "DISABLED",
+                    secretArn: dbCredsSecret.arn
+                }],
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: dbProxyName
+                }
+            }, { dependsOn: clusterInstances });
 
-        new aws.rds.ProxyTarget(`${this._name}-dbp-tg`, {
-            dbClusterIdentifier: postgresDbCluster.id,
-            dbProxyName: dbProxy.name,
-            targetGroupName: dbProxyDefaultTargetGroup.name
-        });
+            const dbProxyDefaultTargetGroup = new aws.rds.ProxyDefaultTargetGroup(`${this._name}-dbp-dft-tgrp`, {
+                dbProxyName: dbProxy.name,
+                connectionPoolConfig: {
+                    connectionBorrowTimeout: 120,
+                    maxConnectionsPercent: 100,
+                    maxIdleConnectionsPercent: 50
+                }
+            });
 
-        const dbProxyReadonlyEndpointName = `${this._name}-dbp-roep`;
-        const dbProxyReadonlyEndpoint = new aws.rds.ProxyEndpoint(dbProxyReadonlyEndpointName, {
-            dbProxyName: dbProxy.name,
-            dbProxyEndpointName: dbProxyReadonlyEndpointName,
-            targetRole: "READ_ONLY",
-            vpcSecurityGroupIds: [dbProxySecGroup.id],
-            vpcSubnetIds: dbSubnets.map(t => t.id),
-            tags: {
-                ...NfraConfig.tags,
-                Name: dbProxyReadonlyEndpointName
-            }
-        });
+            new aws.rds.ProxyTarget(`${this._name}-dbp-tg`, {
+                dbClusterIdentifier: postgresDbCluster.id,
+                dbProxyName: dbProxy.name,
+                targetGroupName: dbProxyDefaultTargetGroup.name
+            });
+
+            const dbProxyReadonlyEndpointName = `${this._name}-dbp-roep`;
+            const dbProxyReadonlyEndpoint = new aws.rds.ProxyEndpoint(dbProxyReadonlyEndpointName, {
+                dbProxyName: dbProxy.name,
+                dbProxyEndpointName: dbProxyReadonlyEndpointName,
+                targetRole: "READ_ONLY",
+                vpcSecurityGroupIds: [proxySecGroupId],
+                vpcSubnetIds: dbSubnets.map(t => t.id),
+                tags: {
+                    ...NfraConfig.tags,
+                    Name: dbProxyReadonlyEndpointName
+                }
+            });
+
+            host = dbProxy.endpoint;
+            readerHost = dbProxyReadonlyEndpoint.endpoint;
+        }
 
         return {
-            host: dbProxy.endpoint,
+            host,
             port: postgresDbPort,
             databaseName: postgresDbCluster.databaseName,
             username: postgresDbCluster.masterUsername,
             password: postgresDbCluster.masterPassword as Pulumi.Output<string>,
-            readerHost: dbProxyReadonlyEndpoint.endpoint
+            readerHost
         };
     }
 
