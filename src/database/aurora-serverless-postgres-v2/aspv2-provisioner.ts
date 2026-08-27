@@ -43,8 +43,8 @@ export class Aspv2Provisioner
             })
             .ensureWhen(
                 config.engineVersion != null,
-                (t) => [12, 13, 14, 15, 16, 17].contains(t.engineVersion!),
-                "engine version must be 12, 13, 14, 15, 16 or 17"
+                (t) => [12, 13, 14, 15, 16, 17, 18].contains(t.engineVersion!),
+                "engine version must be 12, 13, 14, 15, 16, 17 or 18"
             )
             .ensure(
                 t => !(t.databaseName == null && t.restoreSnapshotId == null),
@@ -150,10 +150,12 @@ export class Aspv2Provisioner
         const password = this._config.password
             ?? this._createPassword();
 
+        const majorVersion = this._config.engineVersion!;
+
         let engineVersion = "";
         let clusterParameterGroupName: Pulumi.Input<string> = "";
         let clusterParameterGroup: aws.rds.ClusterParameterGroup | undefined;
-        switch (this._config.engineVersion!)
+        switch (majorVersion)
         {
             case 12:
                 engineVersion = "12.22";
@@ -230,8 +232,29 @@ export class Aspv2Provisioner
 
                     break;
                 }
+            case 18:
+                {
+                    engineVersion = "18.4";
+
+                    const clusterParamGroupName = `${this._name}-postgres18-cls-param-grp`;
+                    clusterParameterGroup = new aws.rds.ClusterParameterGroup(clusterParamGroupName, {
+                        family: "aurora-postgresql18",
+                        parameters: [{
+                            name: "rds.force_ssl",
+                            value: "0",
+                            applyMethod: "immediate"
+                        }],
+                        tags: {
+                            ...NfraConfig.tags,
+                            Name: clusterParamGroupName
+                        }
+                    });
+                    clusterParameterGroupName = clusterParameterGroup.name;
+
+                    break;
+                }
             default:
-                ensureExhaustiveCheck(this._config.engineVersion! as never);
+                ensureExhaustiveCheck(majorVersion);
         }
 
         const isProd = NfraConfig.env === EnvType.prod;
