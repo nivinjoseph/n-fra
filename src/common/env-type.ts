@@ -1,5 +1,5 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { NfraConfig } from "../../dist/index.js";
+import { NfraConfig } from "./nfra-config.js";
 
 export enum EnvType
 {
