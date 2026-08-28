@@ -1,7 +1,7 @@
 import "@nivinjoseph/n-ext";
 // common
 export { CommonHelper } from "./common/common-helper.js";
-export { EnvType } from "./common/env-type.js";
+export { EnvType, isEnv } from "./common/env-type.js";
 export { Logger } from "./common/logger.js";
 export { NfraConfig } from "./common/nfra-config.js";
 export { DatadogIntegrationProvisioner } from "./observability/datadog-integration-provisioner.js";
