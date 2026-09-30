@@ -1,6 +1,6 @@
 {
     "name": "@nivinjoseph/n-fra",
-    "version": "5.0.5",
+    "version": "5.0.6",
     "description": "Infrastructure library",
     "packageManager": "yarn@4.15.0",
     "type": "module",
