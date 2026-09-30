@@ -410,7 +410,7 @@ export class AppProvisioner {
             scalableDimension: asTarget.scalableDimension,
             serviceNamespace: asTarget.serviceNamespace,
             targetTrackingScalingPolicyConfiguration: {
-                targetValue: 60,
+                targetValue: 45,
                 scaleInCooldown: 300,
                 scaleOutCooldown: 60,
                 predefinedMetricSpecification: {
