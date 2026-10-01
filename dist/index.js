@@ -35,6 +35,7 @@ export { MariaInstanceProvisioner } from "./database/maria-instance/maria-instan
 export { RdsProxyEngineFamily } from "./database/rds-proxy/rds-proxy-config.js";
 export { RdsProxyProvisioner } from "./database/rds-proxy/rds-proxy-provisioner.js";
 export { AppComputeProfile } from "./app/app-compute-profile.js";
+export { resolveNodeMaxOldSpaceSize } from "./app/node-heap.js";
 export { AppProvisioner } from "./app/app-provisioner.js";
 export { GrpcAppProvisioner } from "./app/grpc/grpc-app-provisioner.js";
 export { HttpAppProvisioner } from "./app/http/http-app-provisioner.js";
