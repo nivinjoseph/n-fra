@@ -97,6 +97,7 @@ export { RdsProxyProvisioner } from "./database/rds-proxy/rds-proxy-provisioner.
 export { AppClusterDetails } from "./app/app-cluster-details.js";
 export { AppClusterConfig, AppDatadogConfig, AppSidecarConfig } from "./app/app-config.js";
 export { AppComputeProfile, AppCompute } from "./app/app-compute-profile.js";
+export { resolveNodeMaxOldSpaceSize } from "./app/node-heap.js";
 export { AppProvisioner } from "./app/app-provisioner.js";
 
 export { GrpcAppConfig } from "./app/grpc/grpc-app-config.js";
