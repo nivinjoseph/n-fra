@@ -265,8 +265,8 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig, GrpcAppDet
 
         const serviceName = `${this.name}-svc`;
         const service = new aws.ecs.Service(serviceName, {
-            deploymentMinimumHealthyPercent: 0,
-            deploymentMaximumPercent: 100,
+            deploymentMinimumHealthyPercent: this.supportsAutoScaling() ? 100 : 0,
+            deploymentMaximumPercent: this.supportsAutoScaling() ? 200 : 100,
             // os: "linux",
             launchType: "FARGATE",
             cluster: cluster.clusterArn,
