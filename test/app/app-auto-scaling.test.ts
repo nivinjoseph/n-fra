@@ -64,7 +64,7 @@ await describe("App auto scaling", async () =>
             const configuration = policy.inputs["stepScalingPolicyConfiguration"] as StepScalingConfiguration;
             Assert.strictEqual(configuration.adjustmentType, "ChangeInCapacity");
             Assert.strictEqual(configuration.cooldown, 60);
-            Assert.strictEqual(configuration.metricAggregationType, "Average");
+            Assert.strictEqual(configuration.metricAggregationType, "Maximum");
             Assert.deepStrictEqual(configuration.stepAdjustments, [
                 { metricIntervalUpperBound: "15", scalingAdjustment: 1 },
                 { metricIntervalLowerBound: "15", scalingAdjustment: 2 }
@@ -73,13 +73,13 @@ await describe("App auto scaling", async () =>
                 "step policy must never scale in; target tracking owns scale-in");
         });
 
-        await test("drives the step policy from a one-datapoint service cpu alarm", async () =>
+        await test("drives the step policy from a one-datapoint alarm on the hottest task's cpu", async () =>
         {
             const alarm = await waitForResource(alarmType, "grpc-as-asp-step-alm");
             Assert.strictEqual(alarm.inputs["namespace"], "AWS/ECS");
             Assert.strictEqual(alarm.inputs["metricName"], "CPUUtilization");
             Assert.deepStrictEqual(alarm.inputs["dimensions"], { ClusterName: "test-cluster", ServiceName: "grpc-as-svc" });
-            Assert.strictEqual(alarm.inputs["statistic"], "Average");
+            Assert.strictEqual(alarm.inputs["statistic"], "Maximum");
             Assert.strictEqual(alarm.inputs["period"], 60);
             Assert.strictEqual(alarm.inputs["evaluationPeriods"], 1);
             Assert.strictEqual(alarm.inputs["datapointsToAlarm"], 1);
