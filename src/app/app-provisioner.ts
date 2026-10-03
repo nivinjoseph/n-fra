@@ -534,7 +534,7 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
             targetTrackingScalingPolicyConfiguration: {
                 targetValue: 45,
                 scaleInCooldown: 300,
-                scaleOutCooldown: 60,
+                scaleOutCooldown: 30,
                 predefinedMetricSpecification: {
                     predefinedMetricType: "ECSServiceAverageCPUUtilization"
                 }
