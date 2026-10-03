@@ -212,7 +212,7 @@ export class GrpcAppProvisioner extends AppProvisioner {
                 healthCheck: {
                     command: [
                         "CMD-SHELL",
-                        `/usr/local/bin/grpc-health-probe -addr=:${grpcPort} -service=grpc.health.v1.Health`
+                        `/usr/local/bin/grpc-health-probe -addr=:${grpcPort} -service=grpc.health.v1.Health -connect-timeout=10s -rpc-timeout=15s`
                     ],
                     "interval": 30,
                     "timeout": 30,
