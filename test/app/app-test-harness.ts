@@ -51,11 +51,6 @@ export async function initializePulumiMocks(): Promise<void>
     }, "n-fra", "test", false);
 }
 
-export function findResources(type: string): Array<RecordedResource>
-{
-    return recordedResources.filter(t => t.type === type);
-}
-
 export function findResource(type: string, name: string): RecordedResource | null
 {
     return recordedResources.find(t => t.type === type && t.name === name) ?? null;
