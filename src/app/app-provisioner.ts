@@ -33,6 +33,16 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
     private static readonly _healthCheckRetries = 10;
     private static readonly _healthCheckStartPeriodSeconds = 60;
 
+    // target tracking owns steady-state scaling and all scale-in
+    private static readonly _cpuTargetPercent = 45;
+    private static readonly _scaleOutCooldownSeconds = 30;
+    private static readonly _scaleInCooldownSeconds = 300;
+    // step scale-out reacts to a spike on a single 1-minute datapoint, well above the target tracking target
+    private static readonly _stepScaleOutCpuThresholdPercent = 75;
+    private static readonly _stepScaleOutSecondTierOffsetPercent = 15; // second step from threshold + 15 => 90 %
+    private static readonly _stepScaleOutCooldownSeconds = 60;
+    private static readonly _stepScaleOutAlarmPeriodSeconds = 60; // AWS/ECS CPUUtilization is published per minute
+
     private readonly _name: string;
     private readonly _config: T;
     private readonly _version: string;
@@ -564,12 +574,64 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
             scalableDimension: asTarget.scalableDimension,
             serviceNamespace: asTarget.serviceNamespace,
             targetTrackingScalingPolicyConfiguration: {
-                targetValue: 45,
-                scaleInCooldown: 300,
-                scaleOutCooldown: 30,
+                targetValue: AppProvisioner._cpuTargetPercent,
+                scaleInCooldown: AppProvisioner._scaleInCooldownSeconds,
+                scaleOutCooldown: AppProvisioner._scaleOutCooldownSeconds,
                 predefinedMetricSpecification: {
                     predefinedMetricType: "ECSServiceAverageCPUUtilization"
                 }
+            }
+        });
+
+        // Scale-OUT-only step policy. Target tracking needs ~3 consecutive 1-minute datapoints above target, which loses
+        // the race against the container health check when one task saturates; this alarm fires on a single datapoint.
+        // Scale-in stays with target tracking: AWS resolves concurrent scale-out requests to the largest capacity, and
+        // mixing step and target tracking only conflicts on scale-in.
+        const stepPolicyName = `${this._name}-asp-step`;
+        const stepPolicy = new aws.appautoscaling.Policy(stepPolicyName, {
+            policyType: "StepScaling",
+            resourceId: asTarget.resourceId,
+            scalableDimension: asTarget.scalableDimension,
+            serviceNamespace: asTarget.serviceNamespace,
+            stepScalingPolicyConfiguration: {
+                adjustmentType: "ChangeInCapacity",
+                cooldown: AppProvisioner._stepScaleOutCooldownSeconds,
+                metricAggregationType: "Average",
+                // bounds are offsets from the alarm threshold (lower inclusive, upper exclusive above threshold):
+                // (-inf, threshold + 15) => +1 task, [threshold + 15, +inf) => +2 tasks
+                stepAdjustments: [
+                    {
+                        metricIntervalUpperBound: `${AppProvisioner._stepScaleOutSecondTierOffsetPercent}`,
+                        scalingAdjustment: 1
+                    },
+                    {
+                        metricIntervalLowerBound: `${AppProvisioner._stepScaleOutSecondTierOffsetPercent}`,
+                        scalingAdjustment: 2
+                    }
+                ]
+            }
+        });
+
+        const stepAlarmName = `${stepPolicyName}-alm`;
+        new aws.cloudwatch.MetricAlarm(stepAlarmName, {
+            namespace: "AWS/ECS",
+            metricName: "CPUUtilization",
+            dimensions: {
+                ClusterName: cluster.clusterName,
+                ServiceName: service.name
+            },
+            statistic: "Average",
+            period: AppProvisioner._stepScaleOutAlarmPeriodSeconds,
+            evaluationPeriods: 1,
+            datapointsToAlarm: 1,
+            threshold: AppProvisioner._stepScaleOutCpuThresholdPercent,
+            comparisonOperator: "GreaterThanOrEqualToThreshold",
+            treatMissingData: "notBreaching",
+            alarmDescription: `${this._name}: average CPU >= ${AppProvisioner._stepScaleOutCpuThresholdPercent}% over one minute; step scale-out`,
+            alarmActions: [stepPolicy.arn],
+            tags: {
+                ...NfraConfig.tags,
+                Name: stepAlarmName
             }
         });
     }
