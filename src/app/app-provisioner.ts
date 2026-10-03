@@ -22,6 +22,17 @@ import * as crypto from "node:crypto";
 
 export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
 {
+    /**
+     * @description Liveness-grade ECS health check timing for app containers. A task is only marked UNHEALTHY after
+     * `retries` consecutive failures, so a busy-but-responding task is never killed while a wedged one is still
+     * replaced (worst case ~ retries x timeout + (retries - 1) x interval ~ 8.7 min).
+     * ECS bounds: interval 5-300, timeout 2-60, retries 1-10, startPeriod 0-300.
+     */
+    private static readonly _healthCheckIntervalSeconds = 30;
+    private static readonly _healthCheckTimeoutSeconds = 30;
+    private static readonly _healthCheckRetries = 10;
+    private static readonly _healthCheckStartPeriodSeconds = 60;
+
     private readonly _name: string;
     private readonly _config: T;
     private readonly _version: string;
@@ -502,6 +513,27 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
             });
 
         return taskVolumeConfiguration;
+    }
+
+    /**
+     * @description Builds the app container's ECS health check. `probeBudgetSeconds` is the longest the probe command
+     * itself may run before giving up; it must finish before ECS's own timeout so the probe result, not an ECS kill,
+     * decides the outcome.
+     */
+    protected createAppHealthCheck(shellCommand: string, probeBudgetSeconds: number): aws.ecs.HealthCheck
+    {
+        given(shellCommand, "shellCommand").ensureHasValue().ensureIsString();
+        given(probeBudgetSeconds, "probeBudgetSeconds").ensureHasValue().ensureIsNumber()
+            .ensure(t => t > 0 && t < AppProvisioner._healthCheckTimeoutSeconds,
+                `probe budget must be less than the ECS health check timeout of ${AppProvisioner._healthCheckTimeoutSeconds}s`);
+
+        return {
+            command: ["CMD-SHELL", shellCommand],
+            interval: AppProvisioner._healthCheckIntervalSeconds,
+            timeout: AppProvisioner._healthCheckTimeoutSeconds,
+            retries: AppProvisioner._healthCheckRetries,
+            startPeriod: AppProvisioner._healthCheckStartPeriodSeconds
+        };
     }
 
     protected supportsAutoScaling(): boolean

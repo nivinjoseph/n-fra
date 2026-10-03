@@ -21,6 +21,11 @@ import { resolveAppCompute } from "../app-compute-profile.js";
 
 export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig, GrpcAppDetails>
 {
+    // grpc-health-probe budget; the sum must stay below the ECS health check timeout (enforced by createAppHealthCheck)
+    private static readonly _probeConnectTimeoutSeconds = 10;
+    private static readonly _probeRpcTimeoutSeconds = 15;
+
+
     public constructor(name: string, config: GrpcAppConfig)
     {
         super(name, config);
@@ -200,6 +205,7 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig, GrpcAppDet
             : resolveAppCompute(this.config.computeProfile!);
 
         const portName = `${this.name}-grpc-${grpcPort}`;
+        const healthProbeCommand = `/usr/local/bin/grpc-health-probe -addr=:${grpcPort} -service=grpc.health.v1.Health -connect-timeout=${GrpcAppProvisioner._probeConnectTimeoutSeconds}s -rpc-timeout=${GrpcAppProvisioner._probeRpcTimeoutSeconds}s`;
         
         const taskDefinitionName = `${this.name}-tsk-def`;
         const taskDefinition = new aws.ecs.TaskDefinition(taskDefinitionName, {
@@ -236,16 +242,8 @@ export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig, GrpcAppDet
                         protocol: "tcp",
                         appProtocol: "grpc"
                     }],
-                    healthCheck: {
-                        command: [
-                            "CMD-SHELL",
-                            `/usr/local/bin/grpc-health-probe -addr=:${grpcPort} -service=grpc.health.v1.Health -connect-timeout=10s -rpc-timeout=15s`
-                        ],
-                        "interval": 30,
-                        "timeout": 30,
-                        "retries": 5,
-                        "startPeriod": 30
-                    }
+                    healthCheck: this.createAppHealthCheck(healthProbeCommand,
+                        GrpcAppProvisioner._probeConnectTimeoutSeconds + GrpcAppProvisioner._probeRpcTimeoutSeconds)
                 }),
             tags: {
                 ...NfraConfig.tags,
