@@ -21,13 +21,13 @@ async function getDeploymentPercents(appName: string): Promise<{ minimumHealthy:
 
 await describe("Service deployment configuration", async () =>
 {
-    await test("autoscaled worker deploys replacement-first (100 / 200)", async () =>
+    await test("autoscaled worker keeps stop-then-start (0 / 100): worker deployment configuration is unchanged", async () =>
     {
         await new WorkerAppProvisioner("wrk-as", {
             vpcDetails, subnetNamePrefix: "app", image: testImage, command: ["node"],
             cluster: createTestCluster(), minCapacity: 1, maxCapacity: 3
         }).provision();
-        Assert.deepStrictEqual(await getDeploymentPercents("wrk-as"), { minimumHealthy: 100, maximum: 200 });
+        Assert.deepStrictEqual(await getDeploymentPercents("wrk-as"), { minimumHealthy: 0, maximum: 100 });
     });
 
     await test("fixed capacity worker keeps stop-then-start (0 / 100)", async () =>
