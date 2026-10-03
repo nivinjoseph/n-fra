@@ -22,6 +22,27 @@ import * as crypto from "node:crypto";
 
 export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
 {
+    /**
+     * @description Liveness-grade ECS health check timing for app containers. A task is only marked UNHEALTHY after
+     * `retries` consecutive failures, so a busy-but-responding task is never killed while a wedged one is still
+     * replaced (worst case ~ retries x timeout + (retries - 1) x interval ~ 8.7 min).
+     * ECS bounds: interval 5-300, timeout 2-60, retries 1-10, startPeriod 0-300.
+     */
+    private static readonly _healthCheckIntervalSeconds = 30;
+    private static readonly _healthCheckTimeoutSeconds = 30;
+    private static readonly _healthCheckRetries = 10;
+    private static readonly _healthCheckStartPeriodSeconds = 60;
+
+    // target tracking owns steady-state scaling and all scale-in
+    private static readonly _cpuTargetPercent = 45;
+    private static readonly _scaleOutCooldownSeconds = 30;
+    private static readonly _scaleInCooldownSeconds = 300;
+    // step scale-out reacts to a single 1-minute datapoint of the hottest task, well above the target tracking target
+    private static readonly _stepScaleOutCpuThresholdPercent = 75;
+    private static readonly _stepScaleOutSecondTierOffsetPercent = 15; // second step from threshold + 15 => 90 %
+    private static readonly _stepScaleOutCooldownSeconds = 60;
+    private static readonly _stepScaleOutAlarmPeriodSeconds = 60; // AWS/ECS CPUUtilization is published per minute
+
     private readonly _name: string;
     private readonly _config: T;
     private readonly _version: string;
@@ -504,6 +525,27 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
         return taskVolumeConfiguration;
     }
 
+    /**
+     * @description Builds the app container's ECS health check. `probeBudgetSeconds` is the longest the probe command
+     * itself may run before giving up; it must finish before ECS's own timeout so the probe result, not an ECS kill,
+     * decides the outcome.
+     */
+    protected createAppHealthCheck(shellCommand: string, probeBudgetSeconds: number): aws.ecs.HealthCheck
+    {
+        given(shellCommand, "shellCommand").ensureHasValue().ensureIsString();
+        given(probeBudgetSeconds, "probeBudgetSeconds").ensureHasValue().ensureIsNumber()
+            .ensure(t => t > 0 && t < AppProvisioner._healthCheckTimeoutSeconds,
+                `probe budget must be less than the ECS health check timeout of ${AppProvisioner._healthCheckTimeoutSeconds}s`);
+
+        return {
+            command: ["CMD-SHELL", shellCommand],
+            interval: AppProvisioner._healthCheckIntervalSeconds,
+            timeout: AppProvisioner._healthCheckTimeoutSeconds,
+            retries: AppProvisioner._healthCheckRetries,
+            startPeriod: AppProvisioner._healthCheckStartPeriodSeconds
+        };
+    }
+
     protected supportsAutoScaling(): boolean
     {
         return this._config.minCapacity! < this._config.maxCapacity!;
@@ -516,7 +558,7 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
 
         given(cluster, "cluster").ensureHasValue().ensureIsObject()
             .ensure(t => !t.usesSpotInstances,
-                "custer uses spot instances, cannot enable autoscaling");
+                "cluster uses spot instances, cannot enable autoscaling");
 
         const asTarget = new aws.appautoscaling.Target(`${this._name}-ast`, {
             minCapacity: this.config.minCapacity!,
@@ -532,12 +574,66 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
             scalableDimension: asTarget.scalableDimension,
             serviceNamespace: asTarget.serviceNamespace,
             targetTrackingScalingPolicyConfiguration: {
-                targetValue: 45,
-                scaleInCooldown: 300,
-                scaleOutCooldown: 30,
+                targetValue: AppProvisioner._cpuTargetPercent,
+                scaleInCooldown: AppProvisioner._scaleInCooldownSeconds,
+                scaleOutCooldown: AppProvisioner._scaleOutCooldownSeconds,
                 predefinedMetricSpecification: {
                     predefinedMetricType: "ECSServiceAverageCPUUtilization"
                 }
+            }
+        });
+
+        // Scale-OUT-only step policy. Target tracking needs ~3 consecutive 1-minute datapoints above target, which loses
+        // the race against the container health check when one task saturates; this alarm fires on a single datapoint.
+        // It uses the Maximum statistic: ECS publishes one sample per task into the service metric, so Maximum is the
+        // hottest task and one saturated task is caught at any desiredCount, where the service Average would dilute it.
+        // Scale-in stays with target tracking: AWS resolves concurrent scale-out requests to the largest capacity, and
+        // mixing step and target tracking only conflicts on scale-in.
+        const stepPolicyName = `${this._name}-asp-step`;
+        const stepPolicy = new aws.appautoscaling.Policy(stepPolicyName, {
+            policyType: "StepScaling",
+            resourceId: asTarget.resourceId,
+            scalableDimension: asTarget.scalableDimension,
+            serviceNamespace: asTarget.serviceNamespace,
+            stepScalingPolicyConfiguration: {
+                adjustmentType: "ChangeInCapacity",
+                cooldown: AppProvisioner._stepScaleOutCooldownSeconds,
+                metricAggregationType: "Maximum",
+                // bounds are offsets from the alarm threshold (lower inclusive, upper exclusive above threshold):
+                // (-inf, threshold + 15) => +1 task, [threshold + 15, +inf) => +2 tasks
+                stepAdjustments: [
+                    {
+                        metricIntervalUpperBound: `${AppProvisioner._stepScaleOutSecondTierOffsetPercent}`,
+                        scalingAdjustment: 1
+                    },
+                    {
+                        metricIntervalLowerBound: `${AppProvisioner._stepScaleOutSecondTierOffsetPercent}`,
+                        scalingAdjustment: 2
+                    }
+                ]
+            }
+        });
+
+        const stepAlarmName = `${stepPolicyName}-alm`;
+        new aws.cloudwatch.MetricAlarm(stepAlarmName, {
+            namespace: "AWS/ECS",
+            metricName: "CPUUtilization",
+            dimensions: {
+                ClusterName: cluster.clusterName,
+                ServiceName: service.name
+            },
+            statistic: "Maximum",
+            period: AppProvisioner._stepScaleOutAlarmPeriodSeconds,
+            evaluationPeriods: 1,
+            datapointsToAlarm: 1,
+            threshold: AppProvisioner._stepScaleOutCpuThresholdPercent,
+            comparisonOperator: "GreaterThanOrEqualToThreshold",
+            treatMissingData: "notBreaching",
+            alarmDescription: `${this._name}: hottest task CPU >= ${AppProvisioner._stepScaleOutCpuThresholdPercent}% over one minute; step scale-out`,
+            alarmActions: [stepPolicy.arn],
+            tags: {
+                ...NfraConfig.tags,
+                Name: stepAlarmName
             }
         });
     }
