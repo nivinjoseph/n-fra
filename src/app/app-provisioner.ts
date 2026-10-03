@@ -558,7 +558,7 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
 
         given(cluster, "cluster").ensureHasValue().ensureIsObject()
             .ensure(t => !t.usesSpotInstances,
-                "custer uses spot instances, cannot enable autoscaling");
+                "cluster uses spot instances, cannot enable autoscaling");
 
         const asTarget = new aws.appautoscaling.Target(`${this._name}-ast`, {
             minCapacity: this.config.minCapacity!,

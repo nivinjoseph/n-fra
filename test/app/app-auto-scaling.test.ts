@@ -114,7 +114,7 @@ await describe("App auto scaling", async () =>
             await Assert.rejects(() => new WorkerAppProvisioner("wrk-spot", {
                 vpcDetails, subnetNamePrefix: "app", image: testImage, command: ["node"],
                 cluster: { ...createTestCluster(), usesSpotInstances: true }, minCapacity: 1, maxCapacity: 3
-            }).provision(), /spot instances/);
+            }).provision(), /cluster uses spot instances/);
             await settleResources();
             Assert.strictEqual(findResource(policyType, "wrk-spot-asp-step"), null);
             Assert.strictEqual(findResource(alarmType, "wrk-spot-asp-step-alm"), null);
