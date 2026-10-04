@@ -17,6 +17,10 @@ import { resolveAppCompute } from "../app-compute-profile.js";
 
 export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig, HttpAppDetails>
 {
+    // curl budget for the container probe; must stay below the ECS health check timeout (enforced by createAppHealthCheck)
+    private static readonly _probeTimeoutSeconds = 25;
+
+
     public constructor(name: string, config: HttpAppConfig)
     {
         super(name, config);
@@ -234,16 +238,9 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig, HttpAppDet
                         protocol: "tcp",
                         appProtocol: "http"
                     }],
-                    healthCheck: {
-                        "command": [
-                            "CMD-SHELL",
-                            `curl -f http://localhost:${httpPort}/healthCheck || exit 1`
-                        ],
-                        "interval": 30,
-                        "timeout": 30,
-                        "retries": 5,
-                        "startPeriod": 30
-                    }
+                    healthCheck: this.createAppHealthCheck(
+                        `curl -f --max-time ${HttpAppProvisioner._probeTimeoutSeconds} http://localhost:${httpPort}/healthCheck || exit 1`,
+                        HttpAppProvisioner._probeTimeoutSeconds)
                 }),
             tags: {
                 ...NfraConfig.tags,

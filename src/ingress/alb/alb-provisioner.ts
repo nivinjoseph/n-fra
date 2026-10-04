@@ -1,6 +1,7 @@
 import { given } from "@nivinjoseph/n-defensive";
 // import * as awsx from "@pulumi/awsx";
 import type { AlbConfig } from "./alb-config.js";
+import type { AlbTarget } from "./alb-target.js";
 import type { AlbDetails } from "./alb-details.js";
 import { NfraConfig } from "../../common/nfra-config.js";
 // import { Listener, ListenerRule } from "@pulumi/aws/lb";
@@ -11,6 +12,12 @@ import * as aws from "@pulumi/aws";
 
 export class AlbProvisioner
 {
+    // ALB health check defaults. The ALB check gates routing as well as ECS task replacement, so it stays an order of
+    // magnitude tighter than the container probe (~100s to deregister, ~40s to re-admit) rather than liveness-grade.
+    private static readonly _healthCheckTimeoutSeconds = 10; // ALB range 2-120; clamped to 5-60 here as before
+    private static readonly _healthCheckUnhealthyThreshold = 5; // ALB range 2-10
+    private static readonly _healthCheckHealthyThreshold = 2; // ALB range 2-10
+
     private readonly _name: string;
     private readonly _config: AlbConfig;
     private readonly _useTls: boolean;
@@ -36,6 +43,8 @@ export class AlbProvisioner
                     host: "string",
                     healthCheckPath: "string",
                     "healthCheckTimeout?": "number",
+                    "healthCheckUnhealthyThreshold?": "number",
+                    "healthCheckHealthyThreshold?": "number",
                     "slowStart?": "number",
                     "defaultAppPortOverride?": "number",
                     "pathPattern?": "string"
@@ -51,8 +60,14 @@ export class AlbProvisioner
         targets.forEach(target =>
         {
             given(target, "target")
-                .ensure(t => t.slowStart == null || (t.slowStart >= 30 && t.slowStart <= 900),
+                .ensureWhen(target.slowStart != null, t => t.slowStart! >= 30 && t.slowStart! <= 900,
                     "slowStart value has to be between 30 and 900 inclusive")
+                .ensureWhen(target.healthCheckUnhealthyThreshold != null,
+                    t => t.healthCheckUnhealthyThreshold! >= 2 && t.healthCheckUnhealthyThreshold! <= 10,
+                    "healthCheckUnhealthyThreshold has to be between 2 and 10 inclusive")
+                .ensureWhen(target.healthCheckHealthyThreshold != null,
+                    t => t.healthCheckHealthyThreshold! >= 2 && t.healthCheckHealthyThreshold! <= 10,
+                    "healthCheckHealthyThreshold has to be between 2 and 10 inclusive")
                 .ensure(t => t.host.length <= 128, "host length cannot be over 128 characters");
 
             target.host = target.host.trim().toLowerCase();
@@ -182,7 +197,6 @@ export class AlbProvisioner
         if (this._onlyDefault)
         {
             const defaultTargetGroupName = `${this._name}-tg-d`;
-            const healthCheckTimeout = Math.min(Math.max(this._config.targets[0].healthCheckTimeout ?? 5, 5), 60);
             const defaultTargetGroup = new aws.lb.TargetGroup(defaultTargetGroupName, {
                 protocol: "HTTP",
                 port: this._config.targets[0].defaultAppPortOverride ?? 80,
@@ -195,11 +209,7 @@ export class AlbProvisioner
                     type: "lb_cookie",
                     cookieDuration: 604800
                 },
-                healthCheck: {
-                    path: this._config.targets[0].healthCheckPath,
-                    timeout: healthCheckTimeout,
-                    interval: healthCheckTimeout * 2
-                },
+                healthCheck: this._createTargetGroupHealthCheck(this._config.targets[0]),
                 tags: {
                     ...NfraConfig.tags,
                     Name: defaultTargetGroupName
@@ -296,7 +306,6 @@ export class AlbProvisioner
             this._config.targets.forEach((target, index) =>
             {
                 const targetGroupName = `${this._name}-tg-${index}`;
-                const healthCheckTimeout = Math.min(Math.max(target.healthCheckTimeout ?? 5, 5), 60);
                 const targetGroup = new aws.lb.TargetGroup(targetGroupName, {
                     protocol: "HTTP",
                     port: target.defaultAppPortOverride ?? 80,
@@ -309,12 +318,7 @@ export class AlbProvisioner
                         type: "lb_cookie",
                         cookieDuration: 604800
                     },
-                    healthCheck: {
-                        path: target.healthCheckPath,
-                        timeout: healthCheckTimeout,
-                        interval: healthCheckTimeout * 2
-                        // unhealthyThreshold: 10 // // FIXME: make this configurable,
-                    },
+                    healthCheck: this._createTargetGroupHealthCheck(target),
                     tags: {
                         ...NfraConfig.tags,
                         Name: targetGroupName
@@ -483,5 +487,18 @@ export class AlbProvisioner
                 Name: distroName
             }
         });
+    }
+
+    private _createTargetGroupHealthCheck(target: AlbTarget): aws.types.input.lb.TargetGroupHealthCheck
+    {
+        const timeout = Math.min(Math.max(target.healthCheckTimeout ?? AlbProvisioner._healthCheckTimeoutSeconds, 5), 60);
+
+        return {
+            path: target.healthCheckPath,
+            timeout,
+            interval: timeout * 2, // ALB requires timeout < interval
+            unhealthyThreshold: target.healthCheckUnhealthyThreshold ?? AlbProvisioner._healthCheckUnhealthyThreshold,
+            healthyThreshold: target.healthCheckHealthyThreshold ?? AlbProvisioner._healthCheckHealthyThreshold
+        };
     }
 }
