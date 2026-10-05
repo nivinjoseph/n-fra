@@ -80,7 +80,7 @@ Call `NfraConfig.configureTags(...)` and the other `NfraConfig.configure*` metho
 
 Every module locates subnets through a **prefix** that matches `VpcSubnetConfig.prefix`: `subnetNamePrefix` (where the resource lives), `ingressSubnetNamePrefixes` (whose CIDRs may reach it), `egressSubnetNamePrefixes` (ALB only) and `dbSubnetNamePrefix` (RDS Proxy). Rules:
 
-- A prefix must contain the word `public`, `private` or `isolated`, and each subnet `name` must start with its prefix. `SubnetPool.reserveSubnets(prefix, type, count)` generates valid, non-overlapping subnets.
+- A prefix must contain the word `public`, `private` or `isolated`, and each subnet `name` must start with its prefix. `SubnetPool.reserveSubnets(prefix, type, count)` generates valid, non-overlapping subnets. `SubnetPool.legacy(cidr)` exists only for VPCs created with n-fra 5.0.9 or earlier and `numSubnets` above 256 (see *Upgrading from 5.0.x*).
 - Matching is by `startsWith`, so `"private"` selects both `"private-app"` and `"private-db"`.
 - A prefix that matches no subnet throws at provision time, listing the prefixes that exist.
 
@@ -189,6 +189,8 @@ The type-safety work in this version changes the public API. Bump the package ve
 - **Subnet prefixes that match nothing now throw** from `VpcDetails.resolveSubnets`, so a stale `ingressSubnetNamePrefixes` entry that used to resolve to an empty list fails at `pulumi preview` with the available prefixes listed.
 - **Errors now raised at construction** (previously only inside `provision()`): unknown `computeProfile` and autoscaling on a spot cluster. The provision-time checks remain as a second line of defence.
 - **Accepted more widely:** `restoreSnapshotId` and `albTargetGroupArn` take either a string or a Pulumi `Output` at runtime (previously each accepted only one of the two).
+- **`numSubnets` above 256 is accepted again and now computed correctly** in `new SubnetPool(cidr, n)` and `SubnetHelper.calculateSubnets`: the count is rounded up to a power of two and limited only by the host bits of the range. 5.0.9 and earlier produced a broken layout for 257 to 1024 (the 256-subnet layout with every prefix one bit longer, never more than 256 distinct subnets), and 5.0.10 rejected those counts. A VPC built with 5.0.9 or earlier and a count above 256 must keep its CIDRs, which cannot be changed in place: replace `new SubnetPool(cidr, n)` with `SubnetPool.legacy(cidr)`, which reproduces that layout exactly (256 subnets, each the lower half of its block, in the same order). Passing the old count to the constructor now yields the correct layout, which would replace every subnet (for counts up to 512, every subnet but the first). Acceptance test: `pulumi preview` shows no create or replace on `aws:ec2/subnet:Subnet`.
+- **Subnet CIDRs are checked against the VPC CIDR** in the `VpcProvisioner` constructor: a subnet `cidrRange` that is not a valid CIDR, or does not fall inside the VPC `cidrRange`, now throws at construction, naming the offending subnets.
 
 ## Development
 

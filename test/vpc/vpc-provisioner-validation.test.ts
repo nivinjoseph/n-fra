@@ -87,3 +87,39 @@ await describe("VPC availability zones", async () =>
         });
     });
 });
+
+await describe("VPC subnet cidr containment", async () =>
+{
+    const vpc = (subnets: Array<VpcSubnetConfig>): VpcProvisioner =>
+        new VpcProvisioner("vpc-cidrs", { cidrRange: "10.0.0.0/16", subnets });
+
+    await test("rejects a subnet outside the VPC cidrRange, naming both", () =>
+    {
+        Assert.throws(() => vpc([{ ...validSubnet, cidrRange: "10.1.0.0/24" }]), (error: Error) =>
+        {
+            Assert.match(error.message, /'10\.1\.0\.0\/24'/);
+            Assert.match(error.message, /must fall inside the VPC cidrRange '10\.0\.0\.0\/16'/);
+            return true;
+        });
+    });
+
+    await test("rejects a subnet wider than the VPC cidrRange", () =>
+    {
+        Assert.throws(() => vpc([{ ...validSubnet, cidrRange: "10.0.0.0/8" }]), /must fall inside the VPC cidrRange/);
+    });
+
+    await test("rejects a subnet cidrRange that is not a CIDR at construction", () =>
+    {
+        Assert.throws(() => vpc([{ ...validSubnet, cidrRange: "10.0.1.0" }]), /'10\.0\.1\.0' is not a valid CIDR/);
+    });
+
+    await test("accepts the last block of the VPC cidrRange", () =>
+    {
+        Assert.doesNotThrow(() => vpc([{ ...validSubnet, cidrRange: "10.0.255.128/25" }]));
+    });
+
+    await test("still accepts a subnet cidrRange with surrounding whitespace", () =>
+    {
+        Assert.doesNotThrow(() => vpc([{ ...validSubnet, cidrRange: " 10.0.1.0/24 " }]));
+    });
+});

@@ -73,6 +73,14 @@ export class VpcProvisioner
         given(config, "config").ensure(_ => invalidSubnetAzs.isEmpty,
             `subnet az ${invalidSubnetAzs.map(t => `'${t}'`).join(", ")} must be one of ${regionAzs.join(", ")} (the zones available in region ${NfraConfig.awsRegion})`);
 
+        const invalidSubnetCidrs = config.subnets.where(t => !SubnetHelper.validateCidrRange(t.cidrRange)).map(t => t.cidrRange);
+        given(config, "config").ensure(_ => invalidSubnetCidrs.isEmpty,
+            `subnet cidrRange ${invalidSubnetCidrs.map(t => `'${t}'`).join(", ")} is not a valid CIDR`);
+
+        const outsideSubnetCidrs = config.subnets.where(t => !SubnetHelper.isCidrWithin(t.cidrRange, config.cidrRange)).map(t => t.cidrRange);
+        given(config, "config").ensure(_ => outsideSubnetCidrs.isEmpty,
+            `subnet cidrRange ${outsideSubnetCidrs.map(t => `'${t}'`).join(", ")} must fall inside the VPC cidrRange '${config.cidrRange}'`);
+
         config.enableVpcFlowLogs ??= false;
         config.numNatGateways ??= NfraConfig.env === EnvType.prod ? 3 : 1;
         this._config = config;

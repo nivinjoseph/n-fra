@@ -27,35 +27,27 @@ export class SubnetHelper {
         }, Number.parseInt(input.toString()));
         return result.map(t => t.toString()).join("");
     }
+    /**
+     * Splits `cidrRange` into equal subnets: the smallest power of two that is at least `numSubnets`, in address order.
+     * The only limit is the host bits of the range (a `/16` holds up to 65536 `/32` entries); host bits set in
+     * `cidrRange` itself are ignored.
+     *
+     * @throws ArgumentException when `cidrRange` has fewer host bits than the count needs.
+     */
     static calculateSubnets(cidrRange, numSubnets) {
         given(cidrRange, "cidrRange").ensureHasValue().ensureIsString()
             .ensure(t => this.validateCidrRange(t));
         cidrRange = cidrRange.trim();
         given(numSubnets, "numSubnets").ensureHasValue().ensureIsNumber()
-            .ensure(t => t >= 1 && t <= 256, "must be between 1 and 256 (subnetting borrows at most 8 bits)");
+            .ensure(t => Number.isInteger(t) && t >= 1, "must be a positive integer");
         // 203.0.113.0/24
         // 8
-        const matrix = [
-            // Bits  Networks  Hosts
-            [0, 1, 0],
-            [1, 2, 0],
-            [2, 4, 2],
-            [3, 8, 6],
-            [4, 16, 14],
-            [5, 32, 30],
-            [6, 64, 62],
-            [7, 128, 126],
-            [8, 256, 254]
-        ];
-        // 3
-        const slotIndex = matrix.findIndex(t => t[1] >= numSubnets);
-        // console.log("slot index", slotIndex);
-        if (slotIndex === -1)
-            throw new ArgumentException("numSubnets", `${numSubnets} subnets exceeds the maximum of 256 per CIDR range`);
-        // [3, 8, 6]
-        const slot = matrix[slotIndex];
-        // 3
-        const bitsToBorrow = slot[0];
+        // 3 (bits for the smallest power of two that is at least numSubnets)
+        let bitsToBorrow = 0;
+        while (2 ** bitsToBorrow < numSubnets)
+            bitsToBorrow++;
+        // 8
+        const networkCount = 2 ** bitsToBorrow;
         // console.log("bits to borrow", bitsToBorrow);
         // 203.0.113.0
         const cidrIp = cidrRange.split("/").takeFirst();
@@ -86,10 +78,11 @@ export class SubnetHelper {
         // 27
         const newCidrNetworkBitsCount = newSubnetMask.count(t => t === "1");
         const networks = new Array();
-        for (let i = 0; i < slot[1]; i++) {
+        for (let i = 0; i < networkCount; i++) {
+            const indexBits = bitsToBorrow === 0 ? new Array() : i.toString(2).padStart(bitsToBorrow, "0").split("");
             const networkAddress = [
                 ...cidrIpBinary.take(cidrNetworkBitsCount),
-                ...this.convertDecimalToBinary(i).split("").reverse().take(bitsToBorrow).reverse(),
+                ...indexBits,
                 ...newSubnetMask.skip(newCidrNetworkBitsCount)
             ];
             const decimals = new Array();
@@ -101,6 +94,50 @@ export class SubnetHelper {
             networks.push(`${decimals.join(".")}/${newCidrNetworkBitsCount}`);
         }
         return networks;
+    }
+    /**
+     * Reproduces the subnet layout that n-fra 5.0.9 and earlier produced for `calculateSubnets(cidrRange, numSubnets)`
+     * with `numSubnets` between 257 and 1024: the 256-subnet layout of `cidrRange` with every prefix length one bit
+     * longer, so each subnet is the lower half of its block and the upper half was never allocatable
+     * (for `10.11.0.0/16` that is `10.11.0.0/25`, `10.11.1.0/25`, ... `10.11.255.0/25`). The old code also padded
+     * the list with copies of the last entry up to 512 or 1024 entries; those are omitted because a duplicate CIDR
+     * could never be reserved.
+     *
+     * Subnet CIDRs cannot be changed in place, so this exists only to keep the subnets of VPCs that were built that way.
+     * New VPCs should use `calculateSubnets` or `new SubnetPool(cidrRange, numSubnets)`, which now produce a correct split
+     * for any count the range can hold; above 256 that split is a different layout from this one.
+     *
+     * @throws ArgumentException when `cidrRange` is /24 or narrower (the layout needs 9 subnet bits).
+     */
+    static calculateLegacySubnets(cidrRange) {
+        given(cidrRange, "cidrRange").ensureHasValue().ensureIsString()
+            .ensure(t => this.validateCidrRange(t));
+        cidrRange = cidrRange.trim();
+        const legacySubnetBits = 9;
+        const bitsAvailableToBorrow = 32 - this._parseCidr(cidrRange).prefixLength;
+        if (bitsAvailableToBorrow < legacySubnetBits)
+            throw new ArgumentException("cidrRange", `the legacy layout needs ${legacySubnetBits} subnet bits but ${cidrRange} only has ${bitsAvailableToBorrow} bits available`);
+        return this.calculateSubnets(cidrRange, 256)
+            .map(t => {
+            const parts = t.split("/");
+            return `${parts.takeFirst()}/${Number.parseInt(parts.takeLast()) + 1}`;
+        });
+    }
+    /**
+     * True when every address of `cidrRange` lies inside `parentCidrRange`; a range is inside itself.
+     * Both arguments must be valid CIDR ranges.
+     */
+    static isCidrWithin(cidrRange, parentCidrRange) {
+        given(cidrRange, "cidrRange").ensureHasValue().ensureIsString()
+            .ensure(t => this.validateCidrRange(t));
+        given(parentCidrRange, "parentCidrRange").ensureHasValue().ensureIsString()
+            .ensure(t => this.validateCidrRange(t));
+        const cidr = this._parseCidr(cidrRange);
+        const parent = this._parseCidr(parentCidrRange);
+        if (cidr.prefixLength < parent.prefixLength)
+            return false;
+        const parentBlockSize = 2 ** (32 - parent.prefixLength);
+        return Math.floor(cidr.address / parentBlockSize) === Math.floor(parent.address / parentBlockSize);
     }
     static validateCidrRange(cidrRange) {
         try {
@@ -117,6 +154,12 @@ export class SubnetHelper {
         catch {
             return false;
         }
+    }
+    static _parseCidr(cidrRange) {
+        const parts = cidrRange.trim().split("/");
+        const address = parts.takeFirst().split(".")
+            .reduce((acc, octet) => acc * 256 + Number.parseInt(octet), 0);
+        return { address, prefixLength: Number.parseInt(parts.takeLast()) };
     }
 }
 //# sourceMappingURL=subnet-helper.js.map
