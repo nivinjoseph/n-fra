@@ -8,7 +8,14 @@ export class MongoDocumentdbProvisioner {
         // this._name = CommonHelper.prefixName(name);
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
-        given(config, "config").ensureHasValue().ensureIsObject();
+        given(config, "config").ensureHasValue().ensureIsObject()
+            .ensureHasStructure({
+            vpcDetails: "object",
+            subnetNamePrefix: "string",
+            ingressSubnetNamePrefixes: ["string"],
+            username: "string",
+            password: "string"
+        });
         this._config = config;
     }
     provision() {

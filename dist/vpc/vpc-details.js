@@ -1,4 +1,5 @@
 import { given } from "@nivinjoseph/n-defensive";
+import { ArgumentException } from "@nivinjoseph/n-exception";
 import { NfraConfig } from "../common/nfra-config.js";
 export class VpcDetails {
     _vpc;
@@ -14,11 +15,22 @@ export class VpcDetails {
         this._privateDnsNamespace = privateDnsNamespace;
         this._subnets = subnets;
     }
+    /**
+     * Resolves the subnets whose `prefix` starts with any of the given prefixes, so `"private"` matches both
+     * `"private-app"` and `"private-db"`. Every config field named `subnetNamePrefix`, `ingressSubnetNamePrefixes`,
+     * `egressSubnetNamePrefixes` or `dbSubnetNamePrefix` is resolved through this method.
+     * @param filterSubnetPrefixes prefixes to match against `VpcSubnetConfig.prefix`; omit to resolve every subnet in the VPC
+     * @throws ArgumentException when any given prefix matches no subnet; the message lists the prefixes that exist
+     */
     resolveSubnets(filterSubnetPrefixes) {
         given(filterSubnetPrefixes, "filterSubnetPrefixes").ensureIsArray().ensureIsNotEmpty();
         // we need ids sometimes and we need cidrs sometimes
         // we need to filter by name prefix and type
         filterSubnetPrefixes ??= this._subnets.map(t => t.prefix);
+        const availablePrefixes = this._subnets.map(t => t.prefix).distinct();
+        const unmatchedPrefixes = filterSubnetPrefixes.where(prefix => !availablePrefixes.some(t => t.startsWith(prefix)));
+        if (unmatchedPrefixes.isNotEmpty)
+            throw new ArgumentException("filterSubnetPrefixes", `no subnets match subnet name prefix(es) '${unmatchedPrefixes.join("', '")}'; available subnet prefixes are: ${availablePrefixes.join(", ")} (check the subnetNamePrefix / ingressSubnetNamePrefixes values against VpcConfig.subnets[].prefix)`);
         // const result = this._vpc.subnets
         //     .apply((subnets) =>
         //     {

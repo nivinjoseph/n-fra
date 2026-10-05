@@ -1,18 +1,28 @@
 import { VpcDetails } from "../../vpc/vpc-details.js";
-import * as Pulumi from "@pulumi/pulumi";
-export interface Aspv2Config {
+import type { SubnetNamePrefix } from "../../vpc/vpc-subnet-config.js";
+import type { RdsInstanceSource } from "../rds-types.js";
+export interface Aspv2ConfigBase {
+    /** The VPC to deploy into, as returned by `VpcProvisioner.provision()`. */
     vpcDetails: VpcDetails;
-    subnetNamePrefix: string;
-    ingressSubnetNamePrefixes: ReadonlyArray<string>;
+    /** Prefix of the VPC subnets the DB subnet group spans (normally isolated) (matches `VpcSubnetConfig.prefix`; see `SubnetNamePrefix`). */
+    subnetNamePrefix: SubnetNamePrefix;
+    /** Prefixes of the subnets whose CIDR ranges may reach port 5432; they become the security group's ingress rules. */
+    ingressSubnetNamePrefixes: ReadonlyArray<SubnetNamePrefix>;
+    /** Aurora Postgres major version. Default: `Aspv2DbEngineVersion.v17`. Changing it upgrades in place immediately. */
     engineVersion?: Aspv2DbEngineVersion;
-    databaseName?: string;
-    restoreSnapshotId?: Pulumi.Input<string>;
+    /** Master username. Default: `"appuser"`. */
     username?: string;
+    /** Master password. Default: generated randomly and returned as an Output in the details. */
     password?: string;
+    /** Instances in the cluster (one writer, the rest readers). Default: 3 when the stack is `prod`, otherwise 1. */
     numClusterInstances?: 1 | 2 | 3;
+    /** Minimum Aurora capacity units (ACUs), e.g. 0.5. Not a task count. */
     minCapacity: number;
+    /** Maximum Aurora capacity units (ACUs). */
     maxCapacity: number;
+    /** Required so the choice is explicit. `true` blocks deletion of the cluster. */
     deletionProtection: boolean;
+    /** Required so the choice is explicit. `true` deletes the cluster without taking a final snapshot. */
     skipFinalSnapshot: boolean;
     /**
      * @description Defaults to false. When false, an RDS Proxy is provisioned and
@@ -22,6 +32,7 @@ export interface Aspv2Config {
      */
     disableProxy?: boolean;
 }
+export type Aspv2Config = Aspv2ConfigBase & RdsInstanceSource;
 export declare enum Aspv2DbEngineVersion {
     v12 = 12,
     v13 = 13,

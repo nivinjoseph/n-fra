@@ -2,6 +2,7 @@ import * as aws from "@pulumi/aws";
 // import * as awsx from "@pulumi/awsx";
 import * as Pulumi from "@pulumi/pulumi";
 import { given } from "@nivinjoseph/n-defensive";
+import { ArgumentException } from "@nivinjoseph/n-exception";
 import { VpcSubnetDetails } from "./vpc-subnet-details.js";
 import { NfraConfig } from "../common/nfra-config.js";
 
@@ -33,6 +34,13 @@ export class VpcDetails
     }
     
     
+    /**
+     * Resolves the subnets whose `prefix` starts with any of the given prefixes, so `"private"` matches both
+     * `"private-app"` and `"private-db"`. Every config field named `subnetNamePrefix`, `ingressSubnetNamePrefixes`,
+     * `egressSubnetNamePrefixes` or `dbSubnetNamePrefix` is resolved through this method.
+     * @param filterSubnetPrefixes prefixes to match against `VpcSubnetConfig.prefix`; omit to resolve every subnet in the VPC
+     * @throws ArgumentException when any given prefix matches no subnet; the message lists the prefixes that exist
+     */
     public resolveSubnets(filterSubnetPrefixes?: ReadonlyArray<string>): Array<SubnetDetails>
     {
         given(filterSubnetPrefixes, "filterSubnetPrefixes").ensureIsArray().ensureIsNotEmpty();
@@ -41,6 +49,12 @@ export class VpcDetails
         // we need to filter by name prefix and type
 
         filterSubnetPrefixes ??= this._subnets.map(t => t.prefix);
+
+        const availablePrefixes = this._subnets.map(t => t.prefix).distinct();
+        const unmatchedPrefixes = filterSubnetPrefixes.where(prefix => !availablePrefixes.some(t => t.startsWith(prefix)));
+        if (unmatchedPrefixes.isNotEmpty)
+            throw new ArgumentException("filterSubnetPrefixes",
+                `no subnets match subnet name prefix(es) '${unmatchedPrefixes.join("', '")}'; available subnet prefixes are: ${availablePrefixes.join(", ")} (check the subnetNamePrefix / ingressSubnetNamePrefixes values against VpcConfig.subnets[].prefix)`);
         
         // const result = this._vpc.subnets
         //     .apply((subnets) =>

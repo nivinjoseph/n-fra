@@ -10,6 +10,13 @@ export declare class VpcDetails {
     get privateDnsDomain(): string;
     get privateDnsNamespace(): aws.servicediscovery.PrivateDnsNamespace;
     constructor(vpc: aws.ec2.Vpc, privateDnsDomain: string, privateDnsNamespace: aws.servicediscovery.PrivateDnsNamespace, subnets: ReadonlyArray<VpcSubnetDetails>);
+    /**
+     * Resolves the subnets whose `prefix` starts with any of the given prefixes, so `"private"` matches both
+     * `"private-app"` and `"private-db"`. Every config field named `subnetNamePrefix`, `ingressSubnetNamePrefixes`,
+     * `egressSubnetNamePrefixes` or `dbSubnetNamePrefix` is resolved through this method.
+     * @param filterSubnetPrefixes prefixes to match against `VpcSubnetConfig.prefix`; omit to resolve every subnet in the VPC
+     * @throws ArgumentException when any given prefix matches no subnet; the message lists the prefixes that exist
+     */
     resolveSubnets(filterSubnetPrefixes?: ReadonlyArray<string>): Array<SubnetDetails>;
 }
 export interface SubnetDetails {

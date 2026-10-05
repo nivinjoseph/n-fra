@@ -1,5 +1,6 @@
 import { ensureExhaustiveCheck, given } from "@nivinjoseph/n-defensive";
-import { Aspv2Config } from "./aspv2-config.js";
+import type { Aspv2Config, Aspv2ConfigBase } from "./aspv2-config.js";
+import type { RdsInstanceSourceShape } from "../rds-types.js";
 import { Aspv2Details } from "./aspv2-details.js";
 import * as Pulumi from "@pulumi/pulumi";
 import { NfraConfig } from "../../common/nfra-config.js";
@@ -24,14 +25,13 @@ export class Aspv2Provisioner
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
 
-        given(config, "config").ensureHasValue().ensureIsObject()
+        given(config as Aspv2ConfigBase & RdsInstanceSourceShape, "config").ensureHasValue().ensureIsObject()
             .ensureHasStructure({
                 vpcDetails: "object",
                 subnetNamePrefix: "string",
                 ingressSubnetNamePrefixes: ["string"],
                 "engineVersion?": "number",
                 "databaseName?": "string",
-                "restoreSnapshotId?": "string",
                 "username?": "string",
                 "password?": "string",
                 "numClusterInstances?": "number",
@@ -54,6 +54,9 @@ export class Aspv2Provisioner
                 t => !(t.databaseName != null && t.restoreSnapshotId != null),
                 "must provide only one of databaseName or restoreSnapshotId"
             )
+            .ensureWhen(config.restoreSnapshotId != null,
+                (t) => typeof t.restoreSnapshotId === "string" || t.restoreSnapshotId instanceof Promise || Pulumi.Output.isInstance(t.restoreSnapshotId),
+                "restoreSnapshotId must be a string, a Promise or a Pulumi Output")
             .ensureWhen(
                 config.numClusterInstances != null,
                 (t) => [1, 2, 3].contains(t.numClusterInstances!),

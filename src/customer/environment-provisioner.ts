@@ -1,5 +1,5 @@
 import * as Pulumi from "@pulumi/pulumi";
-import { EnvType } from "../index.js";
+import { EnvType } from "../common/env-type.js";
 import { given } from "@nivinjoseph/n-defensive";
 
 
@@ -7,6 +7,11 @@ export type EnvironmentOutput = {
     [key: string]: Pulumi.Output<any>;
 };
 
+/**
+ * Base class for one environment's infrastructure. Subclass it, implement `provisionEnvironment()`, and `export default` the class
+ * from `envs/<stack>.ts` so `CustomerProvisioner` can load it. Export its result from the Pulumi program as `stackOutput`:
+ * `fetchEnvironmentOutput(env)` reads exactly that output name from another stack of the same project.
+ */
 export abstract class EnvironmentProvisioner<T extends EnvironmentOutput>
 {
     // eslint-disable-next-line @typescript-eslint/no-useless-constructor, @typescript-eslint/no-empty-function
@@ -34,7 +39,7 @@ export abstract class EnvironmentProvisioner<T extends EnvironmentOutput>
                 {
                     if (output == null)
                     {
-                        reject(`Stack output for stack '${env}' not found`);
+                        reject(new Error(`Stack output for stack '${env}' not found`));
                         return;
                     }
                     resolve(output);

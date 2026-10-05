@@ -109,12 +109,12 @@ await describe("App auto scaling", async () =>
 
     await describe("autoscaled worker on a spot cluster", async () =>
     {
-        await test("is rejected before any scaling resources are created", async () =>
+        await test("is rejected at construction, before any scaling resources are created", async () =>
         {
-            await Assert.rejects(() => new WorkerAppProvisioner("wrk-spot", {
+            Assert.throws(() => new WorkerAppProvisioner("wrk-spot", {
                 vpcDetails, subnetNamePrefix: "app", image: testImage, command: ["node"],
                 cluster: { ...createTestCluster(), usesSpotInstances: true }, minCapacity: 1, maxCapacity: 3
-            }).provision(), /cluster uses spot instances/);
+            }), /cluster uses spot instances/);
             await settleResources();
             Assert.strictEqual(findResource(policyType, "wrk-spot-asp-step"), null);
             Assert.strictEqual(findResource(alarmType, "wrk-spot-asp-step-alm"), null);

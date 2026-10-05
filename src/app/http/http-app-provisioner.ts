@@ -1,8 +1,9 @@
+import * as Pulumi from "@pulumi/pulumi";
 import { given } from "@nivinjoseph/n-defensive";
 // import * as Pulumi from "@pulumi/pulumi";
 import { NfraConfig } from "../../common/nfra-config.js";
 import { AppProvisioner } from "../app-provisioner.js";
-import type { HttpAppConfig } from "./http-app-config.js";
+import type { HttpAppConfig, HttpAppConfigExtension } from "./http-app-config.js";
 // import { Instance as SdInstance, Service as SdService } from "@pulumi/aws/servicediscovery";
 import * as aws from "@pulumi/aws";
 import type { HttpAppDetails } from "./http-app-details.js";
@@ -15,6 +16,10 @@ import { resolveAppCompute } from "../app-compute-profile.js";
 // import { Policy as AsPolicy, Target as AsTarget } from "@pulumi/aws/appautoscaling";
 
 
+/**
+ * Fargate service for an HTTP app behind an ALB. Container contract: listen on port 80 (or `defaultAppPortOverride`) and
+ * answer `GET /healthCheck` with 2xx; the image must contain `curl`, which the ECS health check runs against `localhost`.
+ */
 export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig, HttpAppDetails>
 {
     // curl budget for the container probe; must stay below the ECS health check timeout (enforced by createAppHealthCheck)
@@ -25,12 +30,14 @@ export class HttpAppProvisioner extends AppProvisioner<HttpAppConfig, HttpAppDet
     {
         super(name, config);
 
-        given(config, "config").ensureHasStructure({
+        given(config as HttpAppConfigExtension, "config").ensureHasStructure({
             ingressSubnetNamePrefixes: ["string"],
             // healthCheckPath: "string",
-            "albTargetGroupArn?": "object",
             "defaultAppPortOverride?": "number"
-        });
+        })
+            .ensureWhen(config.albTargetGroupArn != null,
+                t => typeof t.albTargetGroupArn === "string" || t.albTargetGroupArn instanceof Promise || Pulumi.Output.isInstance(t.albTargetGroupArn),
+                "albTargetGroupArn must be a string, a Promise or a Pulumi Output");
     }
 
     protected override provisionApp(): HttpAppDetails

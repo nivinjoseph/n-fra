@@ -16,6 +16,10 @@ import { resolveAppCompute } from "../app-compute-profile.js";
 // import { AppDetails } from "../app-details";
 
 
+/**
+ * Fargate service for a background worker with no ingress. Container contract: answer `GET /healthCheck` on port 8080
+ * with 2xx; the image must contain `curl`, which the ECS health check runs against `localhost:8080`.
+ */
 export class WorkerAppProvisioner extends AppProvisioner<WorkerAppConfig, WorkerAppDetails>
 {
     // curl budget for the container probe; must stay below the ECS health check timeout (enforced by createAppHealthCheck)

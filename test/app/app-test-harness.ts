@@ -1,5 +1,4 @@
 // load the package entry point first, exactly as consumers do, so the src module graph initializes in production order
-// (AppProvisioner imports Logger from ../index.js; loading index first avoids a half-initialized circular import)
 import "../../src/index.js";
 import * as Pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
@@ -20,8 +19,8 @@ export interface RecordedResource
 const recordedResources = new Array<RecordedResource>();
 
 /**
- * Only images on docker.* skip the ECR DescribeImages call in AppProvisioner, and docker.* / public.ecr.* images
- * are used verbatim (no ECR base prefix) when the app container is built.
+ * Images on docker.* and public.ecr.* skip the ECR DescribeImages call in AppProvisioner and are used verbatim
+ * (no ECR base prefix) when the app container is built.
  */
 export const testImage = "docker.io/library/nginx:v1.0.0";
 
@@ -31,11 +30,13 @@ export const testImage = "docker.io/library/nginx:v1.0.0";
  */
 export async function initializePulumiMocks(): Promise<void>
 {
-    Pulumi.runtime.setAllConfig({ "aws:region": "us-east-1" });
+    Pulumi.runtime.setAllConfig({ "aws:region": "us-east-1", "aws:allowedAccountIds": "[\"123456789012\"]" });
     await Pulumi.runtime.setMocks({
         newResource: (args) =>
         {
             recordedResources.push({ type: args.type, name: args.name, inputs: args.inputs });
+            if (args.type === "pulumi:pulumi:StackReference")
+                return { id: `${args.name}-id`, state: { name: args.name, outputs: {}, secretOutputNames: [] } };
             return {
                 id: `${args.name}-id`,
                 state: {
@@ -43,7 +44,11 @@ export async function initializePulumiMocks(): Promise<void>
                     name: args.inputs["name"] ?? args.name,
                     arn: `arn:aws:mock:${args.name}`,
                     arnSuffix: `${args.name}-arn-suffix`,
-                    dnsName: `${args.name}.mock.local`
+                    dnsName: `${args.name}.mock.local`,
+                    // RDS instances and clusters expose endpoints that provisioners split into host and port
+                    endpoint: `${args.name}.mock.local:5432`,
+                    readerEndpoint: `${args.name}-ro.mock.local:5432`,
+                    address: `${args.name}.mock.local`
                 }
             };
         },

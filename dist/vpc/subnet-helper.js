@@ -32,7 +32,7 @@ export class SubnetHelper {
             .ensure(t => this.validateCidrRange(t));
         cidrRange = cidrRange.trim();
         given(numSubnets, "numSubnets").ensureHasValue().ensureIsNumber()
-            .ensure(t => t >= 1 && t <= 1024);
+            .ensure(t => t >= 1 && t <= 256, "must be between 1 and 256 (subnetting borrows at most 8 bits)");
         // 203.0.113.0/24
         // 8
         const matrix = [
@@ -45,15 +45,13 @@ export class SubnetHelper {
             [5, 32, 30],
             [6, 64, 62],
             [7, 128, 126],
-            [8, 256, 254],
-            [9, 512, 510],
-            [9, 1024, 1022]
+            [8, 256, 254]
         ];
         // 3
         const slotIndex = matrix.findIndex(t => t[1] >= numSubnets);
         // console.log("slot index", slotIndex);
         if (slotIndex === -1)
-            throw new ArgumentException("numNetworks", "value is too high 1");
+            throw new ArgumentException("numSubnets", `${numSubnets} subnets exceeds the maximum of 256 per CIDR range`);
         // [3, 8, 6]
         const slot = matrix[slotIndex];
         // 3
@@ -79,7 +77,7 @@ export class SubnetHelper {
         const bitsAvailableToBorrow = 32 - cidrNetworkBitsCount;
         // console.log("variance", bitsToBorrow, bitsAvailableToBorrow);
         if (bitsToBorrow > bitsAvailableToBorrow)
-            throw new ArgumentException("numNetworks", "value is too high 2");
+            throw new ArgumentException("numSubnets", `${numSubnets} subnets need ${bitsToBorrow} subnet bits but ${cidrRange} only has ${bitsAvailableToBorrow} bits available`);
         // 11111111 11111111 11111111 11100000
         const newSubnetMask = [
             ...cidrIpBinary.take(cidrNetworkBitsCount + bitsToBorrow).map(_ => "1"),

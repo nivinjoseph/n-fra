@@ -23,7 +23,7 @@ export class SubnetPool
         this._cidrRange = vpcCidrRange.trim();
         
         given(numSubnets, "numSubnets").ensureHasValue().ensureIsNumber()
-            .ensure(t => t >= 1 && t <= 1024);
+            .ensure(t => t >= 1 && t <= 256, "must be between 1 and 256 (subnetting borrows at most 8 bits)");
         this._numSubnets = numSubnets;
         
         this._initializePool();
@@ -35,7 +35,7 @@ export class SubnetPool
         given(subnetPrefix, "subnetPrefix").ensureHasValue().ensureIsString();
         given(subnetType, "subnetType").ensureHasValue().ensureIsEnum(VpcSubnetType);
         given(numSubnets, "numSubnets").ensureHasValue().ensureIsNumber()
-            .ensure(t => t > 0 && t <= 3, "must be > 0 and <= poolSubnets")
+            .ensure(t => t > 0 && t <= 3, "must be between 1 and 3")
             .ensure(t => t <= this._availableSubnets.length, "not enough subnets left in the pool");
         
         const reservations = new Array<VpcSubnetConfig>();

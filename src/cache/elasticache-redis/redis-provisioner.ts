@@ -15,6 +15,7 @@ export class RedisProvisioner
 
     public constructor(name: string, config: RedisConfig)
     {
+        given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
 
         given(config, "config").ensureHasValue().ensureIsObject().ensureHasStructure({

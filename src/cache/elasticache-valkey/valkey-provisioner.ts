@@ -1,4 +1,5 @@
 import { given } from "@nivinjoseph/n-defensive";
+import { enumValueList, enumValues } from "../../common/validation-helper.js";
 import * as aws from "@pulumi/aws";
 import * as Pulumi from "@pulumi/pulumi";
 import { ValkeyConfig } from "./valkey-config.js";
@@ -56,7 +57,9 @@ export class ValkeyProvisioner
         config.evictionPolicy ??= reliabilityConfig != null
             ? ValkeyEvictionPolicy.noeviction
             : ValkeyEvictionPolicy.allkeysLru;
-        given(config.evictionPolicy as string, "config.evictionPolicy").ensureIsEnum(ValkeyEvictionPolicy);
+        given(config.evictionPolicy as string, "config.evictionPolicy")
+            .ensure(t => enumValues(ValkeyEvictionPolicy).contains(t),
+                `'${config.evictionPolicy}' must be one of ${enumValueList(ValkeyEvictionPolicy)}`);
 
         if (haConfig != null)
         {

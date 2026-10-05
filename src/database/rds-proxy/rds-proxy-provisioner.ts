@@ -1,4 +1,5 @@
 import { ensureExhaustiveCheck, given } from "@nivinjoseph/n-defensive";
+import { enumValueList, enumValues } from "../../common/validation-helper.js";
 import { RdsProxyConfig, RdsProxyEngineFamily } from "./rds-proxy-config.js";
 import { RdsProxyDetails } from "./rds-proxy-details.js";
 import * as aws from "@pulumi/aws";
@@ -19,7 +20,16 @@ export class RdsProxyProvisioner
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
         
-        given(config, "config").ensureHasValue().ensureIsObject();
+        given(config, "config").ensureHasValue().ensureIsObject()
+            .ensureHasStructure({
+                dbDetails: "object",
+                engineFamily: "string",
+                vpcDetails: "object",
+                dbSubnetNamePrefix: "string",
+                ingressSubnetNamePrefixes: ["string"]
+            })
+            .ensure(t => enumValues(RdsProxyEngineFamily).contains(t.engineFamily),
+                `engineFamily must be one of ${enumValueList(RdsProxyEngineFamily)}`);
         this._config = config;
     }
     

@@ -1,6 +1,10 @@
 import { NfraConfig } from "../common/nfra-config.js";
 import * as Path from "node:path";
 import { given } from "@nivinjoseph/n-defensive";
+/**
+ * Entry point of a Pulumi program. `provision()` requires the working directory to end with the Pulumi project name and dynamically
+ * imports `./envs/<stack>.js` (the compiled `envs/<stack>.ts`), whose default export must be a zero-argument `EnvironmentProvisioner` subclass.
+ */
 export class CustomerProvisioner {
     _customer;
     constructor() {

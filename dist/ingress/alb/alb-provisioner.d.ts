@@ -1,6 +1,9 @@
 import type { AlbConfig } from "./alb-config.js";
 import type { AlbDetails } from "./alb-details.js";
 export declare class AlbProvisioner {
+    private static readonly _healthCheckTimeoutSeconds;
+    private static readonly _healthCheckUnhealthyThreshold;
+    private static readonly _healthCheckHealthyThreshold;
     private readonly _name;
     private readonly _config;
     private readonly _useTls;
@@ -10,5 +13,6 @@ export declare class AlbProvisioner {
     provision(): AlbDetails;
     private _provisionWaf;
     private _provisionCloudFrontDistro;
+    private _createTargetGroupHealthCheck;
 }
 //# sourceMappingURL=alb-provisioner.d.ts.map

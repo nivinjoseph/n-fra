@@ -19,6 +19,10 @@ import { resolveAppCompute } from "../app-compute-profile.js";
 // import { AppDetails } from "../app-details";
 
 
+/**
+ * Fargate service for a gRPC app reachable through ECS Service Connect. Container contract: listen on port 50051 and
+ * implement the gRPC health protocol; the image must contain `/usr/local/bin/grpc-health-probe` for the ECS health check.
+ */
 export class GrpcAppProvisioner extends AppProvisioner<GrpcAppConfig, GrpcAppDetails>
 {
     // grpc-health-probe budget; the sum must stay below the ECS health check timeout (enforced by createAppHealthCheck)

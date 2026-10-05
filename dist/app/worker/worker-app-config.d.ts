@@ -1,4 +1,4 @@
 import type { AppConfig } from "../app-config.js";
-export interface WorkerAppConfig extends AppConfig {
-}
+/** A worker has no ingress and adds nothing to `AppConfig`; it is kept as a distinct name for readability. */
+export type WorkerAppConfig = AppConfig;
 //# sourceMappingURL=worker-app-config.d.ts.map

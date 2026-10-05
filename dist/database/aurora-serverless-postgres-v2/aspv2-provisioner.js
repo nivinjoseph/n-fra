@@ -22,7 +22,6 @@ export class Aspv2Provisioner {
             ingressSubnetNamePrefixes: ["string"],
             "engineVersion?": "number",
             "databaseName?": "string",
-            "restoreSnapshotId?": "string",
             "username?": "string",
             "password?": "string",
             "numClusterInstances?": "number",
@@ -35,6 +34,7 @@ export class Aspv2Provisioner {
             .ensureWhen(config.engineVersion != null, (t) => [12, 13, 14, 15, 16, 17, 18].contains(t.engineVersion), "engine version must be 12, 13, 14, 15, 16, 17 or 18")
             .ensure(t => !(t.databaseName == null && t.restoreSnapshotId == null), "must provide one of databaseName or restoreSnapshotId")
             .ensure(t => !(t.databaseName != null && t.restoreSnapshotId != null), "must provide only one of databaseName or restoreSnapshotId")
+            .ensureWhen(config.restoreSnapshotId != null, (t) => typeof t.restoreSnapshotId === "string" || t.restoreSnapshotId instanceof Promise || Pulumi.Output.isInstance(t.restoreSnapshotId), "restoreSnapshotId must be a string, a Promise or a Pulumi Output")
             .ensureWhen(config.numClusterInstances != null, (t) => [1, 2, 3].contains(t.numClusterInstances), "num cluster instances must be 1, 2 or 3");
         config.engineVersion ??= 17;
         config.numClusterInstances ??= NfraConfig.env === EnvType.prod ? 3 : 1;

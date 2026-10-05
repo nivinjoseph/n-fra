@@ -1,4 +1,4 @@
-import { Aspv2Config } from "./aspv2-config.js";
+import type { Aspv2Config } from "./aspv2-config.js";
 import { Aspv2Details } from "./aspv2-details.js";
 export declare class Aspv2Provisioner {
     private readonly _name;

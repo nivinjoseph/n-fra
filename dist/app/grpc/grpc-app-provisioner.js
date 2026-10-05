@@ -7,7 +7,14 @@ import { AppProvisioner } from "../app-provisioner.js";
 import * as aws from "@pulumi/aws";
 import { resolveAppCompute } from "../app-compute-profile.js";
 // import { AppDetails } from "../app-details";
+/**
+ * Fargate service for a gRPC app reachable through ECS Service Connect. Container contract: listen on port 50051 and
+ * implement the gRPC health protocol; the image must contain `/usr/local/bin/grpc-health-probe` for the ECS health check.
+ */
 export class GrpcAppProvisioner extends AppProvisioner {
+    // grpc-health-probe budget; the sum must stay below the ECS health check timeout (enforced by createAppHealthCheck)
+    static _probeConnectTimeoutSeconds = 10;
+    static _probeRpcTimeoutSeconds = 15;
     constructor(name, config) {
         super(name, config);
         given(config, "config").ensureHasStructure({
@@ -174,6 +181,7 @@ export class GrpcAppProvisioner extends AppProvisioner {
             ? this.config.customCompute
             : resolveAppCompute(this.config.computeProfile);
         const portName = `${this.name}-grpc-${grpcPort}`;
+        const healthProbeCommand = `/usr/local/bin/grpc-health-probe -addr=:${grpcPort} -service=grpc.health.v1.Health -connect-timeout=${GrpcAppProvisioner._probeConnectTimeoutSeconds}s -rpc-timeout=${GrpcAppProvisioner._probeRpcTimeoutSeconds}s`;
         const taskDefinitionName = `${this.name}-tsk-def`;
         const taskDefinition = new aws.ecs.TaskDefinition(taskDefinitionName, {
             cpu: cpu.toString(),
@@ -209,16 +217,7 @@ export class GrpcAppProvisioner extends AppProvisioner {
                         protocol: "tcp",
                         appProtocol: "grpc"
                     }],
-                healthCheck: {
-                    command: [
-                        "CMD-SHELL",
-                        `/usr/local/bin/grpc-health-probe -addr=:${grpcPort} -service=grpc.health.v1.Health -connect-timeout=10s -rpc-timeout=15s`
-                    ],
-                    "interval": 30,
-                    "timeout": 30,
-                    "retries": 5,
-                    "startPeriod": 30
-                }
+                healthCheck: this.createAppHealthCheck(healthProbeCommand, GrpcAppProvisioner._probeConnectTimeoutSeconds + GrpcAppProvisioner._probeRpcTimeoutSeconds)
             }),
             tags: {
                 ...NfraConfig.tags,
@@ -235,8 +234,8 @@ export class GrpcAppProvisioner extends AppProvisioner {
         // .apply(t => t.map(u => u.id));
         const serviceName = `${this.name}-svc`;
         const service = new aws.ecs.Service(serviceName, {
-            deploymentMinimumHealthyPercent: 0,
-            deploymentMaximumPercent: 100,
+            deploymentMinimumHealthyPercent: this.supportsAutoScaling() ? 100 : 0,
+            deploymentMaximumPercent: this.supportsAutoScaling() ? 200 : 100,
             // os: "linux",
             launchType: "FARGATE",
             cluster: cluster.clusterArn,

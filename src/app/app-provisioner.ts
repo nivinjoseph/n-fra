@@ -1,8 +1,8 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { ArgumentException, NotImplementedException } from "@nivinjoseph/n-exception";
+import { ArgumentException } from "@nivinjoseph/n-exception";
 import * as Pulumi from "@pulumi/pulumi";
 import type { VpcDetails } from "../vpc/vpc-details.js";
-import type { AppClusterConfig, AppConfig } from "./app-config.js";
+import type { AppClusterConfig, AppConfig, AppConfigShape } from "./app-config.js";
 // import { ManagedPolicy, Policy, Role } from "@pulumi/aws/iam";
 import * as aws from "@pulumi/aws";
 // import * as awsx from "@pulumi/awsx";
@@ -16,8 +16,9 @@ import type { AppDetails } from "./app-details.js";
 // import { VirtualNode } from "@pulumi/aws/appmesh";
 import { AppComputeProfile } from "./app-compute-profile.js";
 import { DescribeImagesCommand, ECRClient } from "@aws-sdk/client-ecr";
-import { Logger } from "../index.js";
+import { Logger } from "../common/logger.js";
 import * as crypto from "node:crypto";
+import { enumValueList, enumValues } from "../common/validation-helper.js";
 
 
 export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
@@ -43,6 +44,9 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
     private static readonly _stepScaleOutCooldownSeconds = 60;
     private static readonly _stepScaleOutAlarmPeriodSeconds = 60; // AWS/ECS CPUUtilization is published per minute
 
+    // images from these registries are used verbatim and are never looked up in the account's private ECR
+    private static readonly _publicImageRegistries = ["docker.", "public.ecr."];
+
     private readonly _name: string;
     private readonly _config: T;
     private readonly _version: string;
@@ -54,7 +58,6 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
     protected get config(): T { return this._config; }
     protected get version(): string { return this._version; }
     protected get hasDatadog(): boolean { return this._config.datadogConfig != null; }
-    protected get hasSidecar(): boolean { return this._config.sidecarConfig != null; }
 
 
     protected constructor(name: string, config: T)
@@ -63,14 +66,13 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
         // this._name = CommonHelper.prefixName(name);
         this._name = name;
 
-        const defaultConfig: Partial<AppConfig> = {
-            computeProfile: AppComputeProfile.small,
-            minCapacity: 1,
-            maxCapacity: 1,
-            isOn: true
-        };
-        config = Object.assign(defaultConfig, config);
-        given(config, "config").ensureHasValue().ensureIsObject()
+        // copy so the caller's object is never mutated, then fill defaults (an explicit undefined also gets the default)
+        config = { ...config };
+        config.computeProfile ??= AppComputeProfile.small;
+        config.minCapacity ??= 1;
+        config.maxCapacity ??= 1;
+        config.isOn ??= true;
+        given(config as AppConfigShape, "config").ensureHasValue().ensureIsObject()
             .ensureHasStructure({
                 vpcDetails: "object",
                 subnetNamePrefix: "string",
@@ -87,7 +89,6 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
                 isOn: "boolean",
                 "datadogConfig?": "object",
                 "enableXray?": "boolean",
-                "sidecarConfig?": "object",
                 "clusterConfig?": "object",
                 "cluster?": "object",
                 "minCapacity?": "number",
@@ -107,7 +108,12 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
             .ensure(t => t.minCapacity != null && t.minCapacity >= 0 && t.minCapacity <= 50, "minCapacity must be between 0 and 50")
             .ensure(t => t.maxCapacity != null && t.maxCapacity >= 0 && t.maxCapacity <= 50, "maxCapacity must be between 0 and 50")
             .ensure(t => t.minCapacity! <= t.maxCapacity!, "minCapacity must be <= maxCapacity")
-            .ensureWhen(config.cpuArchitecture != null, t => ["X86_64", "ARM64"].contains(t.cpuArchitecture!), "cpuArchitecture must be one of X86_64 or ARM64");
+            .ensureWhen(config.cpuArchitecture != null, t => ["X86_64", "ARM64"].contains(t.cpuArchitecture!), "cpuArchitecture must be one of X86_64 or ARM64")
+            .ensure(t => enumValues(AppComputeProfile).contains(t.computeProfile!),
+                `computeProfile must be one of ${enumValueList(AppComputeProfile)}`)
+            .ensureWhen(config.cluster?.usesSpotInstances === true || config.clusterConfig?.useSpotCapacity != null,
+                t => t.isOn === false || t.minCapacity === t.maxCapacity,
+                "cluster uses spot instances, cannot enable autoscaling (minCapacity must equal maxCapacity)");
 
         config.enableXray ??= false;
         this._config = config;
@@ -228,7 +234,7 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
     protected createAppCluster(): AppClusterDetails
     {
         return this._config.cluster ?? AppProvisioner.provisionAppCluster(
-            this._name, this._config.clusterConfig!, this.vpcDetails);
+            this._name, this._config.clusterConfig, this.vpcDetails);
     }
 
     protected createExecutionRole(policies?: ReadonlyArray<PolicyDocument | string>): Pulumi.Output<aws.iam.Role>
@@ -391,12 +397,9 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
 
     protected createAppContainer(): aws.ecs.ContainerDefinition
     {
-        const imageRegistry = this._config.image.trim().toLowerCase();
-        const publicRegistries = ["docker.", "public.ecr."];
-
         return {
             name: this._name,
-            image: publicRegistries.some(t => imageRegistry.startsWith(t))
+            image: this._isPublicImage()
                 ? this._config.image : `${NfraConfig.ecrBase}/${this.config.image}`,
             essential: true,
             readonlyRootFilesystem: this._config.disableReadonlyRootFilesystem ? false : true,
@@ -433,25 +436,9 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
                     ...this._createDatadogInstrumentationLabels()
                 }
                 : undefined,
-            mountPoints: this.hasSidecar ? [{
-                "sourceVolume": "infra-sidecar",
-                "containerPath": "/infra_sidecar/temp" // FIXME: this needs to be aligned
-            }] : [],
+            mountPoints: [],
             volumesFrom: [],
-            dependsOn: [
-                // {
-                //     containerName: "log_router",
-                //     condition: "HEALTHY"
-                // },
-                // {
-                //     containerName: "envoy",
-                //     condition: "HEALTHY"
-                // },
-                ...this.hasSidecar ? [{
-                    containerName: "infra-sidecar",
-                    condition: "HEALTHY"
-                } satisfies aws.ecs.ContainerDependency] : []
-            ]
+            dependsOn: []
         };
     }
 
@@ -512,15 +499,6 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
                 );
             }
         }
-
-        if (this.hasSidecar)
-            taskVolumeConfiguration.push({
-                name: "infra-sidecar",
-                dockerVolumeConfiguration: {
-                    scope: "task",
-                    driver: "local"
-                }
-            });
 
         return taskVolumeConfiguration;
     }
@@ -638,12 +616,16 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
         });
     }
 
+    private _isPublicImage(): boolean
+    {
+        const image = this._config.image.trim().toLowerCase();
+        return AppProvisioner._publicImageRegistries.some(t => image.startsWith(t));
+    }
+
     private async _verifyImageExists(): Promise<void>
     {
-        if (this._config.image.trim().toLowerCase().startsWith("docker."))
+        if (this._isPublicImage())
             return;
-        // else
-        //     return;
 
         const [imageRepo, imageTag] = this._config.image.split(":");
 
@@ -661,11 +643,12 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
         {
             const response = await ecrClient.send(command);
             if (response.imageDetails == null || response.imageDetails.isEmpty)
-                throw new Error("Image not found");
+                throw new Error(`no image with tag '${imageTag}' in repository '${imageRepo}'`);
         }
         catch (error)
         {
-            const message = `image '${this._config.image}' for service '${this._name}' not found in ECR`;
+            const cause = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+            const message = `image '${this._config.image}' for service '${this._name}' not found in ECR (DescribeImages failed: ${cause})`;
 
             console.warn(message);
             console.error(error);
@@ -921,9 +904,6 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
         }
         else if (this._config.enableXray)
             containers["xray"] = this._createAwsOtelCollectorContainer(); // this._createAwsXrayDaemonContainer();
-
-        if (this.hasSidecar)
-            containers["infra-sidecar"] = this._createInfraSidecarContainer();
 
         return containers;
     }
@@ -1249,17 +1229,6 @@ export abstract class AppProvisioner<T extends AppConfig, U extends AppDetails>
                 "startPeriod": 15
             }
         };
-    }
-
-    private _createInfraSidecarContainer(): aws.ecs.ContainerDefinition
-    {
-        given(this, "this")
-            .ensure(t => t.hasSidecar, "sidecar config must be provided");
-
-        // FIXME: implement this
-        // container name must be
-
-        throw new NotImplementedException();
     }
 }
 

@@ -4,6 +4,10 @@ import { EnvironmentProvisioner } from "./environment-provisioner.js";
 import { given } from "@nivinjoseph/n-defensive";
 
 
+/**
+ * Entry point of a Pulumi program. `provision()` requires the working directory to end with the Pulumi project name and dynamically
+ * imports `./envs/<stack>.js` (the compiled `envs/<stack>.ts`), whose default export must be a zero-argument `EnvironmentProvisioner` subclass.
+ */
 export class CustomerProvisioner
 {
     private readonly _customer: string;

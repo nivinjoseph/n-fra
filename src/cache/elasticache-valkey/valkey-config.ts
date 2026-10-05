@@ -1,3 +1,4 @@
+import type { SubnetNamePrefix } from "../../vpc/vpc-subnet-config.js";
 import { VpcDetails } from "../../vpc/vpc-details.js";
 import { ValkeyEvictionPolicy } from "./valkey-eviction-policy.js";
 import { ValkeyHaConfig } from "./valkey-ha-config.js";
@@ -5,9 +6,12 @@ import { ValkeyHaConfig } from "./valkey-ha-config.js";
 
 export interface ValkeyConfig
 {
+    /** The VPC to deploy into, as returned by `VpcProvisioner.provision()`. */
     vpcDetails: VpcDetails;
-    subnetNamePrefix: string;
-    ingressSubnetNamePrefixes: ReadonlyArray<string>;
+    /** Prefix of the VPC subnets the cache subnet group spans; must cover 1 or 2 AZs (matches `VpcSubnetConfig.prefix`; see `SubnetNamePrefix`). */
+    subnetNamePrefix: SubnetNamePrefix;
+    /** Prefixes of the subnets whose CIDR ranges may reach port 6379; they become the security group's ingress rules. */
+    ingressSubnetNamePrefixes: ReadonlyArray<SubnetNamePrefix>;
     /**
      * @description Supported node types https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/CacheNodes.SupportedTypes.html
      * When haConfig.reliabilityConfig is set, the node type must belong to one of the r8g, r7g,
