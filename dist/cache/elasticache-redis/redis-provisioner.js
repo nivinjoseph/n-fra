@@ -7,6 +7,7 @@ export class RedisProvisioner {
     _name;
     _config;
     constructor(name, config) {
+        given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
         given(config, "config").ensureHasValue().ensureIsObject().ensureHasStructure({
             vpcDetails: "object",

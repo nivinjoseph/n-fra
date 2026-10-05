@@ -1,6 +1,8 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { NfraConfig } from "../../common/nfra-config.js";
+import { ensureRdsInstancePlacement } from "../rds-types.js";
 import * as aws from "@pulumi/aws";
+import * as Pulumi from "@pulumi/pulumi";
 import * as Random from "@pulumi/random";
 import { SecurityGroupHelper } from "../../vpc/security-group-helper.js";
 export class MariaInstanceProvisioner {
@@ -16,7 +18,6 @@ export class MariaInstanceProvisioner {
             subnetNamePrefix: "string",
             ingressSubnetNamePrefixes: ["string"],
             "databaseName?": "string",
-            "restoreSnapshotId?": "string",
             "username?": "string",
             "password?": "string",
             instanceClass: "string",
@@ -31,8 +32,10 @@ export class MariaInstanceProvisioner {
         })
             .ensure(t => !(t.databaseName == null && t.restoreSnapshotId == null), "must provide one of databaseName or restoreSnapshotId")
             .ensure(t => !(t.databaseName != null && t.restoreSnapshotId != null), "must provide only one of databaseName or restoreSnapshotId")
+            .ensureWhen(config.restoreSnapshotId != null, (t) => typeof t.restoreSnapshotId === "string" || t.restoreSnapshotId instanceof Promise || Pulumi.Output.isInstance(t.restoreSnapshotId), "restoreSnapshotId must be a string, a Promise or a Pulumi Output")
             .ensure(t => t.storageGb > 0 && t.storageGb <= t.maxStorageGb, "storageGb must be > 0 and <= maxStorageGb")
             .ensureWhen(config.provisionedIops != null, (t) => t.provisionedIops > 0, "provisionedIops must be > 0");
+        ensureRdsInstancePlacement(config);
         this._config = config;
     }
     provision() {
@@ -130,7 +133,8 @@ export class MariaInstanceProvisioner {
             storageEncrypted: this._config.storageEncrypted ?? false,
             // storageEncrypted: true,
             port: mariaDbPort,
-            availabilityZone: this._config.isHA ? undefined : this._config.availabilityZone ?? NfraConfig.awsRegionAvailabilityZones.takeFirst(),
+            availabilityZone: this._config.isHA ? undefined : this._config.availabilityZone != null
+                ? NfraConfig.awsRegion + this._config.availabilityZone : NfraConfig.awsRegionAvailabilityZones.takeFirst(),
             multiAz: this._config.isHA,
             dbSubnetGroupName: subnetGroup.name,
             vpcSecurityGroupIds: [secGroup.id],

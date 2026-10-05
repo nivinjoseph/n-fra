@@ -1,3 +1,4 @@
+import * as Pulumi from "@pulumi/pulumi";
 import { given } from "@nivinjoseph/n-defensive";
 // import * as Pulumi from "@pulumi/pulumi";
 import { NfraConfig } from "../../common/nfra-config.js";
@@ -11,15 +12,21 @@ import { resolveAppCompute } from "../app-compute-profile.js";
 // import { TaskDefinition } from "@pulumi/aws/ecs/taskDefinition";
 // import { Cluster, Service } from "@pulumi/aws/ecs";
 // import { Policy as AsPolicy, Target as AsTarget } from "@pulumi/aws/appautoscaling";
+/**
+ * Fargate service for an HTTP app behind an ALB. Container contract: listen on port 80 (or `defaultAppPortOverride`) and
+ * answer `GET /healthCheck` with 2xx; the image must contain `curl`, which the ECS health check runs against `localhost`.
+ */
 export class HttpAppProvisioner extends AppProvisioner {
+    // curl budget for the container probe; must stay below the ECS health check timeout (enforced by createAppHealthCheck)
+    static _probeTimeoutSeconds = 25;
     constructor(name, config) {
         super(name, config);
         given(config, "config").ensureHasStructure({
             ingressSubnetNamePrefixes: ["string"],
             // healthCheckPath: "string",
-            "albTargetGroupArn?": "object",
             "defaultAppPortOverride?": "number"
-        });
+        })
+            .ensureWhen(config.albTargetGroupArn != null, t => typeof t.albTargetGroupArn === "string" || t.albTargetGroupArn instanceof Promise || Pulumi.Output.isInstance(t.albTargetGroupArn), "albTargetGroupArn must be a string, a Promise or a Pulumi Output");
     }
     provisionApp() {
         const httpPort = this.config.defaultAppPortOverride ?? 80;
@@ -215,16 +222,7 @@ export class HttpAppProvisioner extends AppProvisioner {
                         protocol: "tcp",
                         appProtocol: "http"
                     }],
-                healthCheck: {
-                    "command": [
-                        "CMD-SHELL",
-                        `curl -f http://localhost:${httpPort}/healthCheck || exit 1`
-                    ],
-                    "interval": 30,
-                    "timeout": 30,
-                    "retries": 5,
-                    "startPeriod": 30
-                }
+                healthCheck: this.createAppHealthCheck(`curl -f --max-time ${HttpAppProvisioner._probeTimeoutSeconds} http://localhost:${httpPort}/healthCheck || exit 1`, HttpAppProvisioner._probeTimeoutSeconds)
             }),
             tags: {
                 ...NfraConfig.tags,

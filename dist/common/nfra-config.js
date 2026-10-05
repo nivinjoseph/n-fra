@@ -2,6 +2,14 @@ import { EnvType } from "./env-type.js";
 import * as Pulumi from "@pulumi/pulumi";
 import { given } from "@nivinjoseph/n-defensive";
 import { VpcAz } from "../vpc/vpc-az.js";
+/**
+ * Process-wide settings read from the Pulumi program. Requirements:
+ * - the stack name must be one of `dev`, `test`, `stage`, `prod` (`EnvType`); several defaults switch on `prod`;
+ * - Pulumi config `aws:region` is required, and `aws:allowedAccountIds` (a single 12-digit account) whenever ECR images or the
+ *   Datadog integration are used;
+ * - optional `nfra:<key>` config values are read through `getConfig` / `requireConfig`.
+ * Call the `configure*` methods before constructing any provisioner: tags and overrides are read when resources are created.
+ */
 export class NfraConfig {
     static _pulumiAwsConfig = new Pulumi.Config("aws");
     static _pulumiAppConfig = new Pulumi.Config("nfra");

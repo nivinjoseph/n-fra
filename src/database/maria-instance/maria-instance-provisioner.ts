@@ -1,6 +1,7 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { NfraConfig } from "../../common/nfra-config.js";
-import { MariaInstanceConfig } from "./maria-instance-config.js";
+import type { MariaInstanceConfig, MariaInstanceConfigBase } from "./maria-instance-config.js";
+import { ensureRdsInstancePlacement, type RdsInstanceSourceShape } from "../rds-types.js";
 import { MariaInstanceDetails } from "./maria-instance-details.js";
 import * as aws from "@pulumi/aws";
 import * as Pulumi from "@pulumi/pulumi";
@@ -20,13 +21,12 @@ export class MariaInstanceProvisioner
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name;
 
-        given(config, "config").ensureHasValue().ensureIsObject()
+        given(config as MariaInstanceConfigBase & RdsInstanceSourceShape, "config").ensureHasValue().ensureIsObject()
             .ensureHasStructure({
                 vpcDetails: "object",
                 subnetNamePrefix: "string",
                 ingressSubnetNamePrefixes: ["string"],
                 "databaseName?": "string",
-                "restoreSnapshotId?": "string",
                 "username?": "string",
                 "password?": "string",
                 instanceClass: "string",
@@ -43,12 +43,17 @@ export class MariaInstanceProvisioner
                 "must provide one of databaseName or restoreSnapshotId")
             .ensure(t => !(t.databaseName != null && t.restoreSnapshotId != null),
                 "must provide only one of databaseName or restoreSnapshotId")
+            .ensureWhen(config.restoreSnapshotId != null,
+                (t) => typeof t.restoreSnapshotId === "string" || t.restoreSnapshotId instanceof Promise || Pulumi.Output.isInstance(t.restoreSnapshotId),
+                "restoreSnapshotId must be a string, a Promise or a Pulumi Output")
             .ensure(t => t.storageGb > 0 && t.storageGb <= t.maxStorageGb,
                 "storageGb must be > 0 and <= maxStorageGb")
             .ensureWhen(config.provisionedIops != null,
                 (t) => t.provisionedIops! > 0,
                 "provisionedIops must be > 0")
             ;
+
+        ensureRdsInstancePlacement(config);
 
         this._config = config;
     }
@@ -165,7 +170,8 @@ export class MariaInstanceProvisioner
             // storageEncrypted: true,
 
             port: mariaDbPort,
-            availabilityZone: this._config.isHA ? undefined : this._config.availabilityZone ?? NfraConfig.awsRegionAvailabilityZones.takeFirst(),
+            availabilityZone: this._config.isHA ? undefined : this._config.availabilityZone != null
+                ? NfraConfig.awsRegion + this._config.availabilityZone : NfraConfig.awsRegionAvailabilityZones.takeFirst(),
             multiAz: this._config.isHA,
             dbSubnetGroupName: subnetGroup.name,
             vpcSecurityGroupIds: [secGroup.id],

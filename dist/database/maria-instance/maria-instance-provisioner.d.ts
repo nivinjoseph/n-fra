@@ -1,4 +1,4 @@
-import { MariaInstanceConfig } from "./maria-instance-config.js";
+import type { MariaInstanceConfig } from "./maria-instance-config.js";
 import { MariaInstanceDetails } from "./maria-instance-details.js";
 export declare class MariaInstanceProvisioner {
     private readonly _name;

@@ -1,4 +1,5 @@
 import { given } from "@nivinjoseph/n-defensive";
+import { enumValueList, enumValues } from "../../common/validation-helper.js";
 import * as aws from "@pulumi/aws";
 import * as Pulumi from "@pulumi/pulumi";
 import { NfraConfig } from "../../common/nfra-config.js";
@@ -42,7 +43,8 @@ export class ValkeyProvisioner {
         config.evictionPolicy ??= reliabilityConfig != null
             ? ValkeyEvictionPolicy.noeviction
             : ValkeyEvictionPolicy.allkeysLru;
-        given(config.evictionPolicy, "config.evictionPolicy").ensureIsEnum(ValkeyEvictionPolicy);
+        given(config.evictionPolicy, "config.evictionPolicy")
+            .ensure(t => enumValues(ValkeyEvictionPolicy).contains(t), `'${config.evictionPolicy}' must be one of ${enumValueList(ValkeyEvictionPolicy)}`);
         if (haConfig != null) {
             haConfig.numReplicasPerShard ??= 1;
             given(haConfig, "config.haConfig").ensure(t => t.numReplicasPerShard >= 1 && t.numReplicasPerShard <= ValkeyProvisioner._maxReplicasPerShard, `numReplicasPerShard must be between 1 and ${ValkeyProvisioner._maxReplicasPerShard}`);

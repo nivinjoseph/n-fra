@@ -1,4 +1,4 @@
-import { PostgresInstanceConfig } from "./postgres-instance-config.js";
+import type { PostgresInstanceConfig } from "./postgres-instance-config.js";
 import { PostgresInstanceDetails } from "./postgres-instance-details.js";
 export declare class PostgresInstanceProvisioner {
     private readonly _name;

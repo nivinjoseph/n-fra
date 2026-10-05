@@ -1,8 +1,9 @@
 import { ensureExhaustiveCheck, given } from "@nivinjoseph/n-defensive";
+import { enumValueList, enumValues } from "../common/validation-helper.js";
 export var AppComputeProfile;
 (function (AppComputeProfile) {
     /**
-     * @description cpu 265, memory 512
+     * @description cpu 256, memory 512
      */
     AppComputeProfile[AppComputeProfile["xsmall"] = 1] = "xsmall";
     /**
@@ -30,7 +31,7 @@ export var AppComputeProfile;
      */
     AppComputeProfile[AppComputeProfile["xxxlarge"] = 7] = "xxxlarge";
     /**
-     * @description cpu 265, memory 2048
+     * @description cpu 256, memory 2048
      */
     AppComputeProfile[AppComputeProfile["xsmallMemoryOptimized"] = 8] = "xsmallMemoryOptimized";
     /**
@@ -59,7 +60,8 @@ export var AppComputeProfile;
     AppComputeProfile[AppComputeProfile["xxxlargeMemoryOptimized"] = 14] = "xxxlargeMemoryOptimized";
 })(AppComputeProfile || (AppComputeProfile = {}));
 export function resolveAppCompute(profile) {
-    given(profile, "profile").ensureHasValue().ensureIsEnum(AppComputeProfile);
+    given(profile, "profile").ensureHasValue()
+        .ensure(t => enumValues(AppComputeProfile).contains(t), `must be one of ${enumValueList(AppComputeProfile)}`);
     switch (profile) {
         case AppComputeProfile.xsmall:
             return { cpu: 256, memory: 512 };

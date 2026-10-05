@@ -1,8 +1,12 @@
 export interface DatadogIntegrationConfig
 {
+    /** The Datadog site, e.g. `"datadoghq.com"`. */
     ddHost: string;
+    /** Datadog API key. Stored in Secrets Manager under the shared secret name `datadogApiKey`. */
     apiKey: string;
+    /** Datadog application key, used by the Datadog provider to create monitors and the AWS integration. */
     appKey: string;
+    /** Default: `false`. `true` skips the AWS account integration and forwarder lambda; provision once per AWS account. */
     skipCoreIntegration?: boolean;
     /**
      * @description Adds an EventBridge rule and a Datadog log monitor that alert on ECS task crashes

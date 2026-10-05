@@ -1,6 +1,6 @@
 export declare enum AppComputeProfile {
     /**
-     * @description cpu 265, memory 512
+     * @description cpu 256, memory 512
      */
     xsmall = 1,
     /**
@@ -28,7 +28,7 @@ export declare enum AppComputeProfile {
      */
     xxxlarge = 7,
     /**
-     * @description cpu 265, memory 2048
+     * @description cpu 256, memory 2048
      */
     xsmallMemoryOptimized = 8,
     /**

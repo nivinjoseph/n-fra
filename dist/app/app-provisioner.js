@@ -1,5 +1,5 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { ArgumentException, NotImplementedException } from "@nivinjoseph/n-exception";
+import { ArgumentException } from "@nivinjoseph/n-exception";
 import * as Pulumi from "@pulumi/pulumi";
 // import { ManagedPolicy, Policy, Role } from "@pulumi/aws/iam";
 import * as aws from "@pulumi/aws";
@@ -8,9 +8,31 @@ import { NfraConfig } from "../common/nfra-config.js";
 // import { VirtualNode } from "@pulumi/aws/appmesh";
 import { AppComputeProfile } from "./app-compute-profile.js";
 import { DescribeImagesCommand, ECRClient } from "@aws-sdk/client-ecr";
-import { Logger } from "../index.js";
+import { Logger } from "../common/logger.js";
 import * as crypto from "node:crypto";
+import { enumValueList, enumValues } from "../common/validation-helper.js";
 export class AppProvisioner {
+    /**
+     * @description Liveness-grade ECS health check timing for app containers. A task is only marked UNHEALTHY after
+     * `retries` consecutive failures, so a busy-but-responding task is never killed while a wedged one is still
+     * replaced (worst case ~ retries x timeout + (retries - 1) x interval ~ 8.7 min).
+     * ECS bounds: interval 5-300, timeout 2-60, retries 1-10, startPeriod 0-300.
+     */
+    static _healthCheckIntervalSeconds = 30;
+    static _healthCheckTimeoutSeconds = 30;
+    static _healthCheckRetries = 10;
+    static _healthCheckStartPeriodSeconds = 60;
+    // target tracking owns steady-state scaling and all scale-in
+    static _cpuTargetPercent = 45;
+    static _scaleOutCooldownSeconds = 30;
+    static _scaleInCooldownSeconds = 300;
+    // step scale-out reacts to a single 1-minute datapoint of the hottest task, well above the target tracking target
+    static _stepScaleOutCpuThresholdPercent = 75;
+    static _stepScaleOutSecondTierOffsetPercent = 15; // second step from threshold + 15 => 90 %
+    static _stepScaleOutCooldownSeconds = 60;
+    static _stepScaleOutAlarmPeriodSeconds = 60; // AWS/ECS CPUUtilization is published per minute
+    // images from these registries are used verbatim and are never looked up in the account's private ECR
+    static _publicImageRegistries = ["docker.", "public.ecr."];
     _name;
     _config;
     _version;
@@ -20,18 +42,16 @@ export class AppProvisioner {
     get config() { return this._config; }
     get version() { return this._version; }
     get hasDatadog() { return this._config.datadogConfig != null; }
-    get hasSidecar() { return this._config.sidecarConfig != null; }
     constructor(name, config) {
         given(name, "name").ensureHasValue().ensureIsString();
         // this._name = CommonHelper.prefixName(name);
         this._name = name;
-        const defaultConfig = {
-            computeProfile: AppComputeProfile.small,
-            minCapacity: 1,
-            maxCapacity: 1,
-            isOn: true
-        };
-        config = Object.assign(defaultConfig, config);
+        // copy so the caller's object is never mutated, then fill defaults (an explicit undefined also gets the default)
+        config = { ...config };
+        config.computeProfile ??= AppComputeProfile.small;
+        config.minCapacity ??= 1;
+        config.maxCapacity ??= 1;
+        config.isOn ??= true;
         given(config, "config").ensureHasValue().ensureIsObject()
             .ensureHasStructure({
             vpcDetails: "object",
@@ -49,7 +69,6 @@ export class AppProvisioner {
             isOn: "boolean",
             "datadogConfig?": "object",
             "enableXray?": "boolean",
-            "sidecarConfig?": "object",
             "clusterConfig?": "object",
             "cluster?": "object",
             "minCapacity?": "number",
@@ -67,7 +86,9 @@ export class AppProvisioner {
             .ensure(t => t.minCapacity != null && t.minCapacity >= 0 && t.minCapacity <= 50, "minCapacity must be between 0 and 50")
             .ensure(t => t.maxCapacity != null && t.maxCapacity >= 0 && t.maxCapacity <= 50, "maxCapacity must be between 0 and 50")
             .ensure(t => t.minCapacity <= t.maxCapacity, "minCapacity must be <= maxCapacity")
-            .ensureWhen(config.cpuArchitecture != null, t => ["X86_64", "ARM64"].contains(t.cpuArchitecture), "cpuArchitecture must be one of X86_64 or ARM64");
+            .ensureWhen(config.cpuArchitecture != null, t => ["X86_64", "ARM64"].contains(t.cpuArchitecture), "cpuArchitecture must be one of X86_64 or ARM64")
+            .ensure(t => enumValues(AppComputeProfile).contains(t.computeProfile), `computeProfile must be one of ${enumValueList(AppComputeProfile)}`)
+            .ensureWhen(config.cluster?.usesSpotInstances === true || config.clusterConfig?.useSpotCapacity != null, t => t.isOn === false || t.minCapacity === t.maxCapacity, "cluster uses spot instances, cannot enable autoscaling (minCapacity must equal maxCapacity)");
         config.enableXray ??= false;
         this._config = config;
         if (this._config.isOn === false)
@@ -282,11 +303,9 @@ export class AppProvisioner {
             });
     }
     createAppContainer() {
-        const imageRegistry = this._config.image.trim().toLowerCase();
-        const publicRegistries = ["docker.", "public.ecr."];
         return {
             name: this._name,
-            image: publicRegistries.some(t => imageRegistry.startsWith(t))
+            image: this._isPublicImage()
                 ? this._config.image : `${NfraConfig.ecrBase}/${this.config.image}`,
             essential: true,
             readonlyRootFilesystem: this._config.disableReadonlyRootFilesystem ? false : true,
@@ -321,25 +340,9 @@ export class AppProvisioner {
                     ...this._createDatadogInstrumentationLabels()
                 }
                 : undefined,
-            mountPoints: this.hasSidecar ? [{
-                    "sourceVolume": "infra-sidecar",
-                    "containerPath": "/infra_sidecar/temp" // FIXME: this needs to be aligned
-                }] : [],
+            mountPoints: [],
             volumesFrom: [],
-            dependsOn: [
-                // {
-                //     containerName: "log_router",
-                //     condition: "HEALTHY"
-                // },
-                // {
-                //     containerName: "envoy",
-                //     condition: "HEALTHY"
-                // },
-                ...this.hasSidecar ? [{
-                        containerName: "infra-sidecar",
-                        condition: "HEALTHY"
-                    }] : []
-            ]
+            dependsOn: []
         };
     }
     createContainerDefinitions(
@@ -379,15 +382,24 @@ export class AppProvisioner {
                 });
             }
         }
-        if (this.hasSidecar)
-            taskVolumeConfiguration.push({
-                name: "infra-sidecar",
-                dockerVolumeConfiguration: {
-                    scope: "task",
-                    driver: "local"
-                }
-            });
         return taskVolumeConfiguration;
+    }
+    /**
+     * @description Builds the app container's ECS health check. `probeBudgetSeconds` is the longest the probe command
+     * itself may run before giving up; it must finish before ECS's own timeout so the probe result, not an ECS kill,
+     * decides the outcome.
+     */
+    createAppHealthCheck(shellCommand, probeBudgetSeconds) {
+        given(shellCommand, "shellCommand").ensureHasValue().ensureIsString();
+        given(probeBudgetSeconds, "probeBudgetSeconds").ensureHasValue().ensureIsNumber()
+            .ensure(t => t > 0 && t < AppProvisioner._healthCheckTimeoutSeconds, `probe budget must be less than the ECS health check timeout of ${AppProvisioner._healthCheckTimeoutSeconds}s`);
+        return {
+            command: ["CMD-SHELL", shellCommand],
+            interval: AppProvisioner._healthCheckIntervalSeconds,
+            timeout: AppProvisioner._healthCheckTimeoutSeconds,
+            retries: AppProvisioner._healthCheckRetries,
+            startPeriod: AppProvisioner._healthCheckStartPeriodSeconds
+        };
     }
     supportsAutoScaling() {
         return this._config.minCapacity < this._config.maxCapacity;
@@ -396,7 +408,7 @@ export class AppProvisioner {
         if (!this.supportsAutoScaling())
             return;
         given(cluster, "cluster").ensureHasValue().ensureIsObject()
-            .ensure(t => !t.usesSpotInstances, "custer uses spot instances, cannot enable autoscaling");
+            .ensure(t => !t.usesSpotInstances, "cluster uses spot instances, cannot enable autoscaling");
         const asTarget = new aws.appautoscaling.Target(`${this._name}-ast`, {
             minCapacity: this.config.minCapacity,
             maxCapacity: this.config.maxCapacity,
@@ -410,20 +422,74 @@ export class AppProvisioner {
             scalableDimension: asTarget.scalableDimension,
             serviceNamespace: asTarget.serviceNamespace,
             targetTrackingScalingPolicyConfiguration: {
-                targetValue: 45,
-                scaleInCooldown: 300,
-                scaleOutCooldown: 30,
+                targetValue: AppProvisioner._cpuTargetPercent,
+                scaleInCooldown: AppProvisioner._scaleInCooldownSeconds,
+                scaleOutCooldown: AppProvisioner._scaleOutCooldownSeconds,
                 predefinedMetricSpecification: {
                     predefinedMetricType: "ECSServiceAverageCPUUtilization"
                 }
             }
         });
+        // Scale-OUT-only step policy. Target tracking needs ~3 consecutive 1-minute datapoints above target, which loses
+        // the race against the container health check when one task saturates; this alarm fires on a single datapoint.
+        // It uses the Maximum statistic: ECS publishes one sample per task into the service metric, so Maximum is the
+        // hottest task and one saturated task is caught at any desiredCount, where the service Average would dilute it.
+        // Scale-in stays with target tracking: AWS resolves concurrent scale-out requests to the largest capacity, and
+        // mixing step and target tracking only conflicts on scale-in.
+        const stepPolicyName = `${this._name}-asp-step`;
+        const stepPolicy = new aws.appautoscaling.Policy(stepPolicyName, {
+            policyType: "StepScaling",
+            resourceId: asTarget.resourceId,
+            scalableDimension: asTarget.scalableDimension,
+            serviceNamespace: asTarget.serviceNamespace,
+            stepScalingPolicyConfiguration: {
+                adjustmentType: "ChangeInCapacity",
+                cooldown: AppProvisioner._stepScaleOutCooldownSeconds,
+                metricAggregationType: "Maximum",
+                // bounds are offsets from the alarm threshold (lower inclusive, upper exclusive above threshold):
+                // (-inf, threshold + 15) => +1 task, [threshold + 15, +inf) => +2 tasks
+                stepAdjustments: [
+                    {
+                        metricIntervalUpperBound: `${AppProvisioner._stepScaleOutSecondTierOffsetPercent}`,
+                        scalingAdjustment: 1
+                    },
+                    {
+                        metricIntervalLowerBound: `${AppProvisioner._stepScaleOutSecondTierOffsetPercent}`,
+                        scalingAdjustment: 2
+                    }
+                ]
+            }
+        });
+        const stepAlarmName = `${stepPolicyName}-alm`;
+        new aws.cloudwatch.MetricAlarm(stepAlarmName, {
+            namespace: "AWS/ECS",
+            metricName: "CPUUtilization",
+            dimensions: {
+                ClusterName: cluster.clusterName,
+                ServiceName: service.name
+            },
+            statistic: "Maximum",
+            period: AppProvisioner._stepScaleOutAlarmPeriodSeconds,
+            evaluationPeriods: 1,
+            datapointsToAlarm: 1,
+            threshold: AppProvisioner._stepScaleOutCpuThresholdPercent,
+            comparisonOperator: "GreaterThanOrEqualToThreshold",
+            treatMissingData: "notBreaching",
+            alarmDescription: `${this._name}: hottest task CPU >= ${AppProvisioner._stepScaleOutCpuThresholdPercent}% over one minute; step scale-out`,
+            alarmActions: [stepPolicy.arn],
+            tags: {
+                ...NfraConfig.tags,
+                Name: stepAlarmName
+            }
+        });
+    }
+    _isPublicImage() {
+        const image = this._config.image.trim().toLowerCase();
+        return AppProvisioner._publicImageRegistries.some(t => image.startsWith(t));
     }
     async _verifyImageExists() {
-        if (this._config.image.trim().toLowerCase().startsWith("docker."))
+        if (this._isPublicImage())
             return;
-        // else
-        //     return;
         const [imageRepo, imageTag] = this._config.image.split(":");
         const ecrClient = new ECRClient({
             region: NfraConfig.ecrAwsRegion
@@ -436,10 +502,11 @@ export class AppProvisioner {
         try {
             const response = await ecrClient.send(command);
             if (response.imageDetails == null || response.imageDetails.isEmpty)
-                throw new Error("Image not found");
+                throw new Error(`no image with tag '${imageTag}' in repository '${imageRepo}'`);
         }
         catch (error) {
-            const message = `image '${this._config.image}' for service '${this._name}' not found in ECR`;
+            const cause = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+            const message = `image '${this._config.image}' for service '${this._name}' not found in ECR (DescribeImages failed: ${cause})`;
             console.warn(message);
             console.error(error);
             try {
@@ -634,8 +701,6 @@ export class AppProvisioner {
         }
         else if (this._config.enableXray)
             containers["xray"] = this._createAwsOtelCollectorContainer(); // this._createAwsXrayDaemonContainer();
-        if (this.hasSidecar)
-            containers["infra-sidecar"] = this._createInfraSidecarContainer();
         return containers;
     }
     _createLogRouterContainer() {
@@ -938,13 +1003,6 @@ export class AppProvisioner {
                 "startPeriod": 15
             }
         };
-    }
-    _createInfraSidecarContainer() {
-        given(this, "this")
-            .ensure(t => t.hasSidecar, "sidecar config must be provided");
-        // FIXME: implement this
-        // container name must be
-        throw new NotImplementedException();
     }
 }
 var CapacityProvider;

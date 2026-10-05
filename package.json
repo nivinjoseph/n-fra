@@ -8,12 +8,15 @@
     "types": "./dist/index.d.ts",
     "scripts": {
         "ts-compile": "tsc -p .",
+        "typecheck": "tsc -p . --noEmit",
         "ts-lint": "eslint . --ext .ts",
+        "lint:fix": "eslint . --fix",
         "ts-build": "yarn ts-compile && yarn ts-lint",
         "ts-build-dist": "yarn ts-build && tsc -p ./dist",
         "clean-src": "find ./src -name '*.js' -delete -o -name '*.map' -delete",
         "clean-test": "find ./test -name '*.js' -delete -o -name '*.map' -delete",
         "test": "yarn ts-build && node --test --enable-source-maps ./test/**/*.test.js",
+        "test:only": "node --test --enable-source-maps ./test/**/*.test.js",
         "publish-package": "yarn ts-build-dist && git add . && git commit -m 'preparing to publish new version' && yarn version patch && git add . && git commit -m 'new version' && git push && npm publish --access=public"
     },
     "repository": {
@@ -31,6 +34,12 @@
         "url": "https://github.com/nivinjoseph/n-fra/issues"
     },
     "homepage": "https://github.com/nivinjoseph/n-fra#readme",
+    "files": [
+        "dist",
+        "src/**/*.ts",
+        "README.md",
+        "LICENSE"
+    ],
     "devDependencies": {
         "@eslint/js": "10.0.1",
         "@stylistic/eslint-plugin": "5.10.0",

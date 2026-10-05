@@ -16,8 +16,16 @@ import { resolveAppCompute } from "../app-compute-profile.js";
 // import { AppDetails } from "../app-details";
 
 
+/**
+ * Fargate service for a background worker with no ingress. Container contract: answer `GET /healthCheck` on port 8080
+ * with 2xx; the image must contain `curl`, which the ECS health check runs against `localhost:8080`.
+ */
 export class WorkerAppProvisioner extends AppProvisioner<WorkerAppConfig, WorkerAppDetails>
 {
+    // curl budget for the container probe; must stay below the ECS health check timeout (enforced by createAppHealthCheck)
+    private static readonly _probeTimeoutSeconds = 25;
+
+
     public constructor(name: string, config: WorkerAppConfig)
     {
         super(name, config);
@@ -170,16 +178,9 @@ export class WorkerAppProvisioner extends AppProvisioner<WorkerAppConfig, Worker
                         protocol: "tcp",
                         appProtocol: "http"
                     }],
-                    healthCheck: {
-                        "command": [
-                            "CMD-SHELL",
-                            `curl -f http://localhost:${healthCheckPort}/healthCheck || exit 1`
-                        ],
-                        "interval": 30,
-                        "timeout": 30,
-                        "retries": 5,
-                        "startPeriod": 30
-                    }
+                    healthCheck: this.createAppHealthCheck(
+                        `curl -f --max-time ${WorkerAppProvisioner._probeTimeoutSeconds} http://localhost:${healthCheckPort}/healthCheck || exit 1`,
+                        WorkerAppProvisioner._probeTimeoutSeconds)
                 }
             ),
             tags: {

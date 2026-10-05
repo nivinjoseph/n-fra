@@ -17,6 +17,7 @@ import { VpcSubnetType } from "./vpc-subnet-type.js";
 import { VpcAz } from "./vpc-az.js";
 import { VpcSubnetConfig } from "./vpc-subnet-config.js";
 import { VpcSubnetDetails } from "./vpc-subnet-details.js";
+import { enumValueList, enumValues } from "../common/validation-helper.js";
 
 
 export class VpcProvisioner
@@ -36,7 +37,8 @@ export class VpcProvisioner
     {
         // TODO: name prefixing must be parameterized
         // name = CommonHelper.prefixName(name);   
-        given(name, "name").ensure(t => t.length <= 20, "name is too long");
+        given(name, "name").ensureHasValue().ensureIsString()
+            .ensure(t => t.length <= 20, `name '${name}' must be 20 characters or fewer`);
         this._name = name;
 
         given(config, "config").ensureHasValue()
@@ -48,7 +50,8 @@ export class VpcProvisioner
                     name: "string",
                     type: "string",
                     cidrRange: "string",
-                    az: "string"
+                    az: "string",
+                    prefix: "string"
                 }],
                 "numNatGateways?": "number"
             })
@@ -60,6 +63,15 @@ export class VpcProvisioner
             // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
             .ensure(t => t.numNatGateways == null || t.numNatGateways === 0 || t.numNatGateways === 1 || t.numNatGateways === 3, "numNatGateways must be 0 or 1 or 3")
             ;
+
+        const invalidSubnetTypes = config.subnets.map(t => t.type as string).distinct().where(t => !enumValues(VpcSubnetType).contains(t));
+        given(config, "config").ensure(_ => invalidSubnetTypes.isEmpty,
+            `subnet type ${invalidSubnetTypes.map(t => `'${t}'`).join(", ")} must be one of ${enumValueList(VpcSubnetType)}`);
+
+        const regionAzs: ReadonlyArray<string> = NfraConfig.awsRegionAzs;
+        const invalidSubnetAzs = config.subnets.map(t => t.az as string).distinct().where(t => !regionAzs.contains(t));
+        given(config, "config").ensure(_ => invalidSubnetAzs.isEmpty,
+            `subnet az ${invalidSubnetAzs.map(t => `'${t}'`).join(", ")} must be one of ${regionAzs.join(", ")} (the zones available in region ${NfraConfig.awsRegion})`);
 
         config.enableVpcFlowLogs ??= false;
         config.numNatGateways ??= NfraConfig.env === EnvType.prod ? 3 : 1;
@@ -134,12 +146,14 @@ export class VpcProvisioner
 
         given(name, "name").ensureHasValue().ensureIsString();
 
-        given(type, "type").ensureHasValue().ensureIsEnum(VpcSubnetType);
+        given(type, "type").ensureHasValue()
+            .ensure(t => enumValues(VpcSubnetType).contains(t), `must be one of ${enumValueList(VpcSubnetType)}`);
 
         given(cidrRange, "cidrRange").ensureHasValue().ensureIsString()
             .ensure(t => SubnetHelper.validateCidrRange(t));
 
-        given(az, "az").ensureHasValue().ensureIsEnum(VpcAz)
+        given(az, "az").ensureHasValue()
+            .ensure(t => enumValues(VpcAz).contains(t), `must be one of ${enumValueList(VpcAz)}`)
             .ensure(t => NfraConfig.awsRegionAzs.contains(t as VpcAz),
                 "must be a valid AZ for the region");
 
