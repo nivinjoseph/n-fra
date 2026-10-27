@@ -7,6 +7,9 @@ import { VpcAz } from "../../src/vpc/vpc-az.js";
 import { VpcSubnetType } from "../../src/vpc/vpc-subnet-type.js";
 import type { VpcSubnetDetails } from "../../src/vpc/vpc-subnet-details.js";
 import type { AppClusterDetails } from "../../src/app/app-cluster-details.js";
+import type { AlbConfig } from "../../src/ingress/alb/alb-config.js";
+import type { AlbDetails } from "../../src/ingress/alb/alb-details.js";
+import { AlbProvisioner } from "../../src/ingress/alb/alb-provisioner.js";
 
 
 export interface RecordedResource
@@ -121,4 +124,26 @@ export function createTestCluster(): AppClusterDetails
         clusterArn: Pulumi.output("arn:aws:ecs:mock:cluster/test-cluster"),
         usesSpotInstances: false
     };
+}
+
+/** ACM certificate ARN for the test ALB listener. */
+export const testCertificateArn = "arn:aws:acm:us-east-1:123456789012:certificate/test";
+
+/**
+ * ALB config in the test VPC: placed in the `ingress` subnets, allowed to reach the `app` subnets, one `default` target
+ * checked on `/health`. Takes the file's `VpcDetails` so the VPC fixture is created once per test file.
+ */
+export function createTestAlbConfig(vpcDetails: VpcDetails, overrides: Partial<AlbConfig> = {}): AlbConfig
+{
+    return {
+        vpcDetails, subnetNamePrefix: "ingress", egressSubnetNamePrefixes: ["app"],
+        targets: [{ host: "default", healthCheckPath: "/health" }],
+        ...overrides
+    };
+}
+
+/** Constructs and provisions an ALB from `createTestAlbConfig`, returning its details. */
+export function provisionTestAlb(name: string, vpcDetails: VpcDetails, overrides: Partial<AlbConfig> = {}): AlbDetails
+{
+    return new AlbProvisioner(name, createTestAlbConfig(vpcDetails, overrides)).provision();
 }

@@ -53,11 +53,12 @@ given(config, "config").ensureHasValue().ensureIsObject()
 - Every public config field carries JSDoc: purpose, `Default:`, constraint, and `Must match:` when it refers to another module's field. `src/cache/elasticache-valkey/valkey-config.ts` is the model.
 - Subnets are referenced by `SubnetNamePrefix` (see `src/vpc/vpc-subnet-config.ts`) and resolved through `VpcDetails.resolveSubnets`, which throws for a prefix that matches nothing. Do not add another subnet lookup.
 - Resource logical names are `${name}-<suffix>`; renaming replaces resources. Do not add `ignoreChanges` on ECS `desiredCount`, and keep the worker deployment percents at 0/100 (replacement-first 100/200 is for autoscaled gRPC/HTTP services only).
+- ALB listener rule priorities are explicit: rejecting rules count down from 999 (`<name>-br-lrl`), the default host's path rule is 1000, host rules are 1001 to 1000 + N. The reasons live in the comment on the constants in `src/ingress/alb/alb-provisioner.ts`; keep that comment the single explanation.
 
 ## Tests
 
 - `node:test`, each file in its own process. Start every file that constructs a provisioner or a Pulumi resource with `await initializePulumiMocks()` from `test/app/app-test-harness.ts` (pure-function and type-only tests do not need it), which sets `aws:region`, `aws:allowedAccountIds` and stack name `test`, records every resource, and fakes `StackReference` outputs and RDS endpoints.
-- Fixtures: `createTestVpcDetails()` (subnet prefixes `app` and `ingress`; hand-built, so `VpcProvisioner` rules do not apply), `createTestCluster()`, `testImage` (a `docker.io` image, which skips the ECR lookup).
+- Fixtures: `createTestVpcDetails()` (subnet prefixes `app` and `ingress`; hand-built, so `VpcProvisioner` rules do not apply), `createTestCluster()`, `createTestAlbConfig(vpcDetails, overrides)` and `provisionTestAlb(name, vpcDetails, overrides)` (ALB in the `ingress` subnets reaching `app`, one `default` target on `/health`) with `testCertificateArn`, `testImage` (a `docker.io` image, which skips the ECR lookup).
 - Provisioners return no resource handles, so tests find resources with `waitForResource(type, logicalName)` and assert absence with `settleResources()`.
 - To exercise the ECR failure path offline, set `AWS_ENDPOINT_URL_ECR=http://127.0.0.1:9`, dummy `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`, `AWS_EC2_METADATA_DISABLED=true` and `AWS_MAX_ATTEMPTS=1` before provisioning (see `test/app/image-verification.test.ts`). Never let a test reach real AWS.
 - `test/composition/environment.test.ts` is the README example; keep the two in step.

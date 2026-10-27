@@ -4,6 +4,11 @@ export declare class AlbProvisioner {
     private static readonly _healthCheckTimeoutSeconds;
     private static readonly _healthCheckUnhealthyThreshold;
     private static readonly _healthCheckHealthyThreshold;
+    private static readonly _blockRulePriority;
+    private static readonly _defaultPathRulePriority;
+    private static readonly _hostRulePriorityBase;
+    private static readonly _sslPolicy;
+    private static readonly _notFoundAction;
     private readonly _name;
     private readonly _config;
     private readonly _useTls;
@@ -13,6 +18,8 @@ export declare class AlbProvisioner {
     provision(): AlbDetails;
     private _provisionWaf;
     private _provisionCloudFrontDistro;
+    private _provisionListener;
+    private _provisionBrotliBlockRule;
     private _createTargetGroupHealthCheck;
 }
 //# sourceMappingURL=alb-provisioner.d.ts.map

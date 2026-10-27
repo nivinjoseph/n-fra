@@ -3,6 +3,11 @@ import type { VpcDetails } from "../../vpc/vpc-details.js";
 import type { AlbTarget } from "./alb-target.js";
 
 
+/**
+ * Every ALB that creates listeners (`justAlb` false) also carries a listener rule that answers requests sent with
+ * `Content-Encoding: br` with HTTP 415 before any host or path rule forwards them (CVE-2026-111497, the Node.js Brotli
+ * decoder).
+ */
 export interface AlbConfig
 {
     /** The VPC to deploy into, as returned by `VpcProvisioner.provision()`. */

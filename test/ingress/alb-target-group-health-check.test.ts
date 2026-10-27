@@ -1,6 +1,6 @@
 import * as Assert from "assert";
 import test, { describe } from "node:test";
-import { createTestVpcDetails, initializePulumiMocks, waitForResource } from "../app/app-test-harness.js";
+import { createTestAlbConfig, createTestVpcDetails, initializePulumiMocks, provisionTestAlb, waitForResource } from "../app/app-test-harness.js";
 import { AlbProvisioner } from "../../src/ingress/alb/alb-provisioner.js";
 import type { AlbTarget } from "../../src/ingress/alb/alb-target.js";
 
@@ -11,9 +11,7 @@ const targetGroupType = "aws:lb/targetGroup:TargetGroup";
 
 function provisionAlb(name: string, targets: Array<AlbTarget>): void
 {
-    new AlbProvisioner(name, {
-        vpcDetails, subnetNamePrefix: "ingress", egressSubnetNamePrefixes: ["app"], targets
-    }).provision();
+    provisionTestAlb(name, vpcDetails, { targets });
 }
 
 async function getHealthCheck(targetGroupName: string): Promise<Record<string, unknown>>
@@ -58,19 +56,17 @@ await describe("Alb target group health check", async () =>
 
     await test("thresholds outside the ALB range of 2-10 are rejected", () =>
     {
-        const base = { vpcDetails, subnetNamePrefix: "ingress", egressSubnetNamePrefixes: ["app"] };
-        Assert.throws(() => new AlbProvisioner("alb-bad-1", { ...base, targets: [{ host: "default", healthCheckPath: "/health", healthCheckUnhealthyThreshold: 1 }] }));
-        Assert.throws(() => new AlbProvisioner("alb-bad-2", { ...base, targets: [{ host: "default", healthCheckPath: "/health", healthCheckUnhealthyThreshold: 11 }] }));
-        Assert.throws(() => new AlbProvisioner("alb-bad-3", { ...base, targets: [{ host: "default", healthCheckPath: "/health", healthCheckHealthyThreshold: 1 }] }));
-        Assert.throws(() => new AlbProvisioner("alb-bad-4", { ...base, targets: [{ host: "default", healthCheckPath: "/health", healthCheckHealthyThreshold: 11 }] }));
+        Assert.throws(() => new AlbProvisioner("alb-bad-1", createTestAlbConfig(vpcDetails, { targets: [{ host: "default", healthCheckPath: "/health", healthCheckUnhealthyThreshold: 1 }] })));
+        Assert.throws(() => new AlbProvisioner("alb-bad-2", createTestAlbConfig(vpcDetails, { targets: [{ host: "default", healthCheckPath: "/health", healthCheckUnhealthyThreshold: 11 }] })));
+        Assert.throws(() => new AlbProvisioner("alb-bad-3", createTestAlbConfig(vpcDetails, { targets: [{ host: "default", healthCheckPath: "/health", healthCheckHealthyThreshold: 1 }] })));
+        Assert.throws(() => new AlbProvisioner("alb-bad-4", createTestAlbConfig(vpcDetails, { targets: [{ host: "default", healthCheckPath: "/health", healthCheckHealthyThreshold: 11 }] })));
     });
 
     await test("slowStart outside 30-900 is rejected and in-range values are accepted", () =>
     {
-        const base = { vpcDetails, subnetNamePrefix: "ingress", egressSubnetNamePrefixes: ["app"] };
-        Assert.throws(() => new AlbProvisioner("alb-ss-1", { ...base, targets: [{ host: "default", healthCheckPath: "/health", slowStart: 29 }] }));
-        Assert.throws(() => new AlbProvisioner("alb-ss-2", { ...base, targets: [{ host: "default", healthCheckPath: "/health", slowStart: 901 }] }));
-        Assert.doesNotThrow(() => new AlbProvisioner("alb-ss-3", { ...base, targets: [{ host: "default", healthCheckPath: "/health", slowStart: 30 }] }));
-        Assert.doesNotThrow(() => new AlbProvisioner("alb-ss-4", { ...base, targets: [{ host: "default", healthCheckPath: "/health", healthCheckUnhealthyThreshold: 2, healthCheckHealthyThreshold: 10 }] }));
+        Assert.throws(() => new AlbProvisioner("alb-ss-1", createTestAlbConfig(vpcDetails, { targets: [{ host: "default", healthCheckPath: "/health", slowStart: 29 }] })));
+        Assert.throws(() => new AlbProvisioner("alb-ss-2", createTestAlbConfig(vpcDetails, { targets: [{ host: "default", healthCheckPath: "/health", slowStart: 901 }] })));
+        Assert.doesNotThrow(() => new AlbProvisioner("alb-ss-3", createTestAlbConfig(vpcDetails, { targets: [{ host: "default", healthCheckPath: "/health", slowStart: 30 }] })));
+        Assert.doesNotThrow(() => new AlbProvisioner("alb-ss-4", createTestAlbConfig(vpcDetails, { targets: [{ host: "default", healthCheckPath: "/health", healthCheckUnhealthyThreshold: 2, healthCheckHealthyThreshold: 10 }] })));
     });
 });

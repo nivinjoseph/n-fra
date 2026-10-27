@@ -10,6 +10,27 @@ export class AlbProvisioner {
     static _healthCheckTimeoutSeconds = 10; // ALB range 2-120; clamped to 5-60 here as before
     static _healthCheckUnhealthyThreshold = 5; // ALB range 2-10
     static _healthCheckHealthyThreshold = 2; // ALB range 2-10
+    // Listener rule priorities. Rejecting rules count down from 999 (`<name>-br-lrl`); the default host's path rule is
+    // 1000 and host rules start at 1001. The values are explicit because the provider otherwise assigns highest-existing
+    // + 1, so a listener's priorities are bounded by the most rules it ever held at once: stacks deployed before the block
+    // rule existed hold such values on their forward rules until renumbered, and a rule deleted in the same `pulumi up`
+    // keeps its priority until after every create (Pulumi deletes last). Hence: no value a long-lived stack could have reached
+    // (999/1000 leaves headroom no realistic stack exhausts), and the path rule and the host rules never share a slot
+    // (switching a stack between the two modes deletes one kind and creates the other).
+    static _blockRulePriority = 999;
+    static _defaultPathRulePriority = 1000;
+    static _hostRulePriorityBase = 1001;
+    // TLS 1.2 and 1.3 only (AWS's recommended ALB policy). Changing it is an in-place listener update.
+    static _sslPolicy = "ELBSecurityPolicy-TLS13-1-2-2021-06";
+    // Default action of the main listener when no rule matches; a default host without a path pattern forwards instead.
+    static _notFoundAction = {
+        type: "fixed-response",
+        fixedResponse: {
+            contentType: "text/plain",
+            messageBody: "Not found",
+            statusCode: "404"
+        }
+    };
     _name;
     _config;
     _useTls;
@@ -158,6 +179,7 @@ export class AlbProvisioner {
                 parent: alb
             });
         }
+        let listener;
         if (this._onlyDefault) {
             const defaultTargetGroupName = `${this._name}-tg-d`;
             const defaultTargetGroup = new aws.lb.TargetGroup(defaultTargetGroupName, {
@@ -182,39 +204,14 @@ export class AlbProvisioner {
             result.hostTargets[this._config.targets[0].host] = {
                 albTargetGroupArn: defaultTargetGroup.arn
             };
-            const listenerName = `${this._name}-ht${this._useTls ? "s" : ""}-lnr`;
-            const listener = new aws.lb.Listener(listenerName, {
-                loadBalancerArn: alb.arn,
-                protocol: this._useTls ? "HTTPS" : "HTTP",
-                port: this._useTls ? 443 : 80,
-                certificateArn: this._useTls ? this._config.certificateArn : undefined,
-                // https://aws.amazon.com/about-aws/whats-new/2017/02/elastic-load-balancing-support-for-tls-1-1-and-tls-1-2-pre-defined-security-policies/
-                sslPolicy: this._useTls ? "ELBSecurityPolicy-2016-08" : undefined,
-                // sslPolicy: "ELBSecurityPolicy-TLS-1-2-2017-01",
-                defaultActions: [this._defaultPathPattern == null
-                        ? {
-                            type: "forward",
-                            targetGroupArn: defaultTargetGroup.arn
-                        }
-                        : {
-                            type: "fixed-response",
-                            fixedResponse: {
-                                contentType: "text/plain",
-                                messageBody: "Not found",
-                                statusCode: "404"
-                            }
-                        }],
-                tags: {
-                    ...NfraConfig.tags,
-                    Name: listenerName
-                }
-            }, {
-                parent: alb
-            });
+            listener = this._provisionListener(alb, this._defaultPathPattern == null
+                ? { type: "forward", targetGroupArn: defaultTargetGroup.arn }
+                : AlbProvisioner._notFoundAction);
             if (this._defaultPathPattern != null) {
                 const listenerRuleName = `${this._name}-dp-lrl`;
                 new aws.lb.ListenerRule(listenerRuleName, {
                     listenerArn: listener.arn,
+                    priority: AlbProvisioner._defaultPathRulePriority,
                     actions: [{
                             type: "forward",
                             targetGroupArn: defaultTargetGroup.arn
@@ -234,30 +231,7 @@ export class AlbProvisioner {
             }
         }
         else {
-            const listenerName = `${this._name}-ht${this._useTls ? "s" : ""}-lnr`;
-            const listener = new aws.lb.Listener(listenerName, {
-                loadBalancerArn: alb.arn,
-                protocol: this._useTls ? "HTTPS" : "HTTP",
-                port: this._useTls ? 443 : 80,
-                certificateArn: this._useTls ? this._config.certificateArn : undefined,
-                // https://aws.amazon.com/about-aws/whats-new/2017/02/elastic-load-balancing-support-for-tls-1-1-and-tls-1-2-pre-defined-security-policies/
-                sslPolicy: this._useTls ? "ELBSecurityPolicy-2016-08" : undefined,
-                // sslPolicy: "ELBSecurityPolicy-TLS-1-2-2017-01",
-                defaultActions: [{
-                        type: "fixed-response",
-                        fixedResponse: {
-                            contentType: "text/plain",
-                            messageBody: "Not found",
-                            statusCode: "404"
-                        }
-                    }],
-                tags: {
-                    ...NfraConfig.tags,
-                    Name: listenerName
-                }
-            }, {
-                parent: alb
-            });
+            listener = this._provisionListener(alb, AlbProvisioner._notFoundAction);
             this._config.targets.forEach((target, index) => {
                 const targetGroupName = `${this._name}-tg-${index}`;
                 const targetGroup = new aws.lb.TargetGroup(targetGroupName, {
@@ -281,7 +255,7 @@ export class AlbProvisioner {
                 const listenerRuleName = `${this._name}-lrl-${index}`;
                 new aws.lb.ListenerRule(listenerRuleName, {
                     listenerArn: listener.arn,
-                    // priority: this._config.targets.length - index,
+                    priority: AlbProvisioner._hostRulePriorityBase + index,
                     actions: [{
                             type: "forward",
                             targetGroupArn: targetGroup.arn
@@ -303,6 +277,7 @@ export class AlbProvisioner {
                 };
             });
         }
+        this._provisionBrotliBlockRule(listener);
         if (this._config.enableWaf)
             this._provisionWaf(alb);
         if (this._config.enableCloudfront)
@@ -366,7 +341,8 @@ export class AlbProvisioner {
                         originProtocolPolicy: "https-only",
                         httpPort: 80,
                         httpsPort: 443,
-                        originSslProtocols: ["TLSv1", "TLSv1.1", "TLSv1.2"]
+                        // the listener policy refuses anything older; CloudFront has no TLS 1.3 origin option
+                        originSslProtocols: ["TLSv1.2"]
                     }
                 }],
             defaultCacheBehavior: {
@@ -425,6 +401,56 @@ export class AlbProvisioner {
             tags: {
                 ...NfraConfig.tags,
                 Name: distroName
+            }
+        });
+    }
+    _provisionListener(alb, defaultAction) {
+        given(alb, "alb").ensureHasValue().ensureIsObject();
+        given(defaultAction, "defaultAction").ensureHasValue().ensureIsObject();
+        const listenerName = `${this._name}-ht${this._useTls ? "s" : ""}-lnr`;
+        return new aws.lb.Listener(listenerName, {
+            loadBalancerArn: alb.arn,
+            protocol: this._useTls ? "HTTPS" : "HTTP",
+            port: this._useTls ? 443 : 80,
+            certificateArn: this._useTls ? this._config.certificateArn : undefined,
+            sslPolicy: this._useTls ? AlbProvisioner._sslPolicy : undefined,
+            defaultActions: [defaultAction],
+            tags: {
+                ...NfraConfig.tags,
+                Name: listenerName
+            }
+        }, {
+            parent: alb
+        });
+    }
+    _provisionBrotliBlockRule(listener) {
+        given(listener, "listener").ensureHasValue().ensureIsObject();
+        // CVE-2026-111497: a crafted Brotli request body reaches the Node.js Brotli decoder through body parsers that
+        // inflate `Content-Encoding: br` by default. Reject such requests at the edge, ahead of every forward rule.
+        // Header matching is case-insensitive and `*br*` also catches `gzip, br`. The listener is an implicit dependency
+        // through `listenerArn`; no ordering against the forward rules is needed, because nothing can hold priority 999
+        // before they are renumbered (see the priority constants), and a consumer rule parked there is not moved by Pulumi.
+        const ruleName = `${this._name}-br-lrl`;
+        new aws.lb.ListenerRule(ruleName, {
+            listenerArn: listener.arn,
+            priority: AlbProvisioner._blockRulePriority,
+            actions: [{
+                    type: "fixed-response",
+                    fixedResponse: {
+                        contentType: "text/plain",
+                        messageBody: "Unsupported Content-Encoding",
+                        statusCode: "415"
+                    }
+                }],
+            conditions: [{
+                    httpHeader: {
+                        httpHeaderName: "Content-Encoding",
+                        values: ["*br*"]
+                    }
+                }],
+            tags: {
+                ...NfraConfig.tags,
+                Name: ruleName
             }
         });
     }
